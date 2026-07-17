@@ -140,12 +140,18 @@ def main() -> int:
         ip = wait_active(iid)
         wait_ssh(ip)
         scp_to(ip, REPO / "scripts" / "bootstrap_b200.sh", "~/bootstrap.sh")
-        scp_to(ip, REPO / "harness" / "parity_fa4_rel.py", "~/parity_fa4_rel.py")
+        for f in sorted((REPO / "harness").glob("*.py")):
+            scp_to(ip, f, f"~/{f.name}")
         print(f"[{stamp()}] bootstrap starting (~15-25 min)", flush=True)
         r = ssh(ip, "bash ~/bootstrap.sh", timeout=2400)
         log = outdir / f"b200_first_contact_{datetime.now(timezone.utc):%Y%m%d_%H%M}.log"
         log.write_text(r.stdout + ("\n--- STDERR ---\n" + r.stderr if r.stderr else ""),
                        encoding="utf-8")
+        # pull microbench JSON evidence if produced
+        subprocess.run(["scp", *SSH_ARGS,
+                        f"ubuntu@{ip}:~/microbench_attn_day0.json",
+                        str(outdir / "microbench_attn_day0_sm100.json")],
+                       capture_output=True, text=True, timeout=60)
         print(f"[{stamp()}] bootstrap rc={r.returncode}; log: {log}", flush=True)
         tail = "\n".join(r.stdout.splitlines()[-25:])
         print(tail, flush=True)

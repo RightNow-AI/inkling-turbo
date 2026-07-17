@@ -8,3 +8,4 @@ journal/nsys/*.nsys-rep
 __pycache__/
 *.pyc
 .venv/
+harness/microbench_attn_day0.json
