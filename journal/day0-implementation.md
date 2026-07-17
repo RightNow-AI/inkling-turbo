@@ -90,3 +90,55 @@ Code: `vllm/vllm/models/inkling/` (`common/`, `nvidia/`, `configs.py`, `nvfp4.py
 5. U4 (gate is already 1 kernel; permute/scatter inside FusedMoE — profile first).
 6. U7 (crossovers exist at 64 tokens for gate; measure, extend to MoE dispatch).
 7. U5 (merged QKVR exists; only prep-kernel micro-wins remain).
+
+## Addendum (same day): tml-fa4 sheared-bias internals + SGLang cross-ref
+
+### tml-fa4 (@13374f0c, forward-only CuTeDSL FA4; sm90/sm100/sm120 + combine)
+
+- `ShearingBias` (`shearing_bias.py`) is a SEPARATE pre-kernel launch, not part of the
+  attention kernel: reads PreBias (T,H,rel_extent) [= rel_logits from qkvr_prep],
+  writes Bias (T,H,rel_extent+256) — per-row reversed/sheared so
+  sheared_bias(i,h,j) = rel_logits(i,h,i-j) with -inf right-pad (causal) and
+  -inf/0 left-pad (local/global) baked in. rows_per_cta=4, 128-wide blocks, bf16
+  vec2 with even/odd reversal handling.
+- Consequence: bias traffic per prefill token per layer = write rel_logits +
+  read+write sheared (+256 pad) + tile-read by FA4 ≈ 3x round trips of a
+  (T,64,extent)-bf16 tensor. Global extent 1024 (padded 1280), local 512 (padded
+  768). At 8K prefill this is O(100+GB) HBM traffic across 66 layers — prefill/TTFT
+  target. At decode T=batch, negligible. **U2 is a prefill optimization; Phase 0b
+  must measure the shear+bias share of prefill time before committing.**
+- U2 feasibility (register-resident): r is (T,64,16) — 2KB/token; proj (16,extent)
+  bf16 = 40KB (global) fits smem; per 128-wide KV tile a row needs 128 distances ×
+  16-FMA = trivial vs QK^T. Both materializations can in principle be deleted.
+  Fallback (less invasive): fuse shear into qkvr_prep (write sheared directly),
+  halving traffic.
+- sm_120 forward EXISTS (`flash_fwd_sm120.py`) → local 5090 parity runs of real FA4.
+- `blockscaled_utils.py`, `mixed_dtype_gemm.py` present — possible scaffolding
+  toward quantized KV loads (U3); read before designing U3.
+- Repo has a strict parity tool (`tools/compare_forward_with_monorepo.py`) — reuse
+  its comparison methodology for our harness.
+
+### SGLang day-0 cross-reference (lmsys blog 2026-07-15)
+
+- KV cache: **MXFP8** (~2x capacity), asymmetric: QK^T in MXFP8, PV in bf16 with
+  on-the-fly V dequant; quant fused into attention prologue (~4.7µs, ~14% of bf16
+  prologue). → design template for our U3 (vLLM has nothing equivalent).
+- Sheared bias confirmed same trick; SGLang overlaps the rel projection on a
+  separate stream (they did NOT eliminate materialization either — register-resident
+  U2 would be novel vs both stacks).
+- sconv on residual streams fused into custom all-reduce kernels (2.08-3.60x vs
+  unfused; +5-8% e2e). vLLM does RS->sconv->AG instead.
+- Full-graph prefill (not piecewise) +14-17% at launch-bound shapes → vLLM's
+  breakable-graph FA4 calls are a measurable U6 target.
+- Fused router: 7.72µs vs 26.15µs unfused at T=4096 (comparable to vLLM's Triton
+  gate-select; U4 headroom likely small — confirm in profile).
+- SGLang B200 numbers (W4A16, TP8, 8K/1K): bs1 171 tok/s/user; bs32 71.7k tok/s
+  input throughput. NOT directly comparable to vLLM's GB200 numbers.
+
+### Study conclusions (final pre-profile ranking)
+
+U3 (KV quant, both prefill+decode, SGLang proves viability) >
+U2 (prefill/TTFT: kill 3x bias round-trips; register-resident is novel) >
+U1 (verify which FusedMoE backend runs; skew-robust scheduler) >
+U6 (graph granularity + staging overlap) > U4/U7 (small, measure first) >
+U5 (exists day-0).
