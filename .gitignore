@@ -1,0 +1,10 @@
+# nested vLLM fork clone (tracked as its own repo; base commit pinned in journal/phase0.md)
+/vllm/
+
+# profiling artifacts too large for git (kept locally + referenced by journal)
+journal/ncu/*.ncu-rep
+journal/nsys/*.nsys-rep
+
+__pycache__/
+*.pyc
+.venv/
