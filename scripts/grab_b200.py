@@ -49,17 +49,21 @@ def stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
-def wait_for_capacity(itype: str, interval: int, max_hours: float) -> str:
+def wait_for_capacity(itypes: list[str], interval: int,
+                      max_hours: float) -> tuple[str, str]:
+    """Poll all acceptable types; return (type, region) of the first hit
+    (list order = priority when several have capacity in the same poll)."""
     deadline = time.monotonic() + max_hours * 3600
     while time.monotonic() < deadline:
         try:
             d = api("GET", "/instance-types")["data"]
-            regions = d[itype].get("regions_with_capacity_available", [])
-            if regions:
-                print(f"[{stamp()}] capacity: {[r['name'] for r in regions]}",
-                      flush=True)
-                return regions[0]["name"]
-            print(f"[{stamp()}] no {itype} capacity", flush=True)
+            for itype in itypes:
+                regions = d[itype].get("regions_with_capacity_available", [])
+                if regions:
+                    print(f"[{stamp()}] capacity {itype}: "
+                          f"{[r['name'] for r in regions]}", flush=True)
+                    return itype, regions[0]["name"]
+            print(f"[{stamp()}] no capacity ({'/'.join(itypes)})", flush=True)
         except Exception as exc:  # noqa: BLE001
             print(f"[{stamp()}] API error: {exc}", flush=True)
         time.sleep(interval)
@@ -124,14 +128,17 @@ def terminate(iid: str) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--type", default="gpu_1x_b200_sxm6")
+    ap.add_argument("--types", default="gpu_1x_b200_sxm6,gpu_2x_b200_sxm6",
+                    help="acceptable types, priority order")
     ap.add_argument("--interval", type=int, default=120)
     ap.add_argument("--max-hours", type=float, default=72)
     ap.add_argument("--park", action="store_true",
                     help="leave instance running after bootstrap (NOT default)")
     args = ap.parse_args()
 
-    region = wait_for_capacity(args.type, args.interval, args.max_hours)
+    itype, region = wait_for_capacity(args.types.split(","), args.interval,
+                                      args.max_hours)
+    args.type = itype
     t0 = time.monotonic()
     iid = launch(args.type, region)
     outdir = REPO / "journal" / "remote"
