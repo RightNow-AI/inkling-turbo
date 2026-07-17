@@ -13,6 +13,8 @@ nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
 echo "=== toolchain ==="
 curl -LsSf https://astral.sh/uv/install.sh | sh >/dev/null 2>&1 || true
 export PATH="$HOME/.local/bin:$PATH"
+# Triton JIT needs Python headers when the venv uses the system interpreter
+sudo apt-get install -y python3.12-dev python3-dev >/dev/null 2>&1 || true
 
 cd ~
 if [ ! -d vllm ]; then
@@ -44,5 +46,8 @@ fi
 
 echo "=== parity: FA4 rel attention (sheared path expected on sm_100) ==="
 python ~/parity_fa4_rel.py || true
+
+echo "=== microbench: day-0 attention + gate at real shapes ==="
+python ~/microbench_attn_day0.py || true
 
 echo "=== BOOTSTRAP COMPLETE ==="
