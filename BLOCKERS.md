@@ -1,6 +1,14 @@
 # BLOCKERS
 
-## B1 — Remote hardware: spec'd GPUs do not exist on this Lambda account [OPEN, owner decision needed]
+## B1 — Remote hardware [PARTIALLY RESOLVED 2026-07-17: budget authorized, waiting on capacity]
+
+Owner authorization (2026-07-17, in-session): **up to $3,000 Lambda spend** for this
+project. Scope discipline still applies: batched scripted runs, kill instances
+immediately after, every session logged in LEDGER.md spend table.
+Remaining blocker: 8x B200 capacity (polling via scripts/watch_b200.py, notifies on
+availability). B300/H200 remain nonexistent on Lambda.
+
+### Original blocker record
 
 Logged: 2026-07-17. Confidence in facts: high (API-enumerated, not guessed).
 
