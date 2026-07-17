@@ -136,6 +136,15 @@ def main() -> int:
                     help="leave instance running after bootstrap (NOT default)")
     args = ap.parse_args()
 
+    # Double-launch guard: never act if an inkling-turbo instance already
+    # exists (e.g. a second copy of this script, or a previous parked box).
+    existing = [i for i in api("GET", "/instances")["data"]
+                if i.get("name", "").startswith("inkling-turbo")]
+    if existing:
+        print(f"[{stamp()}] REFUSING to run: existing instance(s) "
+              f"{[(i['name'], i['status']) for i in existing]}", flush=True)
+        return 2
+
     itype, region = wait_for_capacity(args.types.split(","), args.interval,
                                       args.max_hours)
     args.type = itype
