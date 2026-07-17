@@ -16,9 +16,12 @@ Owner options:
 
 Until answered: proceeding with option 3 work that is common to all outcomes.
 
-## B2 — NVFP4 block-scale layout not yet verified [OPEN, in progress]
+## B2 — NVFP4 block-scale layout [RESOLVED 2026-07-17]
 
-`thinkingmachines/Inkling-NVFP4/config.json` has no `quantization_config`. Block-scale layout (group size, scale dtype, global scale) must be read from the day-0 vLLM loader/PR code after clone. A guessed layout is a defect; U1 does not start until this is pinned with a citation.
+Resolved from `vllm/models/inkling/nvfp4.py` + `moe.py` (fork base 850295881): ModelOpt
+format, FP4 E2M1 weights, FP8 E4M3 block scales, group_size 16 (only 16 supported),
+per-tensor `*_scale_2` + input_scale = amax/(448·6). Routed experts only; attention,
+dense MLP, sink experts BF16 via exclude_modules. Details: journal/day0-implementation.md.
 
 ## B3 — sm_120 vs sm_100 FP4 MMA instruction set [OPEN, research]
 
