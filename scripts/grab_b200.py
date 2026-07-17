@@ -1,0 +1,168 @@
+#!/usr/bin/env python3
+"""Grab a 1x B200 on Lambda the moment capacity appears, run the scripted
+first-contact unit (bootstrap + FA4 parity on sm_100), then TERMINATE.
+
+Guaranteed-kill design: the instance is terminated in a finally block on any
+outcome (success, error, Ctrl-C). Evidence lands in journal/remote/.
+
+Usage: py scripts/grab_b200.py [--type gpu_1x_b200_sxm6] [--interval 120]
+       [--max-hours 72] [--park]  (--park skips termination; NOT default)
+"""
+
+import argparse
+import base64
+import json
+import subprocess
+import sys
+import time
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+
+API = "https://cloud.lambdalabs.com/api/v1"
+REPO = Path(__file__).resolve().parent.parent
+SSH_KEY = str(Path.home() / ".ssh" / "id_ed25519")
+SSH_ARGS = [
+    "-i", SSH_KEY, "-o", "StrictHostKeyChecking=no",
+    "-o", "UserKnownHostsFile=NUL", "-o", "ConnectTimeout=15",
+    "-o", "LogLevel=ERROR",
+]
+PRICE_PER_HOUR = {"gpu_1x_b200_sxm6": 6.99, "gpu_2x_b200_sxm6": 13.78,
+                  "gpu_8x_b200_sxm6": 53.52}
+
+
+def api(method: str, path: str, body: dict | None = None) -> dict:
+    key = (Path.home() / ".kernelforge" / "lambda_api_key").read_text().strip()
+    token = base64.b64encode(f"{key}:".encode()).decode()
+    req = urllib.request.Request(
+        API + path, method=method,
+        headers={"Authorization": f"Basic {token}",
+                 "Content-Type": "application/json",
+                 "User-Agent": "inkling-turbo/1.0"},
+        data=json.dumps(body).encode() if body else None,
+    )
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.loads(r.read().decode())
+
+
+def stamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def wait_for_capacity(itype: str, interval: int, max_hours: float) -> str:
+    deadline = time.monotonic() + max_hours * 3600
+    while time.monotonic() < deadline:
+        try:
+            d = api("GET", "/instance-types")["data"]
+            regions = d[itype].get("regions_with_capacity_available", [])
+            if regions:
+                print(f"[{stamp()}] capacity: {[r['name'] for r in regions]}",
+                      flush=True)
+                return regions[0]["name"]
+            print(f"[{stamp()}] no {itype} capacity", flush=True)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[{stamp()}] API error: {exc}", flush=True)
+        time.sleep(interval)
+    raise TimeoutError(f"no capacity within {max_hours}h")
+
+
+def launch(itype: str, region: str) -> str:
+    resp = api("POST", "/instance-operations/launch", {
+        "region_name": region, "instance_type_name": itype,
+        "ssh_key_names": ["kernelforge"], "name": "inkling-turbo-1xb200",
+        "quantity": 1,
+    })
+    iid = resp["data"]["instance_ids"][0]
+    print(f"[{stamp()}] LAUNCHED {iid} ({itype} in {region})", flush=True)
+    return iid
+
+
+def wait_active(iid: str, timeout_min: int = 25) -> str:
+    deadline = time.monotonic() + timeout_min * 60
+    while time.monotonic() < deadline:
+        inst = api("GET", f"/instances/{iid}")["data"]
+        st = inst.get("status")
+        if st == "active" and inst.get("ip"):
+            print(f"[{stamp()}] active @ {inst['ip']}", flush=True)
+            return inst["ip"]
+        if st in ("terminated", "terminating", "unhealthy"):
+            raise RuntimeError(f"instance entered {st}")
+        time.sleep(15)
+    raise TimeoutError("not active in time")
+
+
+def ssh(ip: str, cmd: str, timeout: int = 3600) -> subprocess.CompletedProcess:
+    return subprocess.run(["ssh", *SSH_ARGS, f"ubuntu@{ip}", cmd],
+                          capture_output=True, text=True, timeout=timeout)
+
+
+def wait_ssh(ip: str, timeout_s: int = 600) -> None:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if ssh(ip, "echo up", timeout=25).returncode == 0:
+            print(f"[{stamp()}] ssh up", flush=True)
+            return
+        time.sleep(10)
+    raise TimeoutError("ssh never came up")
+
+
+def scp_to(ip: str, local: Path, remote: str) -> None:
+    r = subprocess.run(["scp", *SSH_ARGS, str(local), f"ubuntu@{ip}:{remote}"],
+                       capture_output=True, text=True, timeout=120)
+    if r.returncode != 0:
+        raise RuntimeError(f"scp {local}: {r.stderr.strip()}")
+
+
+def terminate(iid: str) -> None:
+    try:
+        api("POST", "/instance-operations/terminate", {"instance_ids": [iid]})
+        print(f"[{stamp()}] TERMINATED {iid}", flush=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[{stamp()}] TERMINATE FAILED for {iid}: {exc} — "
+              f"KILL MANUALLY IN LAMBDA CONSOLE", flush=True)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--type", default="gpu_1x_b200_sxm6")
+    ap.add_argument("--interval", type=int, default=120)
+    ap.add_argument("--max-hours", type=float, default=72)
+    ap.add_argument("--park", action="store_true",
+                    help="leave instance running after bootstrap (NOT default)")
+    args = ap.parse_args()
+
+    region = wait_for_capacity(args.type, args.interval, args.max_hours)
+    t0 = time.monotonic()
+    iid = launch(args.type, region)
+    outdir = REPO / "journal" / "remote"
+    outdir.mkdir(parents=True, exist_ok=True)
+    try:
+        ip = wait_active(iid)
+        wait_ssh(ip)
+        scp_to(ip, REPO / "scripts" / "bootstrap_b200.sh", "~/bootstrap.sh")
+        scp_to(ip, REPO / "harness" / "parity_fa4_rel.py", "~/parity_fa4_rel.py")
+        print(f"[{stamp()}] bootstrap starting (~15-25 min)", flush=True)
+        r = ssh(ip, "bash ~/bootstrap.sh", timeout=2400)
+        log = outdir / f"b200_first_contact_{datetime.now(timezone.utc):%Y%m%d_%H%M}.log"
+        log.write_text(r.stdout + ("\n--- STDERR ---\n" + r.stderr if r.stderr else ""),
+                       encoding="utf-8")
+        print(f"[{stamp()}] bootstrap rc={r.returncode}; log: {log}", flush=True)
+        tail = "\n".join(r.stdout.splitlines()[-25:])
+        print(tail, flush=True)
+        if args.park:
+            (REPO / "scripts" / ".b200_instance.json").write_text(
+                json.dumps({"id": iid, "ip": ip, "launched": stamp()}))
+            print(f"[{stamp()}] PARKED (billing!): {iid} @ {ip}", flush=True)
+            return 0
+        return 0 if r.returncode == 0 else 1
+    finally:
+        if not args.park:
+            terminate(iid)
+            hours = (time.monotonic() - t0) / 3600
+            cost = hours * PRICE_PER_HOUR.get(args.type, 0.0)
+            print(f"[{stamp()}] session: {hours:.2f}h ≈ ${cost:.2f} "
+                  f"({args.type})", flush=True)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
