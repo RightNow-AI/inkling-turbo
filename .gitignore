@@ -9,3 +9,4 @@ __pycache__/
 *.pyc
 .venv/
 harness/microbench_attn_day0.json
+harness/microbench_attn_scoremod.json

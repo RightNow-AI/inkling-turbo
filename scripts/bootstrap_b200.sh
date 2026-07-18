@@ -62,4 +62,7 @@ python ~/parity_fa4_rel.py || true
 echo "=== microbench: day-0 attention + gate at real shapes ==="
 python ~/microbench_attn_day0.py || true
 
+echo "=== microbench: honest score_mod baseline (sm_90 production path) ==="
+python ~/microbench_attn_scoremod.py || true
+
 echo "=== BOOTSTRAP COMPLETE ==="
