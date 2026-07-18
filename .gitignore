@@ -10,3 +10,4 @@ __pycache__/
 .venv/
 harness/microbench_attn_day0.json
 harness/microbench_attn_scoremod.json
+harness/parity_shear_writer.json
