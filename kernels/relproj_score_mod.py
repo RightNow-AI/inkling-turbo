@@ -30,6 +30,7 @@ D_REL = 16
 
 @cache
 def get_relproj_score_mod(rel_extent: int) -> Callable:
+    """V1: proj stored (16, ext) — per-element column walk (strided loads)."""
     import cutlass
     import cutlass.cute as cute
     from cutlass import Float32
@@ -66,3 +67,46 @@ def get_relproj_score_mod(rel_extent: int) -> Callable:
         return scores + bias
 
     return score_mod_relproj
+
+
+@cache
+def get_relproj_score_mod_v15(rel_extent: int) -> Callable:
+    """V1.5: proj stored TRANSPOSED (ext, 16) — the 16 loads per element are
+    contiguous (32B span; compiler can merge into vector loads). Tests the
+    load-coalescing half of the V1 diagnosis with zero kernel plumbing."""
+    import cutlass
+    import cutlass.cute as cute
+    from cutlass import Float32
+
+    from vllm.vllm_flash_attn.cute.seqlen_info import SeqlenInfoQK
+
+    @cute.jit
+    def score_mod_relproj_t(
+        scores: cute.TensorSSA,
+        b_idx: cute.TensorSSA,
+        h_idx: cute.TensorSSA,
+        q_idx: cute.TensorSSA,
+        kv_idx: cute.TensorSSA,
+        seqlen_info: SeqlenInfoQK,
+        aux_tensors: list[cute.Tensor],
+    ) -> cute.TensorSSA:
+        r = aux_tensors[0]      # (total_q, H, 16)
+        projT = aux_tensors[1]  # (rel_extent, 16) contiguous rows
+
+        seqlen_local_offset = seqlen_info.seqlen_k - seqlen_info.seqlen_q
+        rel_dist = (q_idx + seqlen_local_offset) - kv_idx
+        global_q_idx = seqlen_info.offset_q + q_idx
+
+        d0 = rel_dist[0]
+        d_clamped = d0 if d0 >= 0 else 0
+        d_clamped = d_clamped if d_clamped < rel_extent else (rel_extent - 1)
+
+        acc = Float32(0.0)
+        for dd in cutlass.range_constexpr(D_REL):
+            acc += Float32(r[global_q_idx[0], h_idx[0], dd]) * Float32(
+                projT[d_clamped, dd]
+            )
+        bias = acc if d0 == d_clamped else Float32(0.0)
+        return scores + bias
+
+    return score_mod_relproj_t
