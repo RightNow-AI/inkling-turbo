@@ -166,10 +166,11 @@ def main() -> int:
         log.write_text(r.stdout + ("\n--- STDERR ---\n" + r.stderr if r.stderr else ""),
                        encoding="utf-8")
         # pull microbench JSON evidence if produced
-        subprocess.run(["scp", *SSH_ARGS,
-                        f"ubuntu@{ip}:~/microbench_attn_day0.json",
-                        str(outdir / "microbench_attn_day0_sm100.json")],
-                       capture_output=True, text=True, timeout=60)
+        for jf in ("microbench_attn_day0", "microbench_attn_scoremod"):
+            subprocess.run(["scp", *SSH_ARGS,
+                            f"ubuntu@{ip}:~/{jf}.json",
+                            str(outdir / f"{jf}_{args.type}.json")],
+                           capture_output=True, text=True, timeout=60)
         print(f"[{stamp()}] bootstrap rc={r.returncode}; log: {log}", flush=True)
         tail = "\n".join(r.stdout.splitlines()[-25:])
         print(tail, flush=True)
