@@ -83,3 +83,42 @@ All four drift fixes green — tml-fa4 direct path now RUNS on sm_90. Findings:
 Remote pipeline hardened (4 toolchain breaks fixed in bootstrap), parity
 oracle proven as a bug-catcher, first indicative timings in. Score_mod
 timings at same shapes = next session payload (the honest sm_90 baseline).
+
+# H100 session 4 (2026-07-18, 12:29-12:37 UTC, $0.56) — HONEST BASELINE
+
+score_mod = what vLLM actually serves on Hopper (sheared is cap 10/11 only,
+fa4_rel_attention.py:20-23). Crucially num_splits=1 IS production on sm_90
+(fa4_rel_attention.py:71-72 forces 1 for capability major 9), so these
+numbers are the faithful Hopper serving baseline, not a strawman.
+
+| case | score_mod (prod) | plain attn (no bias) | rel_bias path (s3, WRONG output) |
+|---|---|---|---|
+| prefill_global_8k | 5372.0 us | — | 2609.6 us |
+| prefill_swa_8k | 948.9 us | — | 853.8 us |
+| decode_b32_kv8k | 324.7 us | — | 109.5 us |
+| decode_b32_kv64k | 2435.7 us | 743.2 us | 747.1 us |
+| decode_b1_kv64k | 2374.9 us | 742.7 us | 739.6 us |
+
+## Findings (measured, sm_90)
+
+1. **The day-0 Hopper path leaves ~3.2x on the table at long-ctx global
+   decode**: score_mod 2375us vs plain 743us at kv64k. The per-element
+   score-mod gather costs 220% on top of the attention itself.
+2. Prefill global 8K: score_mod is 2.1x the rel_bias-path time.
+3. The (incorrect) sheared-style path runs at ~plain-attention speed
+   (747 vs 743us) while mostly applying bias (mean err 0.02-0.06, max 0.9-1.6
+   at a subset of positions) -> HYPOTHESIS: a correct sheared-style bias on
+   sm_90 costs ~0 over plain attention. Verify after fixing correctness —
+   speed of a wrong kernel is not evidence of anything by itself.
+4. Plain b1 kv64k = 743us = 268MB KV / 743us ~= 361 GB/s ~= 11% of H100 HBM —
+   with num_splits=1, b1 decode runs ~8 CTAs (one per KV head): the GPU is
+   mostly IDLE. Split-KV (banned on sm_90 by the day-0 heuristic) is itself
+   a large lever before any quantization.
+5. Gate timings 4.2/22.0us — 4th consecutive session within noise.
+
+## Hopper-tier unit reordering (evidence-based)
+
+U2-Hopper (bias mechanism + split-KV on sm_90) is now measured at ~3.2x
+potential on long-ctx decode and ~2x on global prefill — LARGER than U3's
+2x byte-halving, and U3 multiplies on top of a fixed kernel. New order:
+**U2-Hopper -> U3 -> rest**. (Blackwell ranking unchanged, pending B200.)
