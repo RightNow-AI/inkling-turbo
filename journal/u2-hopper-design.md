@@ -224,3 +224,22 @@ simplest pipeline, local dev loop; sm_90 port second):
 Validation ladder: shear-mapping unit test (local) -> parity_fa4_rel
 backend 4 (local sm_120) -> speed vs score_mod local -> sm_90 port ->
 H100 session (target <=1.1x plain 743us + ncu roofline).
+
+## Shear-writer layout contract (empirical, machine-extracted 2026-07-18)
+
+harness/parity_shear_writer.py compiles ShearingBias standalone on sm_120
+(writer is arch-generic — CONFIRMED it runs locally) and decodes the full
+(row, kv) -> column map from encoded values. T=12, ext=512, padded=768:
+
+  col(i, k) = k + (padded - 128 * n_blocks_max_row)   [= k + 640 at T<=128]
+
+- Column is affine in ABSOLUTE kv index k; the row's last attention n-block
+  is right-aligned to the padded tensor edge. 78/78 causal pairs match.
+- Local vs global: identical placement; only pad VALUES differ
+  (right pad -inf always; left pad -inf local / 0.0 global-beyond-extent —
+  matches shearing_bias.py:88-89).
+- TODO next: T=200 two-n-block case to pin the per-row-block shift
+  (expected: rows attending nmax blocks get shift padded-128*nmax), then
+  the consuming tile port reads bias tile (m,n) at columns
+  [n*128 + shift(i), n*128 + shift(i) + 128) — one vectorized smem load
+  per fragment row, zero per-element math.
