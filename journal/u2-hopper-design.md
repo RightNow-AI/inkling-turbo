@@ -185,3 +185,42 @@ per-element callback).
 Register-resident-in-callback line of work: CLOSED (V1, V1.5 measured
 dead ends — kept in kernels/relproj_score_mod.py as semantic references
 and for the parity-harness third backend).
+
+## Donor-pattern map: sm_100 has_bias -> generic-kernel port (2026-07-18)
+
+sm_100 machinery (flash_fwd_sm100.py, all verified line refs):
+- ctor: has_bias/rel_extent_padded -> bias_n_max = padded_ext/n_block (:156),
+  bias_stage 1-2 (:180), +8 softmax regs (:392), smem budget accounting
+  (:442-487, downgrades bias_stage/kv_stage to fit 224KB).
+- setup: mBias (total_q, h, padded_ext) K-major required (:1038-1042);
+  sBias layout (bias_block_size=128 rows x n_block) x stage (:1044);
+  TMA atom for g2s (:1052); s2r tiled copy 128b vector reads (:1059-1062);
+  own mbar pipeline (:1168, :1660-1663).
+- Consumption: sheared property means for row m the bias for kv tile
+  n_block sits at sheared columns [same n-tile-local range] — tile fetch is
+  a plain 2D block copy; per-element add to acc fragment via s2r copy then
+  vector adds (no divmods, no per-element addressing math).
+
+Port to generic SM80-family kernel (flash_fwd.py — runs on 5090/sm_120,
+simplest pipeline, local dev loop; sm_90 port second):
+1. ctor flag has_bias + rel_extent_padded; smem: sBias tile
+   (tile_m x tile_n bias slice... NOTE sheared bias row-width needed per
+   (m,n) tile is tile_n, aligned by the shear — one (tile_m x tile_n) bf16
+   tile = 128x64x2B = 16KB at sm_120 tile sizes; fits the 99KB budget by
+   trimming num_stages if needed (can_implement update).
+2. g2s: cp.async 2D block copy of gBias tile per n_block iteration,
+   double-buffered with the existing K/V stages barrier.
+3. apply: after gemm_qk, before mask/softmax — per-thread reads of its
+   acc coords from sBias (ld.shared, vectorize via the identity-tensor
+   coords the mask already computes) + add. Column mapping: sheared_col =
+   rel_extent_padded - 1 - (n_idx_right - 1 - kv_idx) per ShearingBias
+   writer math (shearing_bias.py:357-476) — derive the exact per-tile
+   offset ONCE on paper, unit-test against ShearingBias output on 5090
+   BEFORE wiring into the attention kernel (a standalone shear-consume
+   test comparing smem-tile reads vs rel_logits[q,h,q-k] oracle).
+4. interface: stop gating rel_bias to Blackwell; pass mBias + flag into
+   the generic ctor; sm_90 stays score_mod until its own port.
+
+Validation ladder: shear-mapping unit test (local) -> parity_fa4_rel
+backend 4 (local sm_120) -> speed vs score_mod local -> sm_90 port ->
+H100 session (target <=1.1x plain 743us + ncu roofline).
