@@ -28,7 +28,8 @@ SSH_ARGS = [
     "-o", "LogLevel=ERROR",
 ]
 PRICE_PER_HOUR = {"gpu_1x_b200_sxm6": 6.99, "gpu_2x_b200_sxm6": 13.78,
-                  "gpu_8x_b200_sxm6": 53.52}
+                  "gpu_8x_b200_sxm6": 53.52, "gpu_1x_h100_sxm5": 4.29,
+                  "gpu_2x_h100_sxm5": 8.38}
 
 
 def api(method: str, path: str, body: dict | None = None) -> dict:
@@ -73,7 +74,8 @@ def wait_for_capacity(itypes: list[str], interval: int,
 def launch(itype: str, region: str) -> str:
     resp = api("POST", "/instance-operations/launch", {
         "region_name": region, "instance_type_name": itype,
-        "ssh_key_names": ["kernelforge"], "name": "inkling-turbo-1xb200",
+        "ssh_key_names": ["kernelforge"],
+        "name": "inkling-turbo-" + itype.removeprefix("gpu_"),
         "quantity": 1,
     })
     iid = resp["data"]["instance_ids"][0]
@@ -182,7 +184,7 @@ def main() -> int:
             terminate(iid)
             hours = (time.monotonic() - t0) / 3600
             cost = hours * PRICE_PER_HOUR.get(args.type, 0.0)
-            print(f"[{stamp()}] session: {hours:.2f}h ≈ ${cost:.2f} "
+            print(f"[{stamp()}] session: {hours:.2f}h ~= ${cost:.2f} "
                   f"({args.type})", flush=True)
 
 

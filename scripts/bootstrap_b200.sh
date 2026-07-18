@@ -34,15 +34,12 @@ import torch
 print("torch:", torch.__version__, "| capability:", torch.cuda.get_device_capability(0))
 EOF
 
-echo "=== tml_fa4 import check ==="
-if ! python -c "import vllm.third_party.tml_fa4" 2>/dev/null; then
-  echo "applying ThrMma/TiledMma cutlass-4.6.0 fix"
-  sed -i 's/cute\.core\.ThrMma/cute.ThrMma/g; s/cute\.core\.TiledMma/cute.TiledMma/g' \
-    vllm/third_party/tml_fa4/*.py
-  python -c "import vllm.third_party.tml_fa4; print('tml_fa4 import OK after fix')"
-else
-  echo "tml_fa4 import OK (no fix needed)"
-fi
+echo "=== cutlass-4.6.0 API drift fixes (idempotent) ==="
+# ThrMma/TiledMma moved out of cute.core; make_fragment renamed to
+# make_rmem_tensor. Evidence: journal/local-tier-bringup.md + H100 session 1.
+sed -i 's/cute\.core\.ThrMma/cute.ThrMma/g; s/cute\.core\.TiledMma/cute.TiledMma/g; s/cute\.make_fragment(/cute.make_rmem_tensor(/g' \
+  vllm/third_party/tml_fa4/*.py vllm/vllm_flash_attn/cute/*.py
+python -c "import vllm.third_party.tml_fa4; print('tml_fa4 import OK')"
 
 echo "=== parity: FA4 rel attention (sheared path expected on sm_100) ==="
 python ~/parity_fa4_rel.py || true
