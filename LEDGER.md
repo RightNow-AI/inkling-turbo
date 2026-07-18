@@ -32,7 +32,8 @@ Baseline reference (external claim, NOT ours): vLLM day-0 blog reports 380 tok/s
 | Date | Resource | Duration | Cost | Purpose |
 |---|---|---|---|---|
 | 2026-07-18 | Lambda 1x H100 SXM5 (us-south-2) | 0.13 h | $0.55 | First contact: parity 3/3 green on sm_90 score_mod path; gate kernel 4.3us@T1 / 22.2us@T4096; found make_fragment cutlass-4.6.0 drift (3rd upstream break). Auto-terminated. |
-| | | | **$0.55 total** | |
+| 2026-07-18 | Lambda 1x H100 SXM5 (us-south-2) | 0.14 h | $0.61 | Session 2: score_mod parity re-green post-rename; found 4th drift (fmax/atomicrmw nvvm branch keyed to CUDA 12.9 instead of DSL version) — tml-fa4 direct sm_90 path still blocked; gate timings reproduced (4.3/22.2us, stable across sessions). Auto-terminated. |
+| | | | **$1.16 total** | |
 
 ## last_error
 
