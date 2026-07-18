@@ -39,6 +39,21 @@ echo "=== cutlass-4.6.0 API drift fixes (idempotent) ==="
 # make_rmem_tensor. Evidence: journal/local-tier-bringup.md + H100 session 1.
 sed -i 's/cute\.core\.ThrMma/cute.ThrMma/g; s/cute\.core\.TiledMma/cute.TiledMma/g; s/cute\.make_fragment(/cute.make_rmem_tensor(/g' \
   vllm/third_party/tml_fa4/*.py vllm/vllm_flash_attn/cute/*.py
+# tml-fa4 keys old-vs-new nvvm API off CUDA 12.9, but the binding signature
+# tracks nvidia-cutlass-dsl (pinned 4.6.0 = new API). Wrong branch on cu129
+# torch -> fmax()/atomicrmw TypeError. Evidence: H100 session 2.
+python - <<'PYEOF'
+import glob
+old = "if CUDA_VERSION.major == 12 and CUDA_VERSION.minor == 9:"
+new = "if False:  # nvvm API tracks nvidia-cutlass-dsl (pinned 4.6.0 = new API)"
+n = 0
+for p in glob.glob("vllm/third_party/tml_fa4/*.py"):
+    s = open(p).read()
+    if old in s:
+        n += s.count(old)
+        open(p, "w").write(s.replace(old, new))
+print(f"nvvm-branch sites patched: {n}")
+PYEOF
 python -c "import vllm.third_party.tml_fa4; print('tml_fa4 import OK')"
 
 echo "=== parity: FA4 rel attention (sheared path expected on sm_100) ==="
