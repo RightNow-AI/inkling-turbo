@@ -142,3 +142,23 @@ U2 (prefill/TTFT: kill 3x bias round-trips; register-resident is novel) >
 U1 (verify which FusedMoE backend runs; skew-robust scheduler) >
 U6 (graph granularity + staging overlap) > U4/U7 (small, measure first) >
 U5 (exists day-0).
+
+## U3 groundwork (2026-07-18, pre-design survey)
+
+- tml-fa4 interface already carries block-scaled FP8: sfq/sfk/sfv scale-factor
+  args; V must be float8_e4m3fn with float8_e8m0fnu scales (MX-format) +
+  v_sf_vec_size; paged KV + blockscaled QK requires blockscaled V
+  (interface.py:365-374). Implementation lives in sm_100 kernels ONLY
+  (flash_fwd_sm100.py, sm100_hd256_2cta_fmha_forward.py) — no sm_90/sm_120.
+- OPEN QUESTION (verify before U3 design, do not assume): whether the standard
+  sm_100 forward composes rel_bias WITH blockscaled in one launch — the
+  variant gate at interface.py:585-596 excludes both from one fast path but
+  says nothing about the main path. If they don't compose, U3-Blackwell =
+  making sheared rel-bias + blockscaled KV coexist (kernel work); if they do,
+  U3-Blackwell is mostly cache/scale plumbing in vLLM (qkvr_prep writes
+  quantized KV + scales; wrapper passes sfk/sfv).
+- U3-Hopper (measurable on H100 today): sm_90 kernel has NO fp8 KV path; the
+  lift is adding fp8 loads + per-block scales to the sm_90 CuTe kernel or the
+  score_mod route. Bigger than Blackwell wiring but unblocked by Lambda stock.
+- Inkling attention wrapper already plumbs kv_cache_dtype + k/v_scale buffers
+  (attention.py:163-170) — vLLM-side surface for cache dtype exists.
