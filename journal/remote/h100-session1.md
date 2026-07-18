@@ -46,3 +46,40 @@ Patched payload (ThrMma/make_fragment fixes in). Results:
   sheared/direct FA4 path cannot have been CI-tested against this pin.
 
 Session 3 payload: attention microbench through tml-fa4 sm_90 end-to-end.
+
+# H100 session 3 (2026-07-18, 12:14-12:23 UTC, $0.61)
+
+All four drift fixes green — tml-fa4 direct path now RUNS on sm_90. Findings:
+
+## Parity: sm_90 rel_bias path is NUMERICALLY WRONG (harness catch #1)
+
+- tml_fa4 flash_attn_varlen_func(rel_bias=...) on sm_90: max_diff 0.90-1.63
+  vs reference on all 3 cases (mean 0.02-0.06 -> scattered wrong positions,
+  not a global offset). score_mod path on the same inputs: 7.8e-3. NOT a vLLM
+  production path (vLLM uses score_mod on Hopper), but it accepts the input
+  and returns wrong attention silently -> upstream-report material.
+  Hypothesis to verify before filing: ShearingBias 128-wide block layout vs
+  sm_90 kernel tile/consumption mismatch. DO NOT use this path for anything.
+
+## First attention timings on H100 (INDICATIVE ONLY — from the wrong-output
+## rel_bias path; same work shape, but no optimization claims on these)
+
+| case | us/iter |
+|---|---|
+| prefill_global_8k (64q/8kv, ext1024) | 2609.6 |
+| prefill_swa_8k (64q/16kv, ext512, win511) | 853.8 |
+| decode_b32_global_kv8k | 109.5 |
+| decode_b32_global_kv64k | 747.1 |
+| decode_b1_global_kv64k | 739.6 |
+
+- decode kv64k: b32 ~= b1 (747 vs 740us) — KV-read bound, batch nearly free.
+  Directly supports U3 (quantized KV) as top-leverage for long-ctx decode.
+- global prefill = 3.1x SWA prefill at 8K.
+- gate-select 4.3/22.2us — identical across 3 sessions; measurement noise
+  floor is excellent on these boxes.
+
+## Program status after 3 sessions ($1.77 total)
+
+Remote pipeline hardened (4 toolchain breaks fixed in bootstrap), parity
+oracle proven as a bug-catcher, first indicative timings in. Score_mod
+timings at same shapes = next session payload (the honest sm_90 baseline).
