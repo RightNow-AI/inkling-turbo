@@ -113,3 +113,47 @@ dedicated bias hook in flash_fwd_sm90.py — kernel work, next session.
 Meta: V1 cost $0 (local) and pinned the exact perf mechanism. Correct-but-
 slow recorded as failed speed gate per LEDGER discipline; kernels/
 relproj_score_mod.py kept as the semantic reference for V2.
+
+## V2 implementation brief (anchors verified 2026-07-18)
+
+Target: new constexpr fast path inside `apply_score_mod_inner`
+(vllm/vllm_flash_attn/cute/softmax.py:391-520) + a relproj marker the
+interface can detect, so the sm_90/sm_120 kernels get tile-level bias with
+zero per-element aux gathers.
+
+Verified anchors:
+- sm_90 kernel calls apply_score_mod per (m_block, n_block) with
+  constant_q_idx=None ALWAYS (flash_fwd_sm90.py:1488-1519) — even decode.
+  So V2 hoists per-ROW, not per-call: within one apply call, the thread's
+  accumulator rows are FIXED by the wgmma thread layout (tScS row pattern:
+  each thread owns 2 rows x N/vec cols for sm_90 m16n8 frags).
+- Element loop: softmax.py:452-onwards iterates i in range(0, n_vals,
+  vec_size); row index changes only between i-groups (thread-frag layout);
+  kv_idx increments by vec within a row.
+
+V2 shape (new branch `relproj_bias=True`, aux = [r (T,H,16), proj(16,ext)]):
+1. Before the i-loop: derive the <=2 distinct q rows this thread owns from
+   tScS; for each, load r[q_row, head, 0:16] once -> rmem (2x16 bf16).
+2. Per i-group: dist_base = q_row - kv_idx(i); proj columns needed are
+   dist_base-1..dist_base-vec (contiguous, reversed). One vectorized rmem
+   load from gmem proj (columns are contiguous in memory: proj is (16,ext)
+   row-major -> a proj COLUMN is strided ext... layout note: store proj
+   TRANSPOSED (ext,16) so a column becomes a contiguous 32B row read; the
+   qkvr weight loader can pre-transpose at load time, zero runtime cost).
+3. bias[j] = sum_d r_reg[row_sel][d] * projT[dist-j][d] — 16 FMA per
+   element, all operands rmem/L1; clamp dist via the existing d0 logic.
+4. Fold tau upstream (r' = r * tau) as V1 did.
+
+Cost model per element: 16 FMA + one 32B L1 read (projT row, high locality:
+adjacent elements read adjacent rows) vs score_mod's 1 random gmem gather
+into (T,H,ext). Decode kv64k: projT working set = 1024x16x2B = 32KB row-
+sequential — L1-resident.
+
+Gates: parity_fa4_rel.py backend 3 (already wired — swap callback for the
+V2 flag); local relative timing must beat score_mod at kv64k before paying
+for H100; then H100 session: target <=1.1x plain (743us), ncu HBM roofline
+report, save to journal/ncu/.
+
+Fallback if CuTe layout fight exceeds 2 sessions: sm_90 shear-consume path
+(port sm_100's has_bias tile loads into flash_fwd_sm90.py) — known-working
+design, materialization cost accepted on Hopper only.
