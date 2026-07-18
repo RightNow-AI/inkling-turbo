@@ -122,3 +122,12 @@ U2-Hopper (bias mechanism + split-KV on sm_90) is now measured at ~3.2x
 potential on long-ctx decode and ~2x on global prefill — LARGER than U3's
 2x byte-halving, and U3 multiplies on top of a fixed kernel. New order:
 **U2-Hopper -> U3 -> rest**. (Blackwell ranking unchanged, pending B200.)
+
+# Post-session correction (static analysis, 2026-07-18)
+
+Session-3 catch root-caused: sm_90 kernel HAS no bias path (ctor takes no
+bias arg; flash_fwd_sm90.py bias-free). rel_bias on sm_90 = plain attention
++ wasted shear launch, returned silently. Journal entries above claiming
+"sheared-style path mostly applies bias" are WRONG — the observed
+mean-error pattern was bias-absence, not bias-misplacement. Detail:
+journal/u2-hopper-design.md CORRECTION.

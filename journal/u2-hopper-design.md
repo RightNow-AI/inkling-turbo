@@ -64,3 +64,28 @@ Verify with ncu, not arithmetic.
 Parity: harness/parity_fa4_rel.py extended per design; 32-prompt logit gate
 when big box lands. Kernel: ncu >=90% of HBM roofline for decode cases
 (memory-bound) on H100; profile saved journal/ncu/. No claim without both.
+
+## CORRECTION (2026-07-18, post static analysis) — supersedes Design A
+
+Root cause of the sm_90 wrong output is NOT a layout mismatch: the sm_90
+kernel has no bias support at all. Proof: FlashAttentionForwardSm90 ctor
+(interface.py:~1600) receives no bias argument — vs Sm100's has_bias=
+(interface.py:~980); flash_fwd_sm90.py contains zero bias code. On sm_90
+the interface accepts rel_bias, allocates + shears the padded tensor
+(wasted), then runs PLAIN attention and returns it silently.
+
+Consequences:
+- Session-3/4 "sheared-style 747us" = plain attention + dead shear launch.
+  The "bias ~free on sm_90" hypothesis is VOID — no such kernel exists.
+  (3.2x score_mod-vs-plain headroom measurement is unaffected.)
+- Design A ("fix the layout") does not exist as a quick win: bias
+  consumption on sm_90 must be BUILT. Therefore A collapses into B —
+  build the register-resident r-projection bias directly in the sm_90
+  pipeline. B's inline dot16 is also strictly simpler to add than sheared
+  tile loads (no pre-kernel, no padded tensor, no g2s bias staging).
+- Upstream finding #5 (worst of the set): tml-fa4 flash_attn_varlen_func
+  silently ignores rel_bias on every non-Blackwell arch — a correctness
+  trap; should raise NotImplementedError. Report with minimal repro.
+
+Revised order: B on sm_90 (target: <=1.1x plain attention at decode,
+validating vs harness oracle) -> split-KV enablement -> U3 FP8 KV on top.
