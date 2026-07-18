@@ -64,7 +64,12 @@ def run_case(
     q = torch.randn(T, Hq, D, dtype=torch.bfloat16, device=dev) / (D**0.25)
     k = torch.randn(T, Hkv, D, dtype=torch.bfloat16, device=dev) / (D**0.25)
     v = torch.randn(T, Hkv, D, dtype=torch.bfloat16, device=dev)
-    rel_logits = 0.5 * torch.randn(T, Hq, rel_extent, dtype=torch.bfloat16, device=dev)
+    # One truth for every backend: rel_logits derived from (r, proj) exactly
+    # as qkvr_prep does (fp32 dot, bf16 round). Backends 1-2 + the reference
+    # consume rel_logits; backend 3 (relproj_v1) consumes (r, proj) raw.
+    r_small = torch.randn(T, Hq, 16, dtype=torch.bfloat16, device=dev) * 0.4
+    proj = torch.randn(16, rel_extent, dtype=torch.bfloat16, device=dev) * 0.3
+    rel_logits = (r_small.float() @ proj.float()).to(torch.bfloat16)
     scale = 1.0 / D
 
     ref = reference_rel_attention(q, k, v, rel_logits, scale, window_left)
@@ -118,6 +123,36 @@ def run_case(
         results["score_mod"] = (diff.max().item(), diff.mean().item())
     except Exception as exc:  # noqa: BLE001
         results["score_mod"] = f"FAILED: {type(exc).__name__}: {exc}"
+
+    # Backend 3: U2-Hopper Design B V1 — register-resident r-projection bias
+    # (kernels/relproj_score_mod.py). Consumes (r, proj) instead of the
+    # materialized rel_logits; rel_logits used by ref/backends 1-2 is
+    # derived from the same (r, proj) below, so all backends see one truth.
+    try:
+        import sys as _sys
+        from pathlib import Path as _Path
+
+        _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+        from kernels.relproj_score_mod import get_relproj_score_mod
+        from vllm.vllm_flash_attn.cute import (
+            flash_attn_varlen_func as fa_relproj,
+        )
+
+        cute_window = (None, None) if window_left is None else window
+        out = fa_relproj(
+            q=q, k=k, v=v,
+            cu_seqlens_q=cu, cu_seqlens_k=cu,
+            max_seqlen_q=T, max_seqlen_k=T,
+            softmax_scale=scale, causal=True, window_size=cute_window,
+            score_mod=get_relproj_score_mod(rel_extent),
+            aux_tensors=[r_small.contiguous(), proj.contiguous()],
+        )
+        if isinstance(out, tuple):
+            out = out[0]
+        diff = (out.float() - ref.float()).abs()
+        results["relproj_v1"] = (diff.max().item(), diff.mean().item())
+    except Exception as exc:  # noqa: BLE001
+        results["relproj_v1"] = f"FAILED: {type(exc).__name__}: {exc}"
 
     return results
 

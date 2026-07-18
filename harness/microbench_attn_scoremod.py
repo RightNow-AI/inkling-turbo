@@ -44,7 +44,7 @@ def profile_case(name: str, fn, iters: int = 20, warmup: int = 5) -> None:
 
 
 def attn_case(T_q: int, T_k: int, Hq: int, Hkv: int, ext: int,
-              window_left: int | None):
+              window_left: int | None, mode: str = "score_mod"):
     from vllm.models.inkling.nvidia.ops.fa4_rel_attention import _get_score_mod
     from vllm.vllm_flash_attn.cute import flash_attn_varlen_func
 
@@ -53,11 +53,25 @@ def attn_case(T_q: int, T_k: int, Hq: int, Hkv: int, ext: int,
     q = torch.randn(T_q, Hq, D, dtype=torch.bfloat16, device=dev)
     k = torch.randn(T_k, Hkv, D, dtype=torch.bfloat16, device=dev)
     v = torch.randn(T_k, Hkv, D, dtype=torch.bfloat16, device=dev)
-    rel = torch.randn(T_q, Hq, ext, dtype=torch.bfloat16, device=dev).contiguous()
     cu_q = torch.tensor([0, T_q], dtype=torch.int32, device=dev)
     cu_k = torch.tensor([0, T_k], dtype=torch.int32, device=dev)
     window = (None, None) if window_left is None else (window_left, 0)
-    score_mod = _get_score_mod(ext)
+
+    if mode == "relproj":
+        import sys
+        from pathlib import Path
+
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        from kernels.relproj_score_mod import get_relproj_score_mod
+
+        r = torch.randn(T_q, Hq, 16, dtype=torch.bfloat16, device=dev)
+        proj = torch.randn(16, ext, dtype=torch.bfloat16, device=dev)
+        score_mod = get_relproj_score_mod(ext)
+        aux = [r.contiguous(), proj.contiguous()]
+    else:
+        rel = torch.randn(T_q, Hq, ext, dtype=torch.bfloat16, device=dev)
+        score_mod = _get_score_mod(ext)
+        aux = [rel.contiguous()]
 
     def fn():
         flash_attn_varlen_func(
@@ -65,7 +79,7 @@ def attn_case(T_q: int, T_k: int, Hq: int, Hkv: int, ext: int,
             cu_seqlens_q=cu_q, cu_seqlens_k=cu_k,
             max_seqlen_q=T_q, max_seqlen_k=T_k,
             softmax_scale=1.0 / D, causal=True, window_size=window,
-            score_mod=score_mod, aux_tensors=[rel],
+            score_mod=score_mod, aux_tensors=aux,
         )
     return fn
 
@@ -83,6 +97,13 @@ def main() -> None:
         # bf16 KV-read roofline anchors for U3: same decode, no bias at all
         ("decode_b1_plain_kv64k", lambda: attn_case_plain(1, 65536, 64, 8)),
         ("decode_b32_plain_kv64k", lambda: attn_case_plain(32, 65536, 64, 8)),
+        # U2-Hopper Design B V1: register-resident r-projection bias
+        ("relproj_prefill_global_8k",
+         lambda: attn_case(8192, 8192, 64, 8, 1024, None, mode="relproj")),
+        ("relproj_decode_b32_kv64k",
+         lambda: attn_case(32, 65536, 64, 8, 1024, None, mode="relproj")),
+        ("relproj_decode_b1_kv64k",
+         lambda: attn_case(1, 65536, 64, 8, 1024, None, mode="relproj")),
     ]
     for name, make in cases:
         try:
