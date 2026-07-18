@@ -57,17 +57,24 @@ def attn_case(T_q: int, T_k: int, Hq: int, Hkv: int, ext: int,
     cu_k = torch.tensor([0, T_k], dtype=torch.int32, device=dev)
     window = (None, None) if window_left is None else (window_left, 0)
 
-    if mode == "relproj":
+    if mode in ("relproj", "relproj_v15"):
         import sys
         from pathlib import Path
 
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-        from kernels.relproj_score_mod import get_relproj_score_mod
+        from kernels.relproj_score_mod import (
+            get_relproj_score_mod,
+            get_relproj_score_mod_v15,
+        )
 
         r = torch.randn(T_q, Hq, 16, dtype=torch.bfloat16, device=dev)
         proj = torch.randn(16, ext, dtype=torch.bfloat16, device=dev)
-        score_mod = get_relproj_score_mod(ext)
-        aux = [r.contiguous(), proj.contiguous()]
+        if mode == "relproj_v15":
+            score_mod = get_relproj_score_mod_v15(ext)
+            aux = [r.contiguous(), proj.T.contiguous()]
+        else:
+            score_mod = get_relproj_score_mod(ext)
+            aux = [r.contiguous(), proj.contiguous()]
     else:
         rel = torch.randn(T_q, Hq, ext, dtype=torch.bfloat16, device=dev)
         score_mod = _get_score_mod(ext)
@@ -104,6 +111,12 @@ def main() -> None:
          lambda: attn_case(32, 65536, 64, 8, 1024, None, mode="relproj")),
         ("relproj_decode_b1_kv64k",
          lambda: attn_case(1, 65536, 64, 8, 1024, None, mode="relproj")),
+        ("relprojT_decode_b1_kv64k",
+         lambda: attn_case(1, 65536, 64, 8, 1024, None, mode="relproj_v15")),
+        ("relprojT_decode_b32_kv64k",
+         lambda: attn_case(32, 65536, 64, 8, 1024, None, mode="relproj_v15")),
+        ("relprojT_prefill_global_8k",
+         lambda: attn_case(8192, 8192, 64, 8, 1024, None, mode="relproj_v15")),
     ]
     for name, make in cases:
         try:

@@ -157,3 +157,31 @@ report, save to journal/ncu/.
 Fallback if CuTe layout fight exceeds 2 sessions: sm_90 shear-consume path
 (port sm_100's has_bias tile loads into flash_fwd_sm90.py) — known-working
 design, materialization cost accepted on Hopper only.
+
+## V1.5 result + strategic correction (2026-07-18, local)
+
+V1.5 (proj transposed -> contiguous 32B per-element reads): 13987us vs V1
+14797us at kv64k b1 — only 5%. The DSL emits the unrolled dot16 as 16
+independent scalar loads regardless of contiguity; coalescing was not the
+bottleneck.
+
+Deeper implication, from re-examining session-4 data: at DECODE the day-0
+aux tensor rel_logits is only (B,H,ext) ~= 4MB — L2-resident — yet
+score_mod still costs 3.2x. So the per-element callback machinery ITSELF
+(index divmods, SSA chains, loads serialized against the MMA pipeline) is
+the overhead, not aux locality. CONSEQUENCE: no callback-level bias
+implementation can reach <=1.1x plain. The fix must be TILE-LEVEL: bias
+applied as vectorized fragment ops outside the per-element loop.
+
+Revised V2 (primary): port sm_100's has_bias tile path to flash_fwd_sm90.py
+— consume the SHEARED bias tensor via smem tile loads + vectorized adds to
+the accumulator fragment (the design already proven on Blackwell; the
+ShearingBias pre-kernel is arch-generic and already runs). Materialization
+cost accepted on Hopper (decode bias tensors are small; prefill sheared
+traffic is the price of the 3.2x win — revisit register-resident INSIDE
+the tile loop later, where r/proj live in the fragment pipeline, not in a
+per-element callback).
+
+Register-resident-in-callback line of work: CLOSED (V1, V1.5 measured
+dead ends — kept in kernels/relproj_score_mod.py as semantic references
+and for the parity-harness third backend).
