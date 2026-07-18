@@ -10,8 +10,10 @@ VLLM_DIR="${1:?usage: $0 <vllm dir>}"
 # 1. tml-fa4 @13374f0c written against pre-4.6.0 CuTe DSL: ThrMma/TiledMma
 #    moved from cutlass.cute.core to cutlass.cute (verified in 4.6.0
 #    site-packages: class ThrMma in cutlass/cute/atom.py, exported at cute.*).
-sed -i 's/cute\.core\.ThrMma/cute.ThrMma/g; s/cute\.core\.TiledMma/cute.TiledMma/g' \
-  "$VLLM_DIR"/vllm/third_party/tml_fa4/*.py
+#    Also: cute.make_fragment renamed to cute.make_rmem_tensor (same
+#    positional signature; proven on H100 session 1 + local sm_120 parity).
+sed -i 's/cute\.core\.ThrMma/cute.ThrMma/g; s/cute\.core\.TiledMma/cute.TiledMma/g; s/cute\.make_fragment(/cute.make_rmem_tensor(/g' \
+  "$VLLM_DIR"/vllm/third_party/tml_fa4/*.py "$VLLM_DIR"/vllm/vllm_flash_attn/cute/*.py
 
 # 2. vllm_flash_attn cute flash_fwd.py: kernel body reads mDynamicCausal but it
 #    was never threaded through the @cute.kernel signature or the launch call

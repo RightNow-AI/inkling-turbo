@@ -31,7 +31,8 @@ Baseline reference (external claim, NOT ours): vLLM day-0 blog reports 380 tok/s
 
 | Date | Resource | Duration | Cost | Purpose |
 |---|---|---|---|---|
-| — | — | — | $0.00 total | — |
+| 2026-07-18 | Lambda 1x H100 SXM5 (us-south-2) | 0.13 h | $0.55 | First contact: parity 3/3 green on sm_90 score_mod path; gate kernel 4.3us@T1 / 22.2us@T4096; found make_fragment cutlass-4.6.0 drift (3rd upstream break). Auto-terminated. |
+| | | | **$0.55 total** | |
 
 ## last_error
 
