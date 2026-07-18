@@ -89,3 +89,27 @@ Consequences:
 
 Revised order: B on sm_90 (target: <=1.1x plain attention at decode,
 validating vs harness oracle) -> split-KV enablement -> U3 FP8 KV on top.
+
+## V1 result (2026-07-18, sm_120 local): PARITY GREEN, SPEED FAILED
+
+Parity: 3/3 vs oracle (max 1.6e-2 — same class as production score_mod).
+Speed (5090, relative): kv64k b1 decode 13900us vs score_mod 5319us vs
+plain 3515us — V1 is 2.6x WORSE than the gather it replaces. Prefill 8K:
+49.0ms vs 22.3ms (2.2x worse).
+
+Diagnosis: the score_mod callback charges PER SCORE ELEMENT. V1's constexpr
+dot16 compiles to 16 dependent loads (r row + proj column) + FMAs per
+element = 17 memory ops where the gather does 1. L1 residency cannot save a
+17x issue-count. The mechanism is right; the loop level is wrong.
+
+V2 (the real kernel change, as anticipated): hoist per-ROW state — load
+r[q,h,:] (16 values) into registers once per row per m_block, stage the
+proj slice for the tile in smem, apply as a vectorized tile op inside
+apply_score_mod_inner/mma epilogue instead of per-element callback. Per
+element then: 16 FMA + 1 smem vec read, amortized r. This requires
+extending softmax.py apply_score_mod_inner (new constexpr fast path) or a
+dedicated bias hook in flash_fwd_sm90.py — kernel work, next session.
+
+Meta: V1 cost $0 (local) and pinned the exact perf mechanism. Correct-but-
+slow recorded as failed speed gate per LEDGER discipline; kernels/
+relproj_score_mod.py kept as the semantic reference for V2.
