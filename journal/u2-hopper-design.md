@@ -370,3 +370,32 @@ fixed (#6 #7 #8).
   keep the acc*scale+bias structure, drop all per-element bounds checks
   (baked into the staged tile).
 - Race again; then sm_90 port + H100.
+
+## v1 COMPLETE: PARITY 3/3 + BEATS score_mod ON EVERY CASE (2026-07-19)
+
+Debug chain (all banked in kernels/tml_fa4_modified/ verbatim files):
+leftover v0 block -> jit-time copy construction (moved host-side into
+_setup_attributes, K-machinery clone) -> gmem ptr alignment (dynamic col
+shift folded into TILE INDEX — shift always multiple of tile_n; head-slice
+ptr rebuilt via cute.make_ptr assumed_align=16 + stride assumes) ->
+host-layout-in-kernel-region (sBias_layout + gmem_tiled_copy_Bias threaded
+as kernel args like sQ_layout).
+
+RESULTS (5090 sm_120, us/iter — vs same-machine baselines):
+| case | v1 smem bias | score_mod | plain |
+| decode_b1_kv64k | 5230 | 5319 | 3515 |
+| decode_b32_kv64k | 5039 | 5519 | 3554 |
+| decode_b32_kv8k | 695 | 766-835 | — |
+| prefill_global_8k | 20223 | 22343-25466 | — |
+| prefill_swa_8k | 18134 | 21200-24451 | — |
+
+v1 wins every case locally (2-10%). NOTE sm_120 score_mod is only ~1.5x
+over plain (vs 3.2x on H100/sm_90) — local headroom is structurally
+smaller; the REAL verdict is the sm_90 port on H100 where the measured gap
+is 3.2x. Remaining local gap to plain (~48%) = per-element ld.shared apply
+loop + unoverlapped bias copy at stages=1 — optimization candidates for
+the sm_90 port (vectorized smem reads, pipeline the bias copy).
+
+NEXT: port this working machinery to flash_fwd_sm90.py (same edits, sm_90
+kernel file), then ONE H100 session: parity + race vs the 2375us prod
+baseline + ncu. Target: <=1.1x plain (743us) => ~3x捕获.
