@@ -345,3 +345,28 @@ compile in local vs global mode; suspect window_size_right=0 vs None or a
 compile_key/exec-arg ordering divergence in the local branch.
 Then: speed race vs score_mod (global mode is enough for the kv64k decode
 headline), sm_90 port, H100 session.
+
+## v0 final verdict (2026-07-19): PARITY 3/3 GREEN, SPEED FAILED (expected)
+
+Finding #8 fixed on the way: generic call sites pass raw int window args
+(DSL wants Int32/None) — SWA mode was unmarshalable. All 3 parity cases
+now GREEN on sm_120 (7.8e-3/7.8e-3/1.56e-2 — score_mod-identical).
+
+Speed (5090, kv64k): v0 74,941us vs score_mod 5,319us vs plain 3,515us —
+14x WORSE. Per-element bounds-checked scalar gmem loads + select chains
+in the unrolled acc loop. Third confirmation: NO per-element bias
+application survives; tile-level smem staging (donor pattern) is the only
+path. v0's real deliverables achieved: plumbing end-to-end, layout
+contract exercised in-kernel, parity oracle green, 3 more latent bugs
+fixed (#6 #7 #8).
+
+## v1 (next): smem-staged bias tile
+- Add sBias (tile_m x tile_n bf16 = 16KB) to SharedStorage.
+- cp.async 2D block load per n_block: gBias rows [m*128, m*128+tile_m),
+  cols [n*tile_n + shift, ...+tile_n), shift = padded - 128*(m+1);
+  predicate cols to [0, padded) at COPY time (fill 0.0 outside), fold into
+  the existing K-load pipeline stage/barrier.
+- apply: replace v0 loop's gmem read with sBias[tScS coords] smem read —
+  keep the acc*scale+bias structure, drop all per-element bounds checks
+  (baked into the staged tile).
+- Race again; then sm_90 port + H100.
