@@ -243,3 +243,19 @@ harness/parity_shear_writer.py compiles ShearingBias standalone on sm_120
   the consuming tile port reads bias tile (m,n) at columns
   [n*128 + shift(i), n*128 + shift(i) + 128) — one vectorized smem load
   per fragment row, zero per-element math.
+
+## Layout contract COMPLETE (machine-verified, 2026-07-19)
+
+T=200 two-block case: 20,100/20,100 positions match
+
+  col(i, k) = k + padded - 128 * (m_block(i) + 1),  m_block(i) = i // 128
+
+- Verified block shift: row 100 vs row 150 at same k differ by exactly 128.
+- All rows within one attention m-tile share a single shift ->
+  **the bias tile for attention tile (m, n) is one contiguous 128x128
+  block at column n*128 + padded - 128*(m+1)** — fetchable with the same
+  2D block-copy machinery the kernel uses for K tiles. Zero per-element
+  addressing. This is the entire consumption contract for the tile port.
+- Contract JSON kept locally (parity_shear_writer.json regenerable).
+
+Port can now proceed with no unknowns in the data layout.

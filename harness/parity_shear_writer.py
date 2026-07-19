@@ -37,13 +37,12 @@ def run(T: int, ext: int, window_left: int | None) -> dict:
     dev = "cuda"
     H = 2
     padded = ext + 256
-    # encode(i,d) = i*16 + d + 1: with T<=12 max is 204 — exact in bf16.
-    # Only causal dists d <= i < T are decodable; that's all the port needs
-    # (per-tile affine constant + padding behavior).
+    # Shear moves values only WITHIN a row (writer reads mPreBias row m for
+    # output row m), so a per-row encoding value = d+1 suffices: seeing v at
+    # (i, col) means bias(dist v-1) for row i. d+1 <= 240 stays bf16-exact.
     rel = torch.zeros(T, H, ext, dtype=torch.bfloat16, device=dev)
-    for i in range(T):
-        for d in range(min(ext, 16)):
-            rel[i, :, d] = float(i * 16 + d + 1)
+    for d in range(min(ext, 240)):
+        rel[:, :, d] = float(d + 1)
     bias = torch.full((T + 128, H, padded), float("nan"),
                       dtype=torch.bfloat16, device=dev)
     cu = torch.tensor([0, T], dtype=torch.int32, device=dev)
@@ -74,10 +73,8 @@ def run(T: int, ext: int, window_left: int | None) -> dict:
         for col in range(padded):
             v = out[i, col].item()
             if v == v and v not in (float("-inf"), 0.0):  # not nan/-inf/pad
-                enc = round(v)
-                d = (enc - 1) % 16
-                src_i = (enc - 1) // 16
-                if src_i == i and d <= i:
+                d = round(v) - 1
+                if 0 <= d <= i and d < 240:
                     mapping[(i, i - d)] = col  # (row, kv) -> column
     return {"T": T, "ext": ext, "window_left": window_left,
             "map": {f"{i},{k}": c for (i, k), c in mapping.items()}}
@@ -87,7 +84,8 @@ def main() -> None:
     print(f"device: {torch.cuda.get_device_name(0)}")
     results = {}
     for name, T, ext, wl in [("causal_small", 12, 512, None),
-                             ("local_small", 12, 512, 511)]:
+                             ("local_small", 12, 512, 511),
+                             ("causal_two_blocks", 200, 512, None)]:
         try:
             res = run(T, ext, wl)
             m = {tuple(map(int, k.split(","))): v for k, v in res["map"].items()}
