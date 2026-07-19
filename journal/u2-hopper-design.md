@@ -278,3 +278,26 @@ Port can now proceed with no unknowns in the data layout.
   built+sheared for every arch) instead of dropping it for non-sm_100.
 - Gate order: compile -> parity backend (existing) -> local race vs
   score_mod -> H100 session.
+
+## v0 port: patch applied (2026-07-19), remaining plumbing for next session
+
+kernels/patches/u2_v0_generic_bias.py applied to WSL tree (12 edits,
+idempotent, re-runnable). DONE: Base ctor has_bias; SM80 __call__ mBias
+transpose+thread-through; kernel slice mBias_cur per head/offset;
+compute_one_n_block bias branch; apply_rel_bias (fragment-coord direct-gmem
+add, contract-verified shift; scale folded per score_mod convention);
+interface tile_n assert relaxed for arch families 8/12.
+
+REMAINING (compile-debug loop, next session):
+1. interface.py generic-family branch (~:989 sm_120, ~:868 sm_80): ctor
+   needs has_bias=bias is not None; the fa_fwd(...) invocation needs
+   mBias=bias kwarg. Find call site: grep "fa_fwd(" interface.py.
+2. Scale mode: flash_fwd __call__ uses compute_softmax_scale_log2(scale,
+   self.score_mod) — must behave as score_mod-mode when has_bias (bias adds
+   AFTER scaling; apply_rel_bias already pre-scales). Read utils.
+   compute_softmax_scale_log2, pass sentinel when has_bias.
+3. Drive with harness/parity_fa4_rel.py backend 1 (tml_fa4_rel_bias) on
+   sm_120 — SKIP should turn into real runs; expect DSL staging errors
+   first (tScS[i][0] SSA indexing pattern may need utils helpers like
+   softmax.py uses). Iterate.
+4. Speed race vs score_mod (microbench relprojT cases) once parity green.
