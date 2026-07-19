@@ -259,3 +259,22 @@ T=200 two-block case: 20,100/20,100 positions match
 - Contract JSON kept locally (parity_shear_writer.json regenerable).
 
 Port can now proceed with no unknowns in the data layout.
+
+## Generic-kernel insertion map (flash_fwd.py, WSL tree; final pre-code map)
+
+- Class: FlashAttentionForwardSm80 (:619) — sm_120 shim subclasses it.
+- SharedStorage: _get_shared_storage_cls (:648-666) — ADD sBias struct
+  (tile_m x tile_n bf16, 1024-aligned) to SharedStorageQKV (and budget
+  check in can_implement; sm_120 99KB: 128x64x2B=16KB fits).
+- Score site: mma_one_n_block (:1195-1220) — after gemm_qk / score_mod
+  hook (:1209), BEFORE softmax: ADD tile-level bias fragment add reading
+  sBias via the same thr_mma partition pattern as acc_S (tScS coords).
+- Load site: the load_K/load_V cp.async pattern (:1225-1233 shows
+  load_K_next) — ADD load_Bias(n_block) issuing a 2D cp.async block copy
+  from gBias at column offset n*128 + padded - 128*(m_block+1) (the
+  verified contract), same pipeline stages as K.
+- Plumbing: __call__ (:668+) takes mBias tensor; kernel signature +
+  launch (:786-801) thread it through; interface passes bias (already
+  built+sheared for every arch) instead of dropping it for non-sm_100.
+- Gate order: compile -> parity backend (existing) -> local race vs
+  score_mod -> H100 session.
