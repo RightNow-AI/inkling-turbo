@@ -34,3 +34,12 @@ dense MLP, sink experts BF16 via exclude_modules. Details: journal/day0-implemen
 ## B3 — sm_120 vs sm_100 FP4 MMA instruction set [OPEN, research]
 
 Known trap per spec: tcgen05 block-scaled FP4 MMA is sm_100/sm_103 only. Local RTX 5090 Laptop is sm_120. Every FP4 MMA instruction used in U1/U3 must be verified against the CURRENT PTX ISA per-arch table before use; local kernels may need an sm_120 variant that differs from the B200 (sm_100) deployment path. No instruction written from memory.
+
+## Owner decision 2026-07-19: Lambda-only, lean finish plan
+
+- Kernel development: local 5090 + 1x H100 validation sessions (~$0.60, proven).
+- Blackwell (sm_100) kernel sessions: whenever the B200 grabber catches a window.
+- Integration gate: ONE 8x H100 session (~$50) — 32-prompt logit parity, W4A16.
+- Finals: ONE 8x H100 session (~$100) — honest stock-vs-turbo e2e on Hopper.
+- 8x B200 flagship numbers: OPTIONAL, revisit only after kernel wins are proven.
+- No new providers (Modal/RunPod/Azure declined for now).
