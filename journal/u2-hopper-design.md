@@ -322,3 +322,26 @@ Plumbing verified end-to-end: rel_bias on sm_120 now reaches KERNEL STAGING
 Next: diff vllm_flash_attn/cute/{flash_fwd.py,seqlen_info.py} epilogue
 vs tml_fa4 copies; port the fix; rerun harness (repro: harness/repro_u2.py
 varlen version in git history).
+
+## v0 PARITY GREEN (global modes) — 2026-07-19
+
+Two more latent generic-path bugs found + fixed (findings #6, #7):
+6. pack_gqa=True default but tml_fa4 generic __call__ never calls
+   pack_gqa_layout (vllm_flash_attn copy does, :726-729) -> rank chaos in
+   epilogue. Fix: pack_gqa=False for arch families 8/12 (perf opt only).
+7. sm_120 shim leaves self.arch=sm_120 -> use_tma_O=True on the sm80-family
+   kernel which never configures TMA-O -> the :388 2D-view error (ragged
+   branch) AND :401 tma_atom None. Fix: use_tma_O=False in generic __call__.
+
+RESULT: tml_fa4 rel_bias path on sm_120 — global_short OK (7.8e-3),
+global_beyond_extent OK (1.56e-2) — IDENTICAL diffs to score_mod on the
+same inputs. The tile-level bias port produces correct attention.
+
+REMAINING: swa_512 (local mode) fails at JIT ARG marshaling
+(DSLRuntimeError "Internal Error" in _generate_jit_func_args) — an
+argument type in local mode the DSL can't marshal, NOT a kernel-math bug.
+Repro: harness/repro_u2.py (SWA variant). Debug: dump arg types passed to
+compile in local vs global mode; suspect window_size_right=0 vs None or a
+compile_key/exec-arg ordering divergence in the local branch.
+Then: speed race vs score_mod (global mode is enough for the kv64k decode
+headline), sm_90 port, H100 session.
