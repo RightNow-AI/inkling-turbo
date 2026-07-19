@@ -301,3 +301,24 @@ REMAINING (compile-debug loop, next session):
    first (tScS[i][0] SSA indexing pattern may need utils helpers like
    softmax.py uses). Iterate.
 4. Speed race vs score_mod (microbench relprojT cases) once parity green.
+
+## v0 debug state (2026-07-19, session end)
+
+Plumbing verified end-to-end: rel_bias on sm_120 now reaches KERNEL STAGING
+(was: instant assert). Current failure is NOT in apply_rel_bias:
+
+- varlen: MLIRError at Base.epilogue flash_fwd.py:388 —
+  `seqlen.offset_batch_Q(mO, batch_idx, dim=3, ragged=ragged)[None,None,head_idx]`
+  slices 3 coords on a 2D view. ragged=False here (use_tma_O False on
+  sm80-family), has_cu_seqlens_q=True -> domain_offset branch
+  (seqlen_info.py:176-184). Suspect pack_gqa packed rank-2 first mode or a
+  latent varlen bug in the never-compiled generic epilogue. NOTE score_mod
+  varlen works via vllm_flash_attn's SEPARATE copy of this code — diff the
+  two epilogues/offset_batch_Q first; the fix likely already exists there.
+- batch (non-varlen) form: dies earlier, `atom._trait` NoneType — TMA atom
+  None on sm80-family batch path (separate latent issue; deprioritize,
+  varlen is what vLLM uses).
+
+Next: diff vllm_flash_attn/cute/{flash_fwd.py,seqlen_info.py} epilogue
+vs tml_fa4 copies; port the fix; rerun harness (repro: harness/repro_u2.py
+varlen version in git history).
