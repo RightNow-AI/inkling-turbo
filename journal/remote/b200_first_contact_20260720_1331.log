@@ -1,0 +1,268 @@
+=== GPU ===
+NVIDIA H100 80GB HBM3, 81559 MiB, 570.148.08
+=== toolchain ===
+Cloning into 'vllm'...
+Updating files:   0% (2/6082)
+Updating files:   1% (61/6082)
+Updating files:   2% (122/6082)
+Updating files:   3% (183/6082)
+Updating files:   4% (244/6082)
+Updating files:   5% (305/6082)
+Updating files:   6% (365/6082)
+Updating files:   7% (426/6082)
+Updating files:   8% (487/6082)
+Updating files:   9% (548/6082)
+Updating files:  10% (609/6082)
+Updating files:  11% (670/6082)
+Updating files:  12% (730/6082)
+Updating files:  13% (791/6082)
+Updating files:  14% (852/6082)
+Updating files:  15% (913/6082)
+Updating files:  16% (974/6082)
+Updating files:  17% (1034/6082)
+Updating files:  18% (1095/6082)
+Updating files:  19% (1156/6082)
+Updating files:  20% (1217/6082)
+Updating files:  21% (1278/6082)
+Updating files:  22% (1339/6082)
+Updating files:  23% (1399/6082)
+Updating files:  24% (1460/6082)
+Updating files:  25% (1521/6082)
+Updating files:  26% (1582/6082)
+Updating files:  27% (1643/6082)
+Updating files:  28% (1703/6082)
+Updating files:  29% (1764/6082)
+Updating files:  30% (1825/6082)
+Updating files:  31% (1886/6082)
+Updating files:  32% (1947/6082)
+Updating files:  33% (2008/6082)
+Updating files:  34% (2068/6082)
+Updating files:  35% (2129/6082)
+Updating files:  36% (2190/6082)
+Updating files:  37% (2251/6082)
+Updating files:  38% (2312/6082)
+Updating files:  39% (2372/6082)
+Updating files:  40% (2433/6082)
+Updating files:  41% (2494/6082)
+Updating files:  42% (2555/6082)
+Updating files:  43% (2616/6082)
+Updating files:  44% (2677/6082)
+Updating files:  45% (2737/6082)
+Updating files:  46% (2798/6082)
+Updating files:  47% (2859/6082)
+Updating files:  48% (2920/6082)
+Updating files:  49% (2981/6082)
+Updating files:  50% (3041/6082)
+Updating files:  51% (3102/6082)
+Updating files:  52% (3163/6082)
+Updating files:  53% (3224/6082)
+Updating files:  54% (3285/6082)
+Updating files:  55% (3346/6082)
+Updating files:  56% (3406/6082)
+Updating files:  57% (3467/6082)
+Updating files:  58% (3528/6082)
+Updating files:  59% (3589/6082)
+Updating files:  60% (3650/6082)
+Updating files:  61% (3711/6082)
+Updating files:  62% (3771/6082)
+Updating files:  63% (3832/6082)
+Updating files:  64% (3893/6082)
+Updating files:  65% (3954/6082)
+Updating files:  66% (4015/6082)
+Updating files:  67% (4075/6082)
+Updating files:  68% (4136/6082)
+Updating files:  69% (4197/6082)
+Updating files:  70% (4258/6082)
+Updating files:  71% (4319/6082)
+Updating files:  72% (4380/6082)
+Updating files:  73% (4440/6082)
+Updating files:  74% (4501/6082)
+Updating files:  75% (4562/6082)
+Updating files:  76% (4623/6082)
+Updating files:  77% (4684/6082)
+Updating files:  78% (4744/6082)
+Updating files:  79% (4805/6082)
+Updating files:  80% (4866/6082)
+Updating files:  81% (4927/6082)
+Updating files:  82% (4988/6082)
+Updating files:  83% (5049/6082)
+Updating files:  84% (5109/6082)
+Updating files:  85% (5170/6082)
+Updating files:  86% (5231/6082)
+Updating files:  87% (5292/6082)
+Updating files:  88% (5353/6082)
+Updating files:  89% (5413/6082)
+Updating files:  90% (5474/6082)
+Updating files:  91% (5535/6082)
+Updating files:  92% (5596/6082)
+Updating files:  93% (5657/6082)
+Updating files:  94% (5718/6082)
+Updating files:  95% (5778/6082)
+Updating files:  96% (5839/6082)
+Updating files:  97% (5900/6082)
+Updating files:  98% (5961/6082)
+Updating files:  99% (6022/6082)
+Updating files: 100% (6082/6082)
+Updating files: 100% (6082/6082), done.
+vllm @ 850295881
+=== installing (precompiled) ===
+ + yarl==1.24.5
+ + z3-solver==4.15.4.0
+torch: 2.11.0+cu129 | capability: (9, 0)
+=== cutlass-4.6.0 API drift fixes (idempotent) ===
+nvvm-branch sites patched: 2
+inkling-turbo modified kernels deployed
+tml_fa4 import OK
+=== parity: FA4 rel attention (sheared path expected on sm_100) ===
+device: NVIDIA H100 80GB HBM3, capability (9, 0)
+[global_short] tml_fa4_rel_bias: max_diff=2.3828e+00 mean=1.5356e-01 FAIL(tol=0.02)
+[global_short] score_mod: max_diff=1.5625e-02 mean=2.0006e-04 OK
+[global_short] relproj_v1: FAILED: ModuleNotFoundError: No module named 'kernels'
+[global_beyond_extent] tml_fa4_rel_bias: max_diff=1.9869e+00 mean=5.1651e-02 FAIL(tol=0.02)
+[global_beyond_extent] score_mod: max_diff=7.8125e-03 mean=6.8233e-05 OK
+[global_beyond_extent] relproj_v1: FAILED: ModuleNotFoundError: No module named 'kernels'
+[swa_512] tml_fa4_rel_bias: max_diff=2.1562e+00 mean=6.0352e-02 FAIL(tol=0.02)
+[swa_512] score_mod: max_diff=1.5625e-02 mean=8.0092e-05 OK
+[swa_512] relproj_v1: FAILED: ModuleNotFoundError: No module named 'kernels'
+=== microbench: day-0 attention + gate at real shapes ===
+/home/ubuntu/vllm/.venv/lib/python3.12/site-packages/torch/profiler/profiler.py:224: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+device: NVIDIA H100 80GB HBM3, capability (9, 0)
+
+[prefill_global_8k] total 2609.5 us/iter
+       1676.9 us   64.3%  kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object
+        928.2 us   35.6%  kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptr
+          2.3 us    0.1%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_objec
+          2.1 us    0.1%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_
+
+[prefill_swa_8k] total 854.7 us/iter
+        462.0 us   54.1%  kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptr
+        388.5 us   45.5%  kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object
+          2.3 us    0.3%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_objec
+          1.8 us    0.2%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_
+
+[decode_b32_global_kv8k] total 109.8 us/iter
+         99.4 us   90.5%  kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object
+          6.7 us    6.1%  kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptr
+          2.0 us    1.8%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_objec
+          1.7 us    1.5%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_
+
+[decode_b32_global_kv64k] total 760.2 us/iter
+        749.6 us   98.6%  kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object
+          6.8 us    0.9%  kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptr
+          2.2 us    0.3%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_objec
+          1.7 us    0.2%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_
+
+[decode_b1_global_kv64k] total 745.7 us/iter
+        741.6 us   99.5%  kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object
+          4.1 us    0.5%  kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptr
+
+[gate_select_T1] total 4.2 us/iter
+          4.2 us  100.0%  _inkling_gate_select_kernel
+
+[gate_select_T4096] total 22.1 us/iter
+         22.1 us  100.0%  _inkling_gate_select_kernel
+
+saved: /home/ubuntu/microbench_attn_day0.json
+=== microbench: honest score_mod baseline (sm_90 production path) ===
+/home/ubuntu/vllm/.venv/lib/python3.12/site-packages/torch/profiler/profiler.py:224: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+/home/ubuntu/vllm/.venv/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py:2214: UserWarning: Argument aux_data (position 18) cannot be converted to a JitArgument for function 'cutlass___call___vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__Tensorgmemoi64i641_Tensorgmemoi64i641_Tensorgmemoi64i641_Tensorgmemoi64i641_None_00078125'. Its type `<class 'vllm.vllm_flash_attn.cute.utils.AuxData'>` is not supported. If the value is known at compile time, annotate it: `aux_data: Constexpr`. Otherwise, implement the `JitArgument` or `DynamicExpression` protocol for type `<class 'vllm.vllm_flash_attn.cute.utils.AuxData'>`, or register a custom argument adapter.
+  exe_args, func_types, adapted_args = self.generate_mlir_function_types(
+Traceback (most recent call last):
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 123, in main
+    profile_case(name, make())
+                       ^^^^^^
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 109, in <lambda>
+    lambda: attn_case(8192, 8192, 64, 8, 1024, None, mode="relproj")),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 65, in attn_case
+    from kernels.relproj_score_mod import (
+ModuleNotFoundError: No module named 'kernels'
+Traceback (most recent call last):
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 123, in main
+    profile_case(name, make())
+                       ^^^^^^
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 111, in <lambda>
+    lambda: attn_case(32, 65536, 64, 8, 1024, None, mode="relproj")),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 65, in attn_case
+    from kernels.relproj_score_mod import (
+ModuleNotFoundError: No module named 'kernels'
+Traceback (most recent call last):
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 123, in main
+    profile_case(name, make())
+                       ^^^^^^
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 113, in <lambda>
+    lambda: attn_case(1, 65536, 64, 8, 1024, None, mode="relproj")),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 65, in attn_case
+    from kernels.relproj_score_mod import (
+ModuleNotFoundError: No module named 'kernels'
+Traceback (most recent call last):
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 123, in main
+    profile_case(name, make())
+                       ^^^^^^
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 115, in <lambda>
+    lambda: attn_case(1, 65536, 64, 8, 1024, None, mode="relproj_v15")),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 65, in attn_case
+    from kernels.relproj_score_mod import (
+ModuleNotFoundError: No module named 'kernels'
+Traceback (most recent call last):
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 123, in main
+    profile_case(name, make())
+                       ^^^^^^
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 117, in <lambda>
+    lambda: attn_case(32, 65536, 64, 8, 1024, None, mode="relproj_v15")),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 65, in attn_case
+    from kernels.relproj_score_mod import (
+ModuleNotFoundError: No module named 'kernels'
+Traceback (most recent call last):
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 123, in main
+    profile_case(name, make())
+                       ^^^^^^
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 119, in <lambda>
+    lambda: attn_case(8192, 8192, 64, 8, 1024, None, mode="relproj_v15")),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/microbench_attn_scoremod.py", line 65, in attn_case
+    from kernels.relproj_score_mod import (
+ModuleNotFoundError: No module named 'kernels'
+device: NVIDIA H100 80GB HBM3, capability (9, 0)
+
+[prefill_global_8k] total 5341.7 us/iter
+       5341.7 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[prefill_swa_8k] total 952.3 us/iter
+        952.3 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[decode_b32_global_kv8k] total 328.2 us/iter
+        328.2 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[decode_b32_global_kv64k] total 2417.1 us/iter
+       2417.1 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[decode_b1_global_kv64k] total 2411.6 us/iter
+       2411.6 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[decode_b1_plain_kv64k] total 736.9 us/iter
+        736.9 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[decode_b32_plain_kv64k] total 737.7 us/iter
+        737.7 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[relproj_prefill_global_8k] FAILED:
+
+[relproj_decode_b32_kv64k] FAILED:
+
+[relproj_decode_b1_kv64k] FAILED:
+
+[relprojT_decode_b1_kv64k] FAILED:
+
+[relprojT_decode_b32_kv64k] FAILED:
+
+[relprojT_prefill_global_8k] FAILED:
+
+saved: /home/ubuntu/microbench_attn_scoremod.json
+=== BOOTSTRAP COMPLETE ===

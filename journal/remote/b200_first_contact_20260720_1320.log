@@ -1,0 +1,4 @@
+
+--- STDERR ---
+/home/ubuntu/bootstrap.sh: line 5: set: pipefail
+: invalid option name
