@@ -428,3 +428,28 @@ path) -> compile-check locally via cute.compile dry... NOT possible
 locally (needs sm_90 target GPU for JIT). => Validation is REMOTE-ONLY:
 bootstrap applies kernels/tml_fa4_modified/* + sm_90 edits, runs parity +
 microbench + ncu in ONE H100 session (~$1-2 with debug headroom).
+
+## sm_90 apply root cause (sessions 5-10, 2026-07-20)
+
+Sessions 6-7: speed TARGET HIT (745us vs plain 737us vs prod 2411 = 3.24x)
+but parity FAIL (bias misplaced, max ~2.3). Ruled out: warpgroup race
+(s7 lockstep, no change), fragment transpose (s9 coord-swap, no change).
+Session 8 debug dump fingerprint: 127/128 rows wrong, ROW 0 EXACT,
+per-16-row-block err decreasing.
+
+ROOT CAUSE: the wgmma accumulator fragment layout is
+((2,2,N/8), MMA_M, MMA_N) — it does NOT index linearly as (row, col).
+My apply paired acc_S[i] with partition_C(identity)[i] linearly, which is
+only valid for sm_80 m16n8 frags, not sm_90 wgmma. The PROOF this was the
+bug: the mask (AttentionMask.apply_mask, the only VERIFIED-correct
+per-element coordinate consumer on sm_90 — attention masks correctly
+without bias) never indexes linearly; it calls
+quack.layout_utils.reshape_acc_to_mn(acc) to get a clean 2D (m,n) view
+first, then indexes [r, c]. The tml_fa4 sm_90 apply_score_mod I originally
+mirrored is NOT proven — parity backend 2 uses vllm_flash_attn's separate
+copy, so I copied an unverified pattern.
+
+FIX (session 10): rewrote apply_rel_bias_sm90 to reshape_acc_to_mn both
+acc_S and the identity partition, then 2D [r,c] loop reading tile-local
+sBias[(row,col)]. The bias LOAD was verified correct independently (shear
+column map re-derived: sBias[r,c] = bias(global row m*128+r, kv n*128+c)).
