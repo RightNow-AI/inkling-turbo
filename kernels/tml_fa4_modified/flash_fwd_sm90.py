@@ -664,6 +664,9 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
                 blocksparse_tensors,
                 aux_tensors,
                 fastdiv_mods,
+                mBias,
+                sBias,
+                gmem_tiled_copy_Bias,
             )
 
     @cute.jit
