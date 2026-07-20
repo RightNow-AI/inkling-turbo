@@ -511,6 +511,11 @@ def _flash_attn_fwd(
         # bias tiles must never be partial: k_min is a multiple of 128,
         # so tile_n must divide 128 (journal/u2-hopper-design.md)
         tile_mn = (128, 128)
+    if rel_bias is not None and arch // 10 == 9 and intra_wg_overlap is None:
+        # single-buffer sBias cannot survive ping-pong warpgroup skew
+        # (session 6: corruption with overlap on). Lockstep for correctness;
+        # double-buffered sBias is the later perf pass.
+        intra_wg_overlap = False
     if tile_mn is None:
         if arch // 10 == 12:
             # SM120 tile sizes tuned for 99 KB SMEM capacity:
