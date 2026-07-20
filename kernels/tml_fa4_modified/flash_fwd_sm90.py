@@ -1567,13 +1567,12 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
         n_rows = cutlass.const_expr(cute.size(tScS_mn.shape[0]))
         n_cols = cutlass.const_expr(cute.size(tScS_mn.shape[1]))
         thr_col_offset = tScS_mn[0, 0][1]
-        padded_bias = mBias_cur.shape[1]
-        shift = padded_bias - 128 * (m_block + 1)
+        rel_extent = mBias_cur.shape[1]
         for r in cutlass.range(n_rows, unroll_full=True):
             row_g = m_block * self.tile_m + tScS_mn[r, 0][0]
             for c in cutlass.range(n_cols, unroll_full=True):
                 kv = n_block * self.tile_n + thr_col_offset + t0ScS_mn[0, c][1]
-                sheared_col = kv + shift
+                dist = row_g - kv
                 val = Float32(0.0)
                 if const_expr(_U2_DEBUG_SENTINEL):
                     acc_S_mn[r, c] = Float32(-1.0e30)
@@ -1581,16 +1580,16 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
                 elif const_expr(_U2_DEBUG_ZEROBIAS):
                     val = Float32(0.0)
                 elif const_expr(_U2_DEBUG_COLBIAS):
-                    if (sheared_col >= 0 and sheared_col < padded_bias
-                            and row_g < seqlen.seqlen_q):
+                    if row_g < seqlen.seqlen_q:
                         val = Float32(kv)
                 elif const_expr(_U2_DEBUG_ROWBIAS):
                     if row_g < seqlen.seqlen_q:
                         val = Float32(row_g)
-                elif (sheared_col >= 0 and sheared_col < padded_bias
+                elif (dist >= 0 and dist < rel_extent
                         and row_g < seqlen.seqlen_q):
-                    val = Float32(mBias_cur[row_g, sheared_col])
+                    val = Float32(mBias_cur[row_g, dist])
                 acc_S_mn[r, c] = acc_S_mn[r, c] * softmax_scale + val
+                _ = kv
 
     @cute.jit
     def apply_score_mod(

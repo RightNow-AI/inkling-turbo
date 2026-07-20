@@ -1167,6 +1167,11 @@ def _flash_attn_fwd(
                 paged_kv_non_tma=paged_kv_non_tma,
                 has_bias=bias is not None,
             )
+            if rel_bias is not None:
+                # sm_90 reads RAW rel_logits directly (dist = q - kv), skipping
+                # the sheared-tensor column mapping entirely (correctness-first;
+                # shear compute above is unused on this arch).
+                bias = rel_bias
         elif arch // 10 in [10, 11]:
             if qv is not None:
                 fa_fwd = FlashAttentionMLAForwardSm100(
