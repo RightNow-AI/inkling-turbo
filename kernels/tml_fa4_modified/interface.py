@@ -496,6 +496,13 @@ def _flash_attn_fwd(
         pack_gqa = False
     if arch // 10 in [10, 11] and (128 % qhead_per_kvhead != 0):
         pack_gqa = False
+    if arch // 10 == 9 and rel_bias is not None:
+        # sm_90 native bias v0: packed tile rows interleave 8 GQA q-heads per
+        # seq position, so the bias head-slice and the 128-row shear contract
+        # both break (session 24 root cause: fragment "+8 rows" stride ==
+        # Hq*padded == +1 seq row). Unpacked rows restore the sm_120-proven
+        # contract. Packed-bias addressing is the documented perf follow-up.
+        pack_gqa = False
     
     if pack_gqa:
         q_sf_interleaved = False

@@ -553,3 +553,38 @@ by make_tiled_copy_C; (2) retile of acc-shaped f32 fragment vs value
 grouping; (3) gmem->rmem cute.copy with universal atom. Probes kept:
 SENTINEL, ZEROBIAS. Coordinate probes removed (no coordinates exist).
 sm_120 parity re-run after interface edits: 3/3 GREEN (no regression).
+
+## SESSION 24 (2026-07-20): sm_90 NATIVE PARITY 3/3 GREEN + RACE WON
+
+ROOT CAUSE (the one behind all 17 sessions): PACK_GQA. The sm_90 native
+kernel packs qhead_per_kvhead=8 GQA q-heads per seq position into the score
+tile rows (128-row tile = 16 seq x 8 heads). Proof: partition_C fragment
+print showed the "+8 rows" wgmma submode with stride 81920 = Hq*padded =
++1 SEQ ROW under packing. Every prior bias scheme (linear, reshape_acc_to_mn
+coords, tiled_copy_C, partition_C) was actually correct-or-close on
+UNPACKED geometry and unfixable on packed geometry, because the bias
+head-slice (mBias[...,head_idx]) and the 128-row shear contract both assume
+rows == seq rows. The sm_100 kernel handles packed bias via group_tile_bias
+in the shear writer; sm_90 v0 instead forces pack_gqa=False for arch9+bias
+(interface), restoring the machine-verified sm_120 contract exactly.
+
+FINAL APPLY (v0, shipped): thr_mma_qk.partition_C(gBias_tile) — partition
+the sheared gmem tile with the SAME partitioner that produced acc_S; flat
+acc_S[i] pairs with tCgBias[i] by construction. No copy atom, no smem, no
+coordinates. (make_tiled_copy_C + universal atom gave the same partition —
+both were right; packing was the lie.) Debug flow that cracked it:
+PRINTFRAG probe (cute.print_tensor of the partitioned source) + harness-side
+probe biases through the real path (COLBIAS all-zero fragment -> content/
+addressing, stride print -> 81920 -> pack_gqa).
+
+H100 RESULTS (parity_fa4_rel 3/3: 1.56e-2 / 7.8e-3 / 7.8e-3):
+  decode_b1_global_kv64k:  905.6us total (901.6 attn) vs plain 742.6
+    -> bias costs +21% over plain; production: score_mod 2375 (2.6x),
+       relprojT 4162.7 (4.6x), relproj 6209.4 (6.9x)
+  decode_b32_global_kv64k: 897.2 vs relprojT 4068 (4.5x)
+  prefill_global_8k: 3362.3 total (2533.9 attn + 824.6 shear) vs
+    relprojT 8482.8 (2.5x total) / relproj 13049 (3.9x)
+  prefill_swa_8k: 1213.7 (748.8 attn + 461.1 shear)
+ShearingBias pre-kernel is now a visible cost (25-38% of prefill total) —
+optimization candidate. Perf follow-ups: packed-bias addressing (decode tile
+occupancy), split-KV decode, intra_wg_overlap re-enable, shear-writer fusion.
