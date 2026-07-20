@@ -160,6 +160,9 @@ def main() -> int:
         scp_to(ip, REPO / "scripts" / "bootstrap_b200.sh", "~/bootstrap.sh")
         for f in sorted((REPO / "harness").glob("*.py")):
             scp_to(ip, f, f"~/{f.name}")
+        ssh(ip, "mkdir -p ~/tml_fa4_modified", timeout=30)
+        for f in sorted((REPO / "kernels" / "tml_fa4_modified").glob("*.py")):
+            scp_to(ip, f, f"~/tml_fa4_modified/{f.name}")
         print(f"[{stamp()}] bootstrap starting (~15-25 min)", flush=True)
         r = ssh(ip, "bash ~/bootstrap.sh", timeout=2400)
         log = outdir / f"b200_first_contact_{datetime.now(timezone.utc):%Y%m%d_%H%M}.log"

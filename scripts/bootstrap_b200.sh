@@ -54,6 +54,10 @@ for p in glob.glob("vllm/third_party/tml_fa4/*.py"):
         open(p, "w").write(s.replace(old, new))
 print(f"nvvm-branch sites patched: {n}")
 PYEOF
+if [ -d ~/tml_fa4_modified ]; then
+  cp ~/tml_fa4_modified/*.py vllm/third_party/tml_fa4/
+  echo "inkling-turbo modified kernels deployed"
+fi
 python -c "import vllm.third_party.tml_fa4; print('tml_fa4 import OK')"
 
 echo "=== parity: FA4 rel attention (sheared path expected on sm_100) ==="

@@ -507,6 +507,10 @@ def _flash_attn_fwd(
         num_threads = 128
 
     fwd_cfg = FwdConfig(128, 128, True, True)  # default
+    if rel_bias is not None and arch // 10 == 9 and tile_mn is None:
+        # bias tiles must never be partial: k_min is a multiple of 128,
+        # so tile_n must divide 128 (journal/u2-hopper-design.md)
+        tile_mn = (128, 128)
     if tile_mn is None:
         if arch // 10 == 12:
             # SM120 tile sizes tuned for 99 KB SMEM capacity:
@@ -670,7 +674,7 @@ def _flash_attn_fwd(
         rel_extent_padded = rel_extent + 256
         assert rel_extent % 128 == 0
         assert tile_m == 128
-        assert tile_n == 128 or arch // 10 in [8, 12]
+        assert tile_n == 128 or arch // 10 in [8, 9, 12]
         assert (
             causal
             or window_size_left is None
@@ -1156,6 +1160,7 @@ def _flash_attn_fwd(
                 has_aux_tensors=aux_tensors is not None,
                 q_subtile_factor=q_subtile_factor,
                 paged_kv_non_tma=paged_kv_non_tma,
+                has_bias=bias is not None,
             )
         elif arch // 10 in [10, 11]:
             if qv is not None:
