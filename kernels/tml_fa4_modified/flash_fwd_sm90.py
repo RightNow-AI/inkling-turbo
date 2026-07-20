@@ -1547,27 +1547,34 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
         (row,col)-indexable). For global row i=m_block*tile_m+r, kv
         j=n_block*tile_n+c, the sheared column is j+padded-128*(m_block+1);
         out-of-range cols contribute 0 (the -inf right-pad handles causal)."""
+        # Mirror AttentionMask.apply_mask coordinate derivation EXACTLY (the
+        # only proven-correct sm_90 per-element consumer). swap_AB=False here
+        # so ROW=0, COL=1. Row is constant across a fragment row -> read once
+        # per r at [r,0]. Column needs this thread's base offset + thread-0's
+        # compile-time column pattern (each wgmma thread owns specific cols).
         acc_S_mn = layout_utils.reshape_acc_to_mn(acc_S)
         cS = cute.make_identity_tensor((self.tile_m, self.tile_n))
         tScS_mn = layout_utils.reshape_acc_to_mn(thr_mma_qk.partition_C(cS))
+        t0ScS_mn = layout_utils.reshape_acc_to_mn(
+            thr_mma_qk.get_slice(0).partition_C(cS)
+        )
         n_rows = cutlass.const_expr(cute.size(tScS_mn.shape[0]))
         n_cols = cutlass.const_expr(cute.size(tScS_mn.shape[1]))
+        thr_col_offset = tScS_mn[0, 0][1]
         padded_bias = mBias_cur.shape[1]
         shift = padded_bias - 128 * (m_block + 1)
         for r in cutlass.range(n_rows, unroll_full=True):
+            row_g = m_block * self.tile_m + tScS_mn[r, 0][0]
             for c in cutlass.range(n_cols, unroll_full=True):
-                row_g = m_block * self.tile_m + tScS_mn[r, c][0]
-                sheared_col = n_block * self.tile_n + tScS_mn[r, c][1] + shift
+                kv = n_block * self.tile_n + thr_col_offset + t0ScS_mn[0, c][1]
+                sheared_col = kv + shift
                 val = Float32(0.0)
                 if const_expr(_U2_DEBUG_ROWBIAS):
-                    # synthetic: bias = row_g (isolates coord derivation from
-                    # sheared-tensor content). Reference: bias(i,j)=i.
                     if row_g < seqlen.seqlen_q:
                         val = Float32(row_g)
-                else:
-                    if (sheared_col >= 0 and sheared_col < padded_bias
-                            and row_g < seqlen.seqlen_q):
-                        val = Float32(mBias_cur[row_g, sheared_col])
+                elif (sheared_col >= 0 and sheared_col < padded_bias
+                        and row_g < seqlen.seqlen_q):
+                    val = Float32(mBias_cur[row_g, sheared_col])
                 acc_S_mn[r, c] = acc_S_mn[r, c] * softmax_scale + val
 
     @cute.jit
