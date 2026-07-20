@@ -163,6 +163,7 @@ def main() -> int:
         ssh(ip, "mkdir -p ~/tml_fa4_modified ~/kernels && touch ~/kernels/__init__.py", timeout=30)
         scp_to(ip, REPO / "kernels" / "relproj_score_mod.py", "~/kernels/relproj_score_mod.py")
         scp_to(ip, REPO / "kernels" / "patches" / "u3_fp8_kv.py", "~/u3_fp8_kv.py")
+        scp_to(ip, REPO / "kernels" / "patches" / "u2_serving_route.py", "~/u2_serving_route.py")
         for f in sorted((REPO / "kernels" / "tml_fa4_modified").glob("*.py")):
             scp_to(ip, f, f"~/tml_fa4_modified/{f.name}")
         print(f"[{stamp()}] bootstrap starting (~15-25 min)", flush=True)
