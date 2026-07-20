@@ -1585,20 +1585,28 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
         cute.arch.barrier(
             barrier_id=7, number_of_threads=self.num_mma_threads
         )
+        # Mirror AttentionMask.apply_mask (the proven-correct sm_90 per-element
+        # coordinate consumer): reshape the wgmma accumulator to a clean 2D
+        # (m, n) view; the raw fragment layout is ((2,2,N/8),MMA_M,MMA_N) and
+        # does NOT index linearly as (row, col) (session 8-9: linear indexing
+        # left 127/128 rows misplaced). sBias is tile-local (row, col).
+        acc_S_mn = layout_utils.reshape_acc_to_mn(acc_S)
         cS = cute.make_identity_tensor((self.tile_m, self.tile_n))
-        tScS = thr_mma_qk.partition_C(cS)
-        n_vals = cutlass.const_expr(cute.size(acc_S.shape))
+        tScS_mn = layout_utils.reshape_acc_to_mn(thr_mma_qk.partition_C(cS))
+        n_rows = cutlass.const_expr(cute.size(tScS_mn.shape[0]))
+        n_cols = cutlass.const_expr(cute.size(tScS_mn.shape[1]))
         if tile_valid:
-            # sm_90 wgmma fragment identity coords are (col, row) — verified
-            # empirically (session 8 debug: 127/128 rows misplaced, row 0
-            # exact = transpose-invariant diagonal element).
-            for i in cutlass.range(0, n_vals, 1, unroll_full=True):
-                acc_S[i] = acc_S[i] * softmax_scale + Float32(
-                    sBias[(tScS[i][1], tScS[i][0])]
-                )
+            for r in cutlass.range(n_rows, unroll_full=True):
+                for c in cutlass.range(n_cols, unroll_full=True):
+                    row = tScS_mn[r, c][0]
+                    col = tScS_mn[r, c][1]
+                    acc_S_mn[r, c] = acc_S_mn[r, c] * softmax_scale + Float32(
+                        sBias[(row, col)]
+                    )
         else:
-            for i in cutlass.range(0, n_vals, 1, unroll_full=True):
-                acc_S[i] = acc_S[i] * softmax_scale
+            for r in cutlass.range(n_rows, unroll_full=True):
+                for c in cutlass.range(n_cols, unroll_full=True):
+                    acc_S_mn[r, c] = acc_S_mn[r, c] * softmax_scale
 
     @cute.jit
     def apply_score_mod(
