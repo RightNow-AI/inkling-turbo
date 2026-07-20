@@ -73,6 +73,7 @@ python ~/parity_fa4_rel.py --debug || true
 echo "=== U2 synthetic row-bias probe (isolates coord derivation) ==="
 U2_DEBUG_SENTINEL=1 python ~/parity_fa4_rel.py --debug || true
 U2_DEBUG_ZEROBIAS=1 python ~/parity_fa4_rel.py --debug || true
+U2_DEBUG_DISTBIAS=1 python ~/parity_fa4_rel.py --debug || true
 U2_DEBUG_COLBIAS=1 python ~/parity_fa4_rel.py --debug || true
 U2_DEBUG_ROWBIAS=1 python ~/parity_fa4_rel.py --debug || true
 

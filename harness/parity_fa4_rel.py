@@ -235,6 +235,16 @@ def debug_dump(T: int = 128, Hq: int = 8, Hkv: int = 1, ext: int = 1024) -> None
               "mean:", round(e.mean().item(), 6),
               "(GREEN => scale/wiring correct)")
         import sys; sys.exit(0)
+    if os.environ.get("U2_DEBUG_DISTBIAS") == "1":
+        ii = torch.arange(T).view(T, 1, 1).float()
+        dd = torch.arange(ext).view(1, 1, ext).float()
+        rb2 = dd.expand(T, Hq, ext).contiguous()  # rb2[i,h,d]=d => bias(i,j)=i-j=dist
+        ref_d = reference_rel_attention(q, k, v, rb2.to(torch.bfloat16).to(dev), 1.0 / D, None)
+        e = (out.float() - ref_d.float()).abs()
+        print("DIAG DISTBIAS: kernel-vs-distref max:", round(e.max().item(), 4),
+              "mean:", round(e.mean().item(), 6),
+              "(GREEN => dist=row-kv correct => bug is tensor content)")
+        import sys; sys.exit(0)
     if os.environ.get("U2_DEBUG_COLBIAS") == "1":
         ii = torch.arange(T).view(T, 1, 1).float()
         dd = torch.arange(ext).view(1, 1, ext).float()

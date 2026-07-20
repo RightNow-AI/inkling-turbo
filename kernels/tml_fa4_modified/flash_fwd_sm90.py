@@ -24,6 +24,7 @@ import os as _os
 _U2_DEBUG_ROWBIAS = _os.environ.get("U2_DEBUG_ROWBIAS") == "1"
 _U2_DEBUG_ZEROBIAS = _os.environ.get("U2_DEBUG_ZEROBIAS") == "1"
 _U2_DEBUG_COLBIAS = _os.environ.get("U2_DEBUG_COLBIAS") == "1"
+_U2_DEBUG_DISTBIAS = _os.environ.get("U2_DEBUG_DISTBIAS") == "1"
 _U2_DEBUG_SENTINEL = _os.environ.get("U2_DEBUG_SENTINEL") == "1"
 
 from vllm.third_party.tml_fa4.cute_dsl_utils import assume_tensor_aligned
@@ -1579,6 +1580,10 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
                     val = Float32(0.0)
                 elif const_expr(_U2_DEBUG_ZEROBIAS):
                     val = Float32(0.0)
+                elif const_expr(_U2_DEBUG_DISTBIAS):
+                    if (dist >= 0 and dist < rel_extent
+                            and row_g < seqlen.seqlen_q):
+                        val = Float32(dist)
                 elif const_expr(_U2_DEBUG_COLBIAS):
                     if row_g < seqlen.seqlen_q:
                         val = Float32(kv)
