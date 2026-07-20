@@ -18,7 +18,7 @@ This repository is still a kernel-development release, not a claim of end-to-end
 
 ### U2: tile-level sheared-bias attention
 
-Inkling attention has no RoPE. It adds learned relative-position terms to the pre-softmax scores. The day-0 Hopper path applies those terms through a per-score callback, while the Blackwell path uses a sheared layout. U2 loads a contiguous bias tile and applies it to the score fragment before softmax. The generic path is complete at its per-op gate; the Hopper port is still in final debug.
+Inkling attention has no RoPE. It adds learned relative-position terms to the pre-softmax scores. The day-0 Hopper path applies those terms through a per-score callback, while the Blackwell path uses a sheared layout. U2 loads a contiguous bias tile and applies it to the score fragment before softmax. The generic path is complete at its per-op gate and is also parity-proven on H100. The native Hopper kernel applies the sheared tile through the same tiled-copy machinery the kernel already uses for its P matrix, and is awaiting its architecture-local gate.
 
 The replacement keeps Inkling's attention math intact:
 
@@ -30,7 +30,7 @@ The replacement keeps Inkling's attention math intact:
 | Architecture | Status | Current evidence |
 |---|---|---|
 | `sm_120` | Done for the current per-op gate | Parity 3/3 and faster than the day-0 `score_mod` path on all reported local cases. These are relative-only local measurements, not serving numbers. [Journal](journal/u2-hopper-design.md#v1-complete-parity-33--beats-score_mod-on-every-case-2026-07-19) |
-| `sm_90` | In final debug | One H100 flight reached 745.7 us versus 736.9 us plain attention and 2411 us production, but parity failed with maximum error around 2.3. That speed is not a release claim until parity is green. [Ledger](LEDGER.md#spend), [debug journal](journal/u2-hopper-design.md#sm_90-apply-root-cause-sessions-5-10-2026-07-20) |
+| `sm_90` | Correctness proven on-architecture; native fast kernel in validation | Parity passed 3/3 on H100 (max error 7.8e-3) through the generic-routed reference path, which is correct but roughly 31x slower than the production baseline and ships only as a correctness reference. The native wgmma kernel now applies bias through a `make_tiled_copy_C` partition (no per-element coordinate mapping) and is awaiting its architecture-local parity and speed gate. No sm_90 speed claim is made until that gate is green. [Session 23](journal/u2-hopper-design.md#session-23-2026-07-20-sm_90-correctness-achieved--via-generic-routing), [port design](journal/u2-hopper-design.md#session-24-prep-2026-07-20-native-tiled_copy_c-port-implemented-untested-on-arch) |
 | `sm_100` / `sm_110` | Pending hardware capacity | The Blackwell variants have not received the required architecture-local validation. No Blackwell performance number is claimed. [Blockers](BLOCKERS.md#owner-decision-2026-07-19-lambda-only-lean-finish-plan) |
 
 The implementation and reproducible patch sequence live under `kernels/tml_fa4_modified/` and `kernels/patches/`. Earlier correct-but-slow variants remain as evidence of rejected designs rather than being presented as wins.
@@ -84,9 +84,9 @@ This command can incur external GPU charges and requires provider credentials. S
 
 ## Roadmap
 
-1. Finish `sm_90` U2 parity, then rerun the H100 race and profiler gate.
+1. Validate the native `sm_90` U2 tiled-copy kernel on H100 (parity, then the race and profiler gate). Correctness on `sm_90` is already established through the reference routing.
 2. Validate the `sm_100` and `sm_110` U2 variants when Blackwell capacity is available.
-3. Add U3 quantized paged KV with per-block scales, validated separately per architecture.
+3. Validate U3 quantized paged KV per architecture. Its per-op parity is green locally (2/2 on `sm_120`); H100 and integration-level checks are pending.
 4. Run the full prompt-level parity and batched-consistency integration gate.
 5. Run stock-versus-turbo end-to-end serving sweeps on the same 8-GPU system and publish median, best, latency, throughput, and raw artifacts together.
 6. Upstream the kernel and compatibility fixes after tracker duplicate checks.

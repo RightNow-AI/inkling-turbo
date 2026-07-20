@@ -21,7 +21,7 @@ Baseline reference (external claim, NOT ours): vLLM day-0 blog reports 380 tok/s
 | U1 | fused NVFP4 MoE grouped GEMM | null | null | null | null | — |
 | U2 | rel-attn prefill | null | null | null | null | — |
 | U2 | rel-attn split-KV decode | null | null | null | null | — |
-| U3 | quantized paged KV | null | null | null | null | — |
+| U3 | quantized paged KV | null | null | per-op 2/2 local sm_120 (2026-07-20, parity_kv_fp8.py); arch-local + 32/32 pending | null | — |
 | U4 | router+dispatch fusion | null | null | null | null | — |
 | U5 | QKVR fused GEMM | null | null | null | null | — |
 | U6 | graphs+overlap | n/a (timeline) | null | null | null | — |
