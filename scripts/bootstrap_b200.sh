@@ -63,6 +63,9 @@ python -c "import vllm.third_party.tml_fa4; print('tml_fa4 import OK')"
 echo "=== parity: FA4 rel attention (sheared path expected on sm_100) ==="
 python ~/parity_fa4_rel.py || true
 
+echo "=== U2 sm_90 mapping debug dump ==="
+python ~/parity_fa4_rel.py --debug || true
+
 echo "=== microbench: day-0 attention + gate at real shapes ==="
 python ~/microbench_attn_day0.py || true
 

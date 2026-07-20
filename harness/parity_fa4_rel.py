@@ -189,4 +189,54 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import sys as _s
+    if "--debug" not in _s.argv:
+        main()
+
+
+def debug_dump(T: int = 128, Hq: int = 8, Hkv: int = 1, ext: int = 1024) -> None:
+    """sm_90 mapping diagnostic: per-position |err| structure of the bias
+    path vs reference, dumped as JSON heatmap summaries."""
+    import json
+    from pathlib import Path
+
+    torch.manual_seed(7)
+    dev = "cuda"
+    D = 128
+    q = torch.randn(T, Hq, D, dtype=torch.bfloat16, device=dev) / (D**0.25)
+    k = torch.randn(T, Hkv, D, dtype=torch.bfloat16, device=dev) / (D**0.25)
+    v = torch.randn(T, Hkv, D, dtype=torch.bfloat16, device=dev)
+    r = torch.randn(T, Hq, 16, dtype=torch.bfloat16, device=dev) * 0.4
+    proj = torch.randn(16, ext, dtype=torch.bfloat16, device=dev) * 0.3
+    rel = (r.float() @ proj.float()).to(torch.bfloat16)
+    cu = torch.tensor([0, T], dtype=torch.int32, device=dev)
+    ref = reference_rel_attention(q, k, v, rel, 1.0 / D, None)
+
+    from vllm.third_party.tml_fa4 import flash_attn_varlen_func
+
+    out = flash_attn_varlen_func(
+        q=q, k=k, v=v, rel_bias=rel, cu_seqlens_q=cu, cu_seqlens_k=cu,
+        max_seqlen_q=T, max_seqlen_k=T, softmax_scale=1.0 / D, causal=True)
+    if isinstance(out, tuple):
+        out = out[0]
+    err = (out.float() - ref.float()).abs().amax(dim=-1)  # (T, Hq) rowwise
+    per_row = err[:, 0]
+    rows_bad = (per_row > 2e-2).nonzero().flatten().tolist()
+    d = {
+        "rows_bad_h0": rows_bad,
+        "per_row_err_h0": [round(x, 4) for x in per_row.tolist()],
+        "per_head_maxerr": [round(x, 4) for x in err.amax(0).tolist()],
+        "err_row_blocks_of_16": [
+            round(per_row[i:i + 16].max().item(), 4) for i in range(0, T, 16)
+        ],
+    }
+    p = Path.home() / "u2_debug_dump.json"
+    p.write_text(json.dumps(d, indent=1))
+    print("DEBUG rows_bad count:", len(rows_bad), "of", T)
+    print("DEBUG per-16-row-block max err:", d["err_row_blocks_of_16"])
+    print("DEBUG per-head max err:", d["per_head_maxerr"])
+    print("saved:", p)
+
+
+if __name__ == "__main__" and "--debug" in __import__("sys").argv:
+    debug_dump()
