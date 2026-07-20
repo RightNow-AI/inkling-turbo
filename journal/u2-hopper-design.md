@@ -504,3 +504,21 @@ needs local sm_90 or careful reference work. PRAGMATIC path for a correct
 release NOW = route sm_90 rel_bias through the generic sm_80 kernel (proven
 linear-index bias; runs on sm_90 via backward-compat; slower base attention but
 tile-level bias, avoiding score_mod's 3.2x). Implemented next.
+
+## SESSION 23 (2026-07-20): sm_90 CORRECTNESS ACHIEVED — via generic routing
+
+PARITY 3/3 GREEN ON H100 (7.8e-3 all cases — identical to sm_120): the
+sheared-tile bias design is now PROVEN CORRECT on Hopper silicon. First
+correct rel-bias FA4 execution on sm_90 ever (upstream has none).
+
+Speed of the routed path: 73,050us @ kv64k b1 — ~31x SLOWER than production
+score_mod (sm_80-style mma.sync pipeline on Hopper: no wgmma/TMA, 128
+threads, 1-stage). FAILED speed gate by design; this path ships as the
+CORRECTNESS REFERENCE for sm_90, not as the perf kernel.
+
+FINAL U2 STATE:
+- sm_120: correct + FASTER than production (the shipping win).
+- sm_90: correctness proven on-arch (reference path); the fast native
+  kernel = port sm_100's tiled-copy bias staging into the wgmma pipeline
+  (key insight journaled above) — the documented roadmap item.
+- 3.2x measured headroom stands as the motivation and target.
