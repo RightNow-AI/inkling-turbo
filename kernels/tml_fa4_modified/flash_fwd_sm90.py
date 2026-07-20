@@ -1567,12 +1567,14 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
         )
         n_rows = cutlass.const_expr(cute.size(tScS_mn.shape[0]))
         n_cols = cutlass.const_expr(cute.size(tScS_mn.shape[1]))
-        thr_col_offset = tScS_mn[0, 0][1]
         rel_extent = mBias_cur.shape[1]
         for r in cutlass.range(n_rows, unroll_full=True):
-            row_g = m_block * self.tile_m + tScS_mn[r, 0][0]
             for c in cutlass.range(n_cols, unroll_full=True):
-                kv = n_block * self.tile_n + thr_col_offset + t0ScS_mn[0, c][1]
+                # This thread's OWN fragment coordinate at [r,c] — direct, no
+                # thread-pattern assumption (the mask's t0+offset trick is a
+                # perf optimization; direct is the fundamental correct form).
+                row_g = m_block * self.tile_m + tScS_mn[r, c][0]
+                kv = n_block * self.tile_n + tScS_mn[r, c][1]
                 dist = row_g - kv
                 val = Float32(0.0)
                 if const_expr(_U2_DEBUG_SENTINEL):
