@@ -35,7 +35,8 @@ Baseline reference (external claim, NOT ours): vLLM day-0 blog reports 380 tok/s
 | 2026-07-18 | Lambda 1x H100 SXM5 (us-south-2) | 0.14 h | $0.61 | Session 2: score_mod parity re-green post-rename; found 4th drift (fmax/atomicrmw nvvm branch keyed to CUDA 12.9 instead of DSL version) — tml-fa4 direct sm_90 path still blocked; gate timings reproduced (4.3/22.2us, stable across sessions). Auto-terminated. |
 | 2026-07-18 | Lambda 1x H100 SXM5 (us-south-2) | 0.14 h | $0.61 | Session 3: all drift fixes green; sm_90 rel_bias path runs but is NUMERICALLY WRONG (max_diff 0.9-1.6, harness catch #1); indicative attn timings captured (decode kv64k b32~=b1: KV-bound, supports U3). Auto-terminated. |
 | 2026-07-18 | Lambda 1x H100 SXM5 (us-south-2) | 0.13 h | $0.56 | Session 4 HONEST BASELINE: sm_90 production score_mod path = 2375us @ b1/kv64k decode vs 743us plain attention (3.2x overhead measured); num_splits=1 confirmed production on sm_90; gate stable 4th session. Auto-terminated. |
-| | | | **$2.33 total** | |
+| 2026-07-20 | Lambda 1x H100 x3 (sessions 5-7) | 0.39 h | $1.65 | sm_90 U2 kernel first flights: s5 CRLF abort; s6 SPEED TARGET HIT (745.7us vs plain 736.9 vs prod 2411 = 3.24x available) but parity FAIL (misplaced bias, max ~2.3); s7 warpgroup-lockstep fix — no change (race ruled out). Debug-dump payload next. All auto-terminated. |
+| | | | **$3.98 total** | |
 
 ## last_error
 
