@@ -1581,7 +1581,8 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
                 elif const_expr(_U2_DEBUG_ZEROBIAS):
                     val = Float32(0.0)
                 elif const_expr(_U2_DEBUG_COLBIAS):
-                    if row_g < seqlen.seqlen_q:
+                    if (sheared_col >= 0 and sheared_col < padded_bias
+                            and row_g < seqlen.seqlen_q):
                         val = Float32(kv)
                 elif const_expr(_U2_DEBUG_ROWBIAS):
                     if row_g < seqlen.seqlen_q:
