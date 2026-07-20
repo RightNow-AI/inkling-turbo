@@ -55,9 +55,14 @@ for p in glob.glob("vllm/third_party/tml_fa4/*.py"):
 print(f"nvvm-branch sites patched: {n}")
 PYEOF
 if [ -d ~/tml_fa4_modified ]; then
-  cp ~/tml_fa4_modified/*.py vllm/third_party/tml_fa4/
-  echo "inkling-turbo modified kernels deployed"
+  # Deploy to the RESOLVED package path (precompiled install may import
+  # tml_fa4 from site-packages, not the source tree).
+  TML_PKG=$(python -c "import vllm.third_party.tml_fa4 as m, os; print(os.path.dirname(m.__file__))")
+  echo "resolved tml_fa4 package dir: $TML_PKG"
+  cp ~/tml_fa4_modified/*.py "$TML_PKG/"
+  echo "inkling-turbo modified kernels deployed to $TML_PKG"
 fi
+python -c "import vllm.third_party.tml_fa4.flash_fwd_sm90 as m; src=open(m.__file__).read(); print('DEPLOY_CHECK file:', m.__file__); print('DEPLOY_CHECK mask-exact present:', 'thr_col_offset' in src)"
 python -c "import vllm.third_party.tml_fa4; print('tml_fa4 import OK')"
 
 echo "=== parity: FA4 rel attention (sheared path expected on sm_100) ==="
