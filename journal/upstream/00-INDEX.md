@@ -15,3 +15,24 @@ journal/u2-hopper-design.md. Fix artifacts: scripts/apply_local_sm120_fixes.sh,
 scripts/bootstrap_b200.sh (drift section), kernels/tml_fa4_modified/.
 
 Status: DRAFTED. To file: dup-check trackers -> post -> link back here.
+
+## Duplicate-check record (2026-07-21, per vllm AGENTS.md)
+
+Queries run via `gh search issues` / `gh issue list` (account jaberjaber23):
+- vllm-project/vllm: "inkling rel_bias", "tml-fa4", "inkling attention",
+  "rel_bias ignored", "cutlass 4.6 make_fragment", "sheared bias" -> ALL EMPTY
+- vllm-project/tml-fa4: full issue list (state all) -> ZERO issues; open PRs -> none
+
+No existing issue or PR covers any indexed finding. Trackers are clear to
+file after release. Re-run the sweep immediately before actually filing.
+
+## Finding 04 (new, 2026-07-21): pack_gqa x row-semantics interaction
+
+tml-fa4's pack_gqa packs qhead_per_kvhead q-heads into score-tile rows.
+Nothing in the sm_90/sm_80 kernel API surfaces this to row-indexed features;
+the sheared-bias contract (128-row blocks) and any head-sliced per-row
+tensor silently break. Evidence: session 24 stride print (81920 = Hq*padded
+= +1 seq row where +8 tile rows expected), then parity 3/3 after forcing
+pack_gqa=False. sm_100 handles it via group_tile_bias in the shear writer;
+the generic path never packs (finding 03 context). Filing shape: doc/API
+note + the working native sm_90 sheared-bias port as the reference fix.
