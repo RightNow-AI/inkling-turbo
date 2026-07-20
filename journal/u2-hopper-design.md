@@ -399,3 +399,32 @@ the sm_90 port (vectorized smem reads, pipeline the bias copy).
 NEXT: port this working machinery to flash_fwd_sm90.py (same edits, sm_90
 kernel file), then ONE H100 session: parity + race vs the 2375us prod
 baseline + ncu. Target: <=1.1x plain (743us) => ~3x捕获.
+
+## sm_90 port map (2026-07-20, in progress)
+
+tml_fa4/flash_fwd_sm90.py (1543 lines): warp-specialized — producer warp
+(TMA, 32 thr, :212) + consumer MMA warpgroups; smem struct :119-157;
+kernel :402; consumer mma region ~:943+ (wgmma partitions :972).
+
+Port plan (translate proven generic-kernel machinery):
+1. ctor: has_bias already accepted via Base.__init__ (shared!). sm_90
+   __call__ needs mBias param + transpose + kernel threading (mirror
+   generic edits; __call__ :157, kernel :402).
+2. smem: add sBias (tile_m x tile_n bf16; sm_90 tile_n larger — check
+   _tile_size_fwd_sm90; 128x128x2 = 32KB fits 228KB budget) to storage
+   struct :119-157.
+3. Load: CONSUMER-side cp.async (bypasses the TMA producer pipeline —
+   simplest correct port; producer-pipeline integration is a later perf
+   pass). Issue at n-block start in the consumer loop, cp_async_wait +
+   barrier before apply.
+4. Apply: after QK wgmma scores in rmem, before online_softmax — same
+   apply_rel_bias_smem (identity tensor partition_C coords work the same
+   for wgmma fragments).
+5. Interface: sm_90 ctor call gets has_bias=bias is not None; window-arg
+   Int32 wrap already global; compile/exec sites for sm_90 branch need
+   mBias appended (mirror generic sites).
+Gate: parity harness backend 1 runs on H100 only (sm_120 lacks sm_90
+path) -> compile-check locally via cute.compile dry... NOT possible
+locally (needs sm_90 target GPU for JIT). => Validation is REMOTE-ONLY:
+bootstrap applies kernels/tml_fa4_modified/* + sm_90 edits, runs parity +
+microbench + ncu in ONE H100 session (~$1-2 with debug headroom).
