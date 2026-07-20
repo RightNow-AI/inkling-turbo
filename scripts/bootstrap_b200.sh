@@ -71,6 +71,8 @@ python ~/parity_fa4_rel.py || true
 echo "=== U2 sm_90 mapping debug dump ==="
 python ~/parity_fa4_rel.py --debug || true
 echo "=== U2 synthetic row-bias probe (isolates coord derivation) ==="
+U2_DEBUG_ZEROBIAS=1 python ~/parity_fa4_rel.py --debug || true
+U2_DEBUG_COLBIAS=1 python ~/parity_fa4_rel.py --debug || true
 U2_DEBUG_ROWBIAS=1 python ~/parity_fa4_rel.py --debug || true
 
 echo "=== microbench: day-0 attention + gate at real shapes ==="

@@ -221,6 +221,25 @@ def debug_dump(T: int = 128, Hq: int = 8, Hkv: int = 1, ext: int = 1024) -> None
     if isinstance(out, tuple):
         out = out[0]
 
+    if os.environ.get("U2_DEBUG_ZEROBIAS") == "1":
+        ref_plain = reference_rel_attention(q, k, v, torch.zeros_like(rel), 1.0 / D, None)
+        e = (out.float() - ref_plain.float()).abs()
+        print("DIAG ZEROBIAS: kernel-vs-plain max:", round(e.max().item(), 4),
+              "mean:", round(e.mean().item(), 6),
+              "(GREEN => scale/wiring correct)")
+        import sys; sys.exit(0)
+    if os.environ.get("U2_DEBUG_COLBIAS") == "1":
+        rb2 = torch.zeros(T, Hq, ext)
+        # bias(i,j)=j means rel_logits[i,h,dist]=i-dist (since j=i-dist)
+        ii = torch.arange(T).view(T, 1, 1).float()
+        dd = torch.arange(ext).view(1, 1, ext).float()
+        rb2 = (ii - dd)
+        ref_col = reference_rel_attention(q, k, v, rb2.to(torch.bfloat16).to(dev), 1.0 / D, None)
+        e = (out.float() - ref_col.float()).abs()
+        print("DIAG COLBIAS: kernel-vs-colref max:", round(e.max().item(), 4),
+              "mean:", round(e.mean().item(), 6),
+              "(GREEN => column derivation correct)")
+        import sys; sys.exit(0)
     if os.environ.get("U2_DEBUG_ROWBIAS") == "1":
         # synthetic bias(i,j) = i (row index): kernel adds Float32(row_g)
         row_bias = torch.arange(T, device=dev).view(T, 1, 1).expand(T, Hq, ext).to(torch.bfloat16).float()
