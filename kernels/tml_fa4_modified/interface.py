@@ -32,6 +32,11 @@ from vllm.third_party.tml_fa4.cute_dsl_utils import (
 )
 from vllm.third_party.tml_fa4.flash_fwd import FlashAttentionForwardSm80
 from vllm.third_party.tml_fa4.flash_fwd_sm90 import FlashAttentionForwardSm90
+
+# sm_90 rel_bias defaults to the native wgmma kernel (tiled_copy_C bias).
+# U2_SM90_GENERIC=1 restores the proven-but-slow generic routing as the
+# on-device correctness reference (parity 3/3 on H100, session 23).
+_U2_SM90_GENERIC = os.environ.get("U2_SM90_GENERIC") == "1"
 from vllm.third_party.tml_fa4.flash_fwd_sm100 import FlashAttentionForwardSm100
 from vllm.third_party.tml_fa4.flash_fwd_sm120 import FlashAttentionForwardSm120
 from vllm.third_party.tml_fa4.flash_fwd_combine import FlashAttentionForwardCombine
@@ -503,7 +508,9 @@ def _flash_attn_fwd(
     current_stream = cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True)
 
     # SM80/SM120: uses SM80 MMA, 128 threads (4 warps)
-    if arch // 10 in [8, 12] or (arch // 10 == 9 and rel_bias is not None):
+    if arch // 10 in [8, 12] or (
+        arch // 10 == 9 and rel_bias is not None and _U2_SM90_GENERIC
+    ):
         num_threads = 128
 
     fwd_cfg = FwdConfig(128, 128, True, True)  # default
@@ -1121,10 +1128,13 @@ def _flash_attn_fwd(
         #     print("sfv torch shape = ", sfv.shape)
         sfv_tensor = to_cute_tensor(sfv) if v_blockscaled else None
 
-        if arch // 10 == 8 or (arch // 10 == 9 and bias is not None):
-            # sm_90 + rel_bias routes through the generic kernel: its sheared
-            # smem-tile bias is parity-PROVEN (sm_120); the sm_90-native wgmma
-            # fragment mapping needs sm_100-style tiled-copy staging (journal).
+        if arch // 10 == 8 or (
+            arch // 10 == 9 and bias is not None and _U2_SM90_GENERIC
+        ):
+            # U2_SM90_GENERIC=1: sm_90 + rel_bias routes through the generic
+            # kernel — sheared smem-tile bias, parity-PROVEN on sm_120 AND
+            # H100 (session 23) but ~31x slower; kept as the A/B correctness
+            # reference for the native tiled_copy_C path.
             assert page_table is None, "paged KV not supported on generic path"
             assert not is_split_kv, "SplitKV not supported on generic path"
             fa_fwd = FlashAttentionForwardSm80(

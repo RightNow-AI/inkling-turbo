@@ -522,3 +522,34 @@ FINAL U2 STATE:
   kernel = port sm_100's tiled-copy bias staging into the wgmma pipeline
   (key insight journaled above) — the documented roadmap item.
 - 3.2x measured headroom stands as the motivation and target.
+
+## SESSION 24 PREP (2026-07-20): native tiled_copy_C port IMPLEMENTED (untested on-arch)
+
+Design deviation from sm_100 (deliberate): NO smem staging, NO TMA. The
+sheared gmem tile is partitioned DIRECTLY with
+make_tiled_copy_C(universal_32b_atom, tiled_mma_qk) -- the same machinery as
+the proven P-store (flash_fwd_sm90.py:1026) in the load direction:
+  rBias = make_rmem_tensor_like(acc_S, Float32)   # acc-layout registers
+  tBrBias = bias_thr_copy_C.retile(rBias)          # copy-layout view
+  cute.copy(bias_thr_copy_C, tBgBias[..., tile_idx], tBrBias)
+  acc_S[i] = acc_S[i]*scale + rBias[i]             # flat, zero coordinates
+Why sound: partition_S orders gmem elements in this thread MMA-C order;
+retile pairs them with acc-layout registers; correspondence acc_S[i]<->rBias[i]
+holds because rBias is allocated with acc_S exact layout. The impossible
+manual fragment->column mapping never happens. Tile addressing reuses the
+v1-proven tile-index shift (padded//tile_n - 128*(m_block+1)//tile_n) plus a
+new upper-bound guard (tile_idx < padded//tile_n) for decode robustness.
+Same traffic as smem staging (each bias element read once, L2-cached), fewer
+moving parts: no SharedStorage growth (dead v1 sBias alloc zeroed), no
+barrier, no producer thread-count trap (the session 6-10 root cause).
+
+Interface: native sm_90 is DEFAULT again; U2_SM90_GENERIC=1 restores generic
+routing as the on-box A/B correctness reference. tile_mn stays forced
+(128,128) (shear contract: 128-row blocks; tile_n | 128 and tile_n | padded);
+intra_wg_overlap stays False for v0 (re-enable = perf pass after green).
+
+Compile-time risks for the parked session: (1) CopyUniversalOp atom accepted
+by make_tiled_copy_C; (2) retile of acc-shaped f32 fragment vs value
+grouping; (3) gmem->rmem cute.copy with universal atom. Probes kept:
+SENTINEL, ZEROBIAS. Coordinate probes removed (no coordinates exist).
+sm_120 parity re-run after interface edits: 3/3 GREEN (no regression).

@@ -141,7 +141,9 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
         sBias_struct = cute.struct.Align[
             cute.struct.MemRange[
                 self.dtype,
-                cute.cosize(self.sBias_layout) if self.has_bias else 0,
+                # bias is read gmem->rmem through a tiled_copy_C partition;
+                # no smem stage, so no shared-memory cost.
+                0,
             ],
             1024,
         ]
@@ -634,11 +636,8 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
             # ///////////////////////////////////////////////////////////////////////////////
             tidx, _, _ = cute.arch.thread_idx()
             tidx = tidx - 128
-            sBias = (
-                storage.sBias.get_tensor(sBias_layout)
-                if const_expr(self.has_bias and mBias is not None)
-                else None
-            )
+            # bias goes gmem->rmem via tiled_copy_C inside mma(); no smem stage
+            sBias = None
             self.mma(
                 tiled_mma_qk,
                 tiled_mma_pv,
@@ -1027,6 +1026,24 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
         tPsP = smem_thr_copy_P.partition_D(sP) if const_expr(sP is not None) else None
         smem_copy_params = SimpleNamespace(smem_thr_copy_P=smem_thr_copy_P, tPsP=tPsP)
 
+        bias_thr_copy_C = None
+        if const_expr(self.has_bias and mBias is not None):
+            # C-order tiled copy for the sheared bias: partitions a
+            # (tile_m, tile_n) tile exactly like this tiled_mma's accumulator
+            # (the same make_tiled_copy_C machinery as the P-store above), so
+            # bias[frag_pos] lands on acc_S[frag_pos] with zero coordinate
+            # arithmetic. Manual wgmma fragment->column mapping is not
+            # expressible per-element (journal: THE KEY INSIGHT); the copy
+            # layout sidesteps it, mirroring sm_100's bias_s2r design.
+            bias_copy_atom = cute.make_copy_atom(
+                cute.nvgpu.CopyUniversalOp(),
+                mBias.element_type,
+                num_bits_per_copy=mBias.element_type.width,
+            )
+            bias_thr_copy_C = cute.make_tiled_copy_C(
+                bias_copy_atom, tiled_mma_qk
+            ).get_slice(tidx)
+
         self.mma_init()
 
         q_consumer_phase = Int32(0)
@@ -1135,11 +1152,25 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
                     mBias_cur = cute.domain_offset(
                         (seqlen.offset_q, 0), mBias[None, None, head_idx]
                     )
+                padded_bias = mBias_cur.shape[1]
+                gBias_tiles = cute.local_tile(
+                    mBias_cur, (self.tile_m, self.tile_n), (m_block, None)
+                )
+                tBgBias = bias_thr_copy_C.partition_S(gBias_tiles)
+                # Sheared col = j + padded - 128*(m_block+1). tile_n | 128 and
+                # tile_n | padded make the shift a whole number of tiles, so
+                # every tile is fully in-shear or fully out (never partial).
+                bias_tile_shift = (
+                    padded_bias // self.tile_n
+                    - (128 * (m_block + 1)) // self.tile_n
+                )
+                bias_num_tiles = padded_bias // self.tile_n
                 score_mod_fn = partial(
                     self.apply_rel_bias_sm90,
-                    thr_mma_qk,
-                    mBias_cur,
-                    m_block,
+                    bias_thr_copy_C,
+                    tBgBias,
+                    bias_tile_shift,
+                    bias_num_tiles,
                     softmax_scale,
                 )
             mma_one_n_block = partial(
@@ -1539,64 +1570,46 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
     @cute.jit
     def apply_rel_bias_sm90(
         self,
-        thr_mma_qk,
-        mBias_cur,
-        m_block,
+        bias_thr_copy_C,
+        tBgBias,
+        bias_tile_shift,
+        bias_num_tiles,
         softmax_scale,
         acc_S,
         n_block=None,
         seqlen=None,
     ):
-        """Direct-gmem sheared bias at wgmma fragment coords. Each mma thread
-        reads exactly the bias for its own fragment elements -- no cross-thread
-        smem partition to mis-tile. reshape_acc_to_mn gives a clean 2D (m,n)
-        view (the wgmma frag is ((2,2,N/8),MMA_M,MMA_N), NOT linearly
-        (row,col)-indexable). For global row i=m_block*tile_m+r, kv
-        j=n_block*tile_n+c, the sheared column is j+padded-128*(m_block+1);
-        out-of-range cols contribute 0 (the -inf right-pad handles causal)."""
-        # Mirror AttentionMask.apply_mask coordinate derivation EXACTLY (the
-        # only proven-correct sm_90 per-element consumer). swap_AB=False here
-        # so ROW=0, COL=1. Row is constant across a fragment row -> read once
-        # per r at [r,0]. Column needs this thread's base offset + thread-0's
-        # compile-time column pattern (each wgmma thread owns specific cols).
-        acc_S_mn = layout_utils.reshape_acc_to_mn(acc_S)
-        cS = cute.make_identity_tensor((self.tile_m, self.tile_n))
-        tScS_mn = layout_utils.reshape_acc_to_mn(thr_mma_qk.partition_C(cS))
-        t0ScS_mn = layout_utils.reshape_acc_to_mn(
-            thr_mma_qk.get_slice(0).partition_C(cS)
-        )
-        n_rows = cutlass.const_expr(cute.size(tScS_mn.shape[0]))
-        n_cols = cutlass.const_expr(cute.size(tScS_mn.shape[1]))
-        rel_extent = mBias_cur.shape[1]
-        for r in cutlass.range(n_rows, unroll_full=True):
-            for c in cutlass.range(n_cols, unroll_full=True):
-                # This thread's OWN fragment coordinate at [r,c] — direct, no
-                # thread-pattern assumption (the mask's t0+offset trick is a
-                # perf optimization; direct is the fundamental correct form).
-                row_g = m_block * self.tile_m + tScS_mn[r, c][0]
-                kv = n_block * self.tile_n + tScS_mn[r, c][1]
-                dist = row_g - kv
-                val = Float32(0.0)
-                if const_expr(_U2_DEBUG_SENTINEL):
-                    acc_S_mn[r, c] = Float32(-1.0e30)
-                    val = Float32(0.0)
-                elif const_expr(_U2_DEBUG_ZEROBIAS):
-                    val = Float32(0.0)
-                elif const_expr(_U2_DEBUG_DISTBIAS):
-                    if (dist >= 0 and dist < rel_extent
-                            and row_g < seqlen.seqlen_q):
-                        val = Float32(dist)
-                elif const_expr(_U2_DEBUG_COLBIAS):
-                    if row_g < seqlen.seqlen_q:
-                        val = Float32(kv)
-                elif const_expr(_U2_DEBUG_ROWBIAS):
-                    if row_g < seqlen.seqlen_q:
-                        val = Float32(row_g)
-                elif (dist >= 0 and dist < rel_extent
-                        and row_g < seqlen.seqlen_q):
-                    val = Float32(mBias_cur[row_g, dist])
-                acc_S_mn[r, c] = acc_S_mn[r, c] * softmax_scale + val
-                _ = kv
+        """Sheared-bias apply with ZERO coordinate arithmetic. tBgBias is the
+        sheared gmem bias partitioned by make_tiled_copy_C(tiled_mma_qk), the
+        same proven machinery as the P-store, in the load direction: the copy
+        pairs gmem elements (in this thread's accumulator-C order) with a
+        fragment allocated like acc_S, so rBias[i] IS the bias for acc_S[i].
+        Manual wgmma fragment->column mapping never happens (sessions 5-22
+        proved it unmappable per-element). Tiles are never partial (tile_mn
+        forced (128,128); padded % tile_n == 0); tiles outside the shear
+        range carry zero bias, and the mask (applied after this) still owns
+        causal/seqlen validity."""
+        tile_idx = n_block + bias_tile_shift
+        if const_expr(_U2_DEBUG_SENTINEL):
+            for i in cutlass.range(cute.size(acc_S), unroll_full=True):
+                acc_S[i] = Float32(-1.0e30)
+        elif const_expr(_U2_DEBUG_ZEROBIAS):
+            for i in cutlass.range(cute.size(acc_S), unroll_full=True):
+                acc_S[i] = acc_S[i] * softmax_scale
+        else:
+            if tile_idx >= 0 and tile_idx < bias_num_tiles:
+                rBias = cute.make_rmem_tensor_like(acc_S, Float32)
+                tBrBias = bias_thr_copy_C.retile(rBias)
+                cute.copy(
+                    bias_thr_copy_C,
+                    tBgBias[None, None, None, tile_idx],
+                    tBrBias,
+                )
+                for i in cutlass.range(cute.size(acc_S), unroll_full=True):
+                    acc_S[i] = acc_S[i] * softmax_scale + rBias[i]
+            else:
+                for i in cutlass.range(cute.size(acc_S), unroll_full=True):
+                    acc_S[i] = acc_S[i] * softmax_scale
 
     @cute.jit
     def apply_score_mod(
