@@ -20,6 +20,8 @@ from cutlass.base_dsl.arch import Arch
 from quack import copy_utils
 from quack import layout_utils
 from quack import sm90_utils
+import os as _os
+_U2_DEBUG_ROWBIAS = _os.environ.get("U2_DEBUG_ROWBIAS") == "1"
 
 from vllm.third_party.tml_fa4.cute_dsl_utils import assume_tensor_aligned
 from vllm.third_party.tml_fa4 import utils
@@ -1557,9 +1559,15 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
                 row_g = m_block * self.tile_m + tScS_mn[r, c][0]
                 sheared_col = n_block * self.tile_n + tScS_mn[r, c][1] + shift
                 val = Float32(0.0)
-                if (sheared_col >= 0 and sheared_col < padded_bias
-                        and row_g < seqlen.seqlen_q):
-                    val = Float32(mBias_cur[row_g, sheared_col])
+                if const_expr(_U2_DEBUG_ROWBIAS):
+                    # synthetic: bias = row_g (isolates coord derivation from
+                    # sheared-tensor content). Reference: bias(i,j)=i.
+                    if row_g < seqlen.seqlen_q:
+                        val = Float32(row_g)
+                else:
+                    if (sheared_col >= 0 and sheared_col < padded_bias
+                            and row_g < seqlen.seqlen_q):
+                        val = Float32(mBias_cur[row_g, sheared_col])
                 acc_S_mn[r, c] = acc_S_mn[r, c] * softmax_scale + val
 
     @cute.jit

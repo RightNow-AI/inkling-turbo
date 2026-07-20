@@ -212,6 +212,7 @@ def debug_dump(T: int = 128, Hq: int = 8, Hkv: int = 1, ext: int = 1024) -> None
     cu = torch.tensor([0, T], dtype=torch.int32, device=dev)
     ref = reference_rel_attention(q, k, v, rel, 1.0 / D, None)
 
+    import os
     from vllm.third_party.tml_fa4 import flash_attn_varlen_func
 
     out = flash_attn_varlen_func(
@@ -219,7 +220,28 @@ def debug_dump(T: int = 128, Hq: int = 8, Hkv: int = 1, ext: int = 1024) -> None
         max_seqlen_q=T, max_seqlen_k=T, softmax_scale=1.0 / D, causal=True)
     if isinstance(out, tuple):
         out = out[0]
-    err = (out.float() - ref.float()).abs().amax(dim=-1)  # (T, Hq) rowwise
+
+    if os.environ.get("U2_DEBUG_ROWBIAS") == "1":
+        # synthetic bias(i,j) = i (row index): kernel adds Float32(row_g)
+        row_bias = torch.arange(T, device=dev).view(T, 1, 1).expand(T, Hq, ext).to(torch.bfloat16).float()
+        # reference with bias(i,j)=i for all valid j
+        rb2 = torch.zeros(T, Hq, ext)
+        rb2[:] = torch.arange(T).view(T, 1, 1).float()
+        ref_syn = reference_rel_attention(q, k, v, rb2.to(torch.bfloat16).to(dev), 1.0 / D, None)
+        e = (out.float() - ref_syn.float()).abs()
+        print("DIAG ROWBIAS synthetic: kernel-vs-rowbias-ref max:",
+              round(e.max().item(), 4), "mean:", round(e.mean().item(), 5))
+        import sys; sys.exit(0)
+    # decisive: compare kernel vs BIASED ref and vs PLAIN ref (no bias)
+    ref_plain = reference_rel_attention(q, k, v, torch.zeros_like(rel), 1.0 / D, None)
+    err = (out.float() - ref.float()).abs().amax(dim=-1)  # (T, Hq)
+    err_plain = (out.float() - ref_plain.float()).abs().amax(dim=-1)
+    print("DIAG kernel-vs-biased max:", round(err.max().item(), 3),
+          "| kernel-vs-plain max:", round(err_plain.max().item(), 3))
+    print("DIAG rows closer to PLAIN (bias not applied):",
+          int((err_plain < err)[:, 0].sum().item()), "of", T)
+    print("DIAG rows closer to BIASED (bias applied ~right):",
+          int((err < err_plain)[:, 0].sum().item()), "of", T)
     per_row = err[:, 0]
     rows_bad = (per_row > 2e-2).nonzero().flatten().tolist()
     d = {
