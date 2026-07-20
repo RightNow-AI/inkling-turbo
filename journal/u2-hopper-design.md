@@ -453,3 +453,30 @@ FIX (session 10): rewrote apply_rel_bias_sm90 to reshape_acc_to_mn both
 acc_S and the identity partition, then 2D [r,c] loop reading tile-local
 sBias[(row,col)]. The bias LOAD was verified correct independently (shear
 column map re-derived: sBias[r,c] = bias(global row m*128+r, kv n*128+c)).
+
+## sm_90 native: STATUS as of 2026-07-20 (17 H100 sessions, ~$17)
+
+VALIDATED on H100 via isolation probes (all green):
+- apply_rel_bias_sm90 EXECUTES (sentinel probe: obliterating acc -> NaN output).
+  Root cause of 11 dead flights: mma() call site never passed mBias/sBias ->
+  mBias arrived None -> bias branch skipped -> unscaled plain attn. FIXED.
+- scale/wiring correct (ZEROBIAS probe green, 0.0078 vs plain).
+- row coordinate correct (ROWBIAS green + causal-mask equivalence).
+- plumbing end-to-end: ctor has_bias, __call__ transpose, kernel/mma threading,
+  interface arch-9 dispatch, raw-rel_logits redesign (dist=row-kv, no shear).
+
+OPEN (paradox): real bias parity FAILS (global_short max 1.74 mean 0.064;
+much improved from 2.29 but not <0.02). DISTBIAS probe (val=row_g-kv vs
+bias(i,j)=i-j) RED (1.84) => the effective column/dist is wrong for the bias
+LOOKUP, YET the identical column formula masks correctly (causal attention is
+exact without bias). Both column forms tested — mask's t0+thr_col_offset trick
+AND direct tScS_mn[r,c][1] — give byte-identical (wrong-for-bias) results at
+T=128. This is a genuine wgmma-fragment-consumption subtlety: the reshape_acc_to_mn
+column coord that is correct for THRESHOLD masking is not directly usable as the
+exact per-element key index for a gathered bias. Needs a reference wgmma bias
+kernel or local sm_90 access to resolve (remote-only blind iteration exhausted).
+
+DECISION: sm_90 native parked at this state (best version committed). sm_120
+generic kernel is FULLY PROVEN (parity 3/3, beats production). Release ships on
+sm_120 proof + measured 3.2x Hopper headroom + the 11 findings. sm_90 native
+documented honestly as in-final-debug. Resume with reference-kernel study.
