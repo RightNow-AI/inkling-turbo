@@ -60,6 +60,8 @@ VLLM_BIN = VENV_BIN / "vllm"
 MODEL_DIR = HOME / "models" / "inkling"
 MODIFIED_DIR = HOME / "tml_fa4_modified"
 BACKUP_DIR = HOME / "tml_fa4_backup"
+ROUTE_PATCH = HOME / "u2_serving_route.py"
+ROUTE_BACKUP = HOME / "fa4_rel_attention.stock.py"
 RESULT_PATH = HOME / "gate_logit_parity.json"
 LOG_DIR = HOME / "gate_logs"
 
@@ -280,14 +282,48 @@ def ensure_backup(pkg: Path) -> None:
     log(f"backup created: {n} files -> {BACKUP_DIR}")
 
 
+def resolve_route_file() -> Path:
+    """Resolve the serving router module (fa4_rel_attention) like the pkg."""
+    r = run([str(VENV_PY), "-c",
+             "import vllm.models.inkling.nvidia.ops.fa4_rel_attention as m;"
+             "print(m.__file__)"])
+    if r.returncode != 0:
+        raise RuntimeError(
+            f"cannot resolve fa4_rel_attention: {r.stderr.strip()}")
+    return Path(r.stdout.strip())
+
+
+def ensure_route_backup(route_file: Path) -> None:
+    """Snapshot the STOCK serving router once; refuse if already patched."""
+    if ROUTE_BACKUP.exists():
+        return
+    if "Inkling-turbo: sm_90" in route_file.read_text():
+        raise RuntimeError(
+            f"{route_file} is already patched and no stock backup exists; "
+            f"re-run scripts/bootstrap_8x.sh for a clean tree.")
+    shutil.copy2(route_file, ROUTE_BACKUP)
+    log(f"route backup created: {ROUTE_BACKUP}")
+
+
 def deploy(build: str, pkg: Path) -> list[str]:
-    """Put the package into the requested state. Idempotent."""
+    """Put the package AND the serving router into the requested state."""
     src = BACKUP_DIR if build == "stock" else MODIFIED_DIR
     files = sorted(src.glob("*.py"))
     if not files:
         raise RuntimeError(f"no .py files in {src}; cannot deploy '{build}'")
     for f in files:
         shutil.copy2(f, pkg / f.name)
+    route_file = resolve_route_file()
+    ensure_route_backup(route_file)
+    if build == "stock":
+        shutil.copy2(ROUTE_BACKUP, route_file)
+        log("serving router restored to stock (score_mod on sm_90)")
+    else:
+        vllm_root = route_file.parents[5]
+        r = run([str(VENV_PY), str(ROUTE_PATCH), str(vllm_root)])
+        if r.returncode != 0:
+            raise RuntimeError(f"route patch failed: {r.stderr.strip()}")
+        log(f"serving router patched: {r.stdout.strip()}")
     log(f"deployed {len(files)} files from {src} -> {pkg} ({build})")
     return [f.name for f in files]
 
@@ -431,6 +467,7 @@ def main() -> int:
         (VLLM_BIN, "venv missing; run scripts/bootstrap_8x.sh"),
         (MODEL_DIR, "model missing; run scripts/bootstrap_8x.sh"),
         (MODIFIED_DIR, "put the modified kernels in ~/tml_fa4_modified"),
+        (ROUTE_PATCH, "scp kernels/patches/u2_serving_route.py to ~"),
     ]:
         if not Path(path).exists():
             log(f"FATAL: {path} not found ({why})")
