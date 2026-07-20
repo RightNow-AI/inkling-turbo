@@ -480,3 +480,27 @@ DECISION: sm_90 native parked at this state (best version committed). sm_120
 generic kernel is FULLY PROVEN (parity 3/3, beats production). Release ships on
 sm_120 proof + measured 3.2x Hopper headroom + the 11 findings. sm_90 native
 documented honestly as in-final-debug. Resume with reference-kernel study.
+
+## THE KEY INSIGHT (2026-07-20): why manual coords fail on wgmma
+
+Studied flash_fwd_sm100.py bias consumption (the WORKING warp-specialized
+reference). It does NOT compute (row, col) -> bias column manually. It uses a
+TILED COPY `bias_s2r_thr_copy` (flash_fwd_sm100.py:3577) that maps the sheared
+smem bias tile's layout directly onto the score accumulator fragment layout:
+  cute.copy(bias_s2r_thr_copy, tS2RsBias_cur, tS2RrBias_cur)
+  tBrS_cur[j] += bias * inv_softmax_scale
+The SHEAR + a copy whose layout matches the score fragment make bias[frag_pos]
+land on score[frag_pos] with ZERO manual column arithmetic.
+
+CONSEQUENCE: my sm_90 manual `mBias_cur[row_g, dist]` indexing cannot work for
+wgmma fragments — hand-mapping fragment element -> exact key column requires the
+full wgmma fragment layout, which is exactly what the tiled-copy sidesteps.
+sm_120 v1 worked because sm_80 m16n8 fragments are simple enough that linear
+tScS[i] happens to align. wgmma does not.
+
+CORRECT sm_90 native path = port sm_100's tiled-copy bias staging (sheared smem
+tile + bias_s2r_thr_copy matching the sm_90 wgmma score fragment). Substantial;
+needs local sm_90 or careful reference work. PRAGMATIC path for a correct
+release NOW = route sm_90 rel_bias through the generic sm_80 kernel (proven
+linear-index bias; runs on sm_90 via backward-compat; slower base attention but
+tile-level bias, avoiding score_mod's 3.2x). Implemented next.
