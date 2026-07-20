@@ -1589,9 +1589,12 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
         tScS = thr_mma_qk.partition_C(cS)
         n_vals = cutlass.const_expr(cute.size(acc_S.shape))
         if tile_valid:
+            # sm_90 wgmma fragment identity coords are (col, row) — verified
+            # empirically (session 8 debug: 127/128 rows misplaced, row 0
+            # exact = transpose-invariant diagonal element).
             for i in cutlass.range(0, n_vals, 1, unroll_full=True):
                 acc_S[i] = acc_S[i] * softmax_scale + Float32(
-                    sBias[(tScS[i][0], tScS[i][1])]
+                    sBias[(tScS[i][1], tScS[i][0])]
                 )
         else:
             for i in cutlass.range(0, n_vals, 1, unroll_full=True):
