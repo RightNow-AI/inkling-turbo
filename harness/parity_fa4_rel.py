@@ -236,11 +236,9 @@ def debug_dump(T: int = 128, Hq: int = 8, Hkv: int = 1, ext: int = 1024) -> None
               "(GREEN => scale/wiring correct)")
         import sys; sys.exit(0)
     if os.environ.get("U2_DEBUG_COLBIAS") == "1":
-        rb2 = torch.zeros(T, Hq, ext)
-        # bias(i,j)=j means rel_logits[i,h,dist]=i-dist (since j=i-dist)
         ii = torch.arange(T).view(T, 1, 1).float()
         dd = torch.arange(ext).view(1, 1, ext).float()
-        rb2 = (ii - dd)
+        rb2 = (ii - dd).expand(T, Hq, ext).contiguous()  # rb2[i,h,d]=i-d => bias(i,j)=j
         ref_col = reference_rel_attention(q, k, v, rb2.to(torch.bfloat16).to(dev), 1.0 / D, None)
         e = (out.float() - ref_col.float()).abs()
         print("DIAG COLBIAS: kernel-vs-colref max:", round(e.max().item(), 4),
