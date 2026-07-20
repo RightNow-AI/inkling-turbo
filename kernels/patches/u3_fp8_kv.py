@@ -93,7 +93,13 @@ def _commit_fp8_cache_blocks(
     )
     quantized = values / divisor[:, None, :, None]
     quantized = quantized.clamp(-FP8_E4M3_MAX, FP8_E4M3_MAX)
-    cache.index_copy_(0, active_blocks, quantized.to(cache.dtype))
+    # index_copy_cuda is not implemented for float8_e4m3fn; scatter through a
+    # same-itemsize uint8 view instead.
+    cache.view(torch.uint8).index_copy_(
+        0,
+        active_blocks,
+        quantized.to(cache.dtype).view(torch.uint8),
+    )
     scale.index_copy_(0, active_blocks, block_scale)
 
 
