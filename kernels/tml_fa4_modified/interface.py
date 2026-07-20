@@ -503,7 +503,7 @@ def _flash_attn_fwd(
     current_stream = cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True)
 
     # SM80/SM120: uses SM80 MMA, 128 threads (4 warps)
-    if arch // 10 in [8, 12]:
+    if arch // 10 in [8, 12] or (arch // 10 == 9 and rel_bias is not None):
         num_threads = 128
 
     fwd_cfg = FwdConfig(128, 128, True, True)  # default
@@ -1121,9 +1121,12 @@ def _flash_attn_fwd(
         #     print("sfv torch shape = ", sfv.shape)
         sfv_tensor = to_cute_tensor(sfv) if v_blockscaled else None
 
-        if arch // 10 == 8:
-            assert page_table is None, "paged KV not supported on SM 8.0"
-            assert not is_split_kv, "SplitKV not supported on SM 8.0"
+        if arch // 10 == 8 or (arch // 10 == 9 and bias is not None):
+            # sm_90 + rel_bias routes through the generic kernel: its sheared
+            # smem-tile bias is parity-PROVEN (sm_120); the sm_90-native wgmma
+            # fragment mapping needs sm_100-style tiled-copy staging (journal).
+            assert page_table is None, "paged KV not supported on generic path"
+            assert not is_split_kv, "SplitKV not supported on generic path"
             fa_fwd = FlashAttentionForwardSm80(
                 dtype,
                 head_dim,
@@ -1167,11 +1170,6 @@ def _flash_attn_fwd(
                 paged_kv_non_tma=paged_kv_non_tma,
                 has_bias=bias is not None,
             )
-            if rel_bias is not None:
-                # sm_90 reads RAW rel_logits directly (dist = q - kv), skipping
-                # the sheared-tensor column mapping entirely (correctness-first;
-                # shear compute above is unused on this arch).
-                bias = rel_bias
         elif arch // 10 in [10, 11]:
             if qv is not None:
                 fa_fwd = FlashAttentionMLAForwardSm100(
