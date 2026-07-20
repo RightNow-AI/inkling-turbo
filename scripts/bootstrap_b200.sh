@@ -62,20 +62,24 @@ if [ -d ~/tml_fa4_modified ]; then
   cp ~/tml_fa4_modified/*.py "$TML_PKG/"
   echo "inkling-turbo modified kernels deployed to $TML_PKG"
 fi
-python -c "import vllm.third_party.tml_fa4.flash_fwd_sm90 as m; src=open(m.__file__).read(); print('DEPLOY_CHECK file:', m.__file__); print('DEPLOY_CHECK mask-exact present:', 'thr_col_offset' in src)"
+python -c "import vllm.third_party.tml_fa4.flash_fwd_sm90 as m; src=open(m.__file__).read(); print('DEPLOY_CHECK file:', m.__file__); print('DEPLOY_CHECK tiled-copy bias present:', 'bias_thr_copy_C' in src)"
 python -c "import vllm.third_party.tml_fa4; print('tml_fa4 import OK')"
 
 echo "=== parity: FA4 rel attention (sheared path expected on sm_100) ==="
 python ~/parity_fa4_rel.py || true
 
-echo "=== U2 sm_90 mapping debug dump ==="
-python ~/parity_fa4_rel.py --debug || true
-echo "=== U2 synthetic row-bias probe (isolates coord derivation) ==="
+echo "=== U2 sm_90 A/B: generic reference routing (proven, slow) ==="
+U2_SM90_GENERIC=1 python ~/parity_fa4_rel.py || true
+echo "=== U2 probe ladder (native path; coordinate probes removed) ==="
 U2_DEBUG_SENTINEL=1 python ~/parity_fa4_rel.py --debug || true
 U2_DEBUG_ZEROBIAS=1 python ~/parity_fa4_rel.py --debug || true
-U2_DEBUG_DISTBIAS=1 python ~/parity_fa4_rel.py --debug || true
-U2_DEBUG_COLBIAS=1 python ~/parity_fa4_rel.py --debug || true
-U2_DEBUG_ROWBIAS=1 python ~/parity_fa4_rel.py --debug || true
+
+echo "=== U3: FP8 paged-KV patch + parity ==="
+VLLM_ROOT=$(python -c "import vllm, os; print(os.path.dirname(os.path.dirname(vllm.__file__)))")
+if [ -f ~/u3_fp8_kv.py ]; then
+  python ~/u3_fp8_kv.py "$VLLM_ROOT" || true
+  python ~/parity_kv_fp8.py || true
+fi
 
 echo "=== microbench: day-0 attention + gate at real shapes ==="
 python ~/microbench_attn_day0.py || true
