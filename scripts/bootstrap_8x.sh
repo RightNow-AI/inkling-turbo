@@ -110,7 +110,9 @@ echo "=== model download -> ~/models/inkling ==="
 # HF_HUB_ENABLE_HF_TRANSFER is the standard huggingface_hub accelerated
 # download switch and requires the hf_transfer package.
 # TODO(owner): confirm exact repo name before spend. journal/phase0.md
-# records the NVFP4 checkpoint config at thinkingmachines/Inkling-NVFP4;
+# records the NVFP4 checkpoint at thinkingmachines/Inkling-NVFP4 (VERIFIED
+# via HF hub API 2026-07-21: repo exists, 45 files; base repo Inkling is
+# the 1.9TB BF16 original, wrong for serving gates);
 # on Hopper (no FP4 MMA) it serves via the W4A16 dequant path.
 MODEL_REPO="${MODEL_REPO:-thinkingmachines/Inkling-NVFP4}"
 MODEL_DIR="$HOME/models/inkling"
