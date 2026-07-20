@@ -1,21 +1,104 @@
 # Inkling-turbo
 
-Faster serving kernels for [TML Inkling](https://huggingface.co/thinkingmachines/Inkling) (975B total / 41B active MoE, 256 experts, 66 layers, relative attention, 1M context) on top of the vLLM day-0 support. Target: B200/B300-class multi-batch datacenter inference, upstream-quality diffs.
+Inkling-turbo is an open-source kernel project for serving TML's Inkling model on top of vLLM's day-0 implementation. It replaces selected GPU kernels and their integration code. It does not change the checkpoint, model architecture, or attention semantics.
 
-**Status: Phase 0 — baseline study. No performance claims exist yet.** Every number this repo will ever publish is measured, with the profile artifact next to it (see `LEDGER.md`, `journal/`). Fast-and-wrong is treated as broken.
+The first target is Inkling's relative-attention path. The current work is building replacements for the Hopper and generic per-score bias callback using tile-level sheared bias. The public goal is a drop-in kernel path that preserves the model and makes each architecture prove its own correctness and performance.
 
-## Layout
+This repository is still a kernel-development release, not a claim of end-to-end serving readiness. See [Methodology](docs/METHODOLOGY.md) for the evidence rules.
 
-- `vllm/` — fork base (nested clone, pinned in `journal/phase0.md`); unit branches live here
-- `journal/` — phase notes, ncu profiles, methodology, citations
-- `kernels/` — kernel sources before upstreaming into the fork
-- `harness/` — parity harness: per-op reference checks + 32-prompt logit gate + batched==batch-1 consistency
-- `scripts/` — remote (Lambda) orchestration, benchmark sweeps; scriptable, kill-on-exit
-- `LEDGER.md` — measured-or-null results ledger
-- `BLOCKERS.md` — open decisions, never guessed through
+## Headline findings
 
-## Method (gates every unit must pass)
+| Finding | Result | Scope | Evidence |
+|---|---|---|---|
+| Hopper long-context decode has large relative-attention overhead | vLLM's production `score_mod` path took 2375 us versus 743 us for plain attention, a 3.2x gap | One H100 SXM5, `sm_90`, batch 1, global decode, 64K KV, per-op microbenchmark. This is not end-to-end serving performance | [H100 session 4](journal/remote/h100-session1.md#h100-session-4-2026-07-18-12291237-utc-056--honest-baseline) |
+| U2 tile-level sheared-bias attention is green on the local architecture | Parity passed 3/3, and the kernel beat the same-machine day-0 `score_mod` baseline on every reported case | RTX 5090 Laptop, `sm_120`. Timings are relative-only because the system is WDDM and power-capped | [U2 v1 results](journal/u2-hopper-design.md#v1-complete-parity-33--beats-score_mod-on-every-case-2026-07-19), [local hardware limits](journal/phase0.md#local-tier) |
+| The day-0 stack contains correctness and compatibility defects | 8 findings are currently indexed, including `rel_bias` being silently ignored on non-Blackwell kernels and returning plausible wrong output | Draft upstream reports, not yet filed. The index is the source of truth for the count | [Upstream findings index](journal/upstream/00-INDEX.md) |
 
-1. Parity: 32/32 fixed-prompt logit parity vs HF reference (or documented tolerance) AND batched output == batch-1 output.
-2. Kernel: >=90% of the binding roofline (HBM BW where memory-bound, FP4 TC throughput where compute-bound) in ncu, profile saved.
-3. E2E: `vllm bench serve` vs stock day-0 build — same checkpoint, quant, GPUs, SLO; throughput-latency curves across batch sweep; median of 5 + best; prefill-heavy and decode-heavy mixes.
+## The kernels
+
+### U2: tile-level sheared-bias attention
+
+Inkling attention has no RoPE. It adds learned relative-position terms to the pre-softmax scores. The day-0 Hopper path applies those terms through a per-score callback, while the Blackwell path uses a sheared layout. U2 loads a contiguous bias tile and applies it to the score fragment before softmax. The generic path is complete at its per-op gate; the Hopper port is still in final debug.
+
+The replacement keeps Inkling's attention math intact:
+
+- the checkpoint and model weights are untouched;
+- relative distance outside the configured extent contributes zero;
+- global and sliding-window attention retain their original masks;
+- the kernel is accepted only when it agrees with the same PyTorch parity oracle used for the baseline.
+
+| Architecture | Status | Current evidence |
+|---|---|---|
+| `sm_120` | Done for the current per-op gate | Parity 3/3 and faster than the day-0 `score_mod` path on all reported local cases. These are relative-only local measurements, not serving numbers. [Journal](journal/u2-hopper-design.md#v1-complete-parity-33--beats-score_mod-on-every-case-2026-07-19) |
+| `sm_90` | In final debug | One H100 flight reached 745.7 us versus 736.9 us plain attention and 2411 us production, but parity failed with maximum error around 2.3. That speed is not a release claim until parity is green. [Ledger](LEDGER.md#spend), [debug journal](journal/u2-hopper-design.md#sm_90-apply-root-cause-sessions-5-10-2026-07-20) |
+| `sm_100` / `sm_110` | Pending hardware capacity | The Blackwell variants have not received the required architecture-local validation. No Blackwell performance number is claimed. [Blockers](BLOCKERS.md#owner-decision-2026-07-19-lambda-only-lean-finish-plan) |
+
+The implementation and reproducible patch sequence live under `kernels/tml_fa4_modified/` and `kernels/patches/`. Earlier correct-but-slow variants remain as evidence of rejected designs rather than being presented as wins.
+
+## Reproduce the current kernel work
+
+The scripts expect a Linux or WSL environment with a compatible vLLM checkout and CUDA toolchain. The fork base and pinned day-0 commits are recorded in [the implementation study](journal/day0-implementation.md).
+
+### Apply the local toolchain fixes and U2 patch
+
+Review each patch before applying it to your checkout.
+
+```bash
+bash scripts/apply_local_sm120_fixes.sh /path/to/vllm
+python3 kernels/patches/u2_v0_generic_bias.py /path/to/vllm
+python3 kernels/patches/u2_v1_smem_bias.py /path/to/vllm
+```
+
+The first script repairs known incompatibilities between the vendored attention code and the pinned CuTe DSL. The U2 scripts patch the generic `sm_120` path. The Hopper work is in `kernels/patches/u2_sm90_bias_port.py` and `kernels/patches/u2_sm90_direct_gmem.py`, and remains under its architecture-local parity gate.
+
+### Run parity and microbenchmarks
+
+Activate the vLLM environment, run from the vLLM checkout, and use absolute paths if this repository is elsewhere:
+
+```bash
+python /path/to/inkling-turbo/harness/parity_fa4_rel.py
+python /path/to/inkling-turbo/harness/parity_shear_writer.py
+python /path/to/inkling-turbo/harness/microbench_attn_scoremod.py
+python /path/to/inkling-turbo/harness/microbench_attn_day0.py
+```
+
+The main relative-attention harness checks global, beyond-relative-extent, and sliding-window cases against one PyTorch oracle. A timing result is discarded when its corresponding parity result is not green. See [Methodology](docs/METHODOLOGY.md#parity-oracle-discipline).
+
+### Run a remote validation session
+
+`scripts/grab_b200.py` polls for an allowed instance type, uploads the bootstrap and harness payload, captures logs under `journal/remote/`, and terminates the instance in a `finally` block unless `--park` is explicitly supplied.
+
+```powershell
+py scripts/grab_b200.py --types gpu_1x_h100_sxm5 --max-hours 1
+```
+
+This command can incur external GPU charges and requires provider credentials. Set a budget before running it. The bootstrap is designed to collect all evidence even when an individual harness fails, so a zero bootstrap exit alone is not a correctness gate. Inspect the parity output and journal artifact.
+
+## What is not claimed yet
+
+- No end-to-end throughput, latency, TTFT, TPOT, or tokens-per-second improvement is claimed. Those fields remain `null` in the [measured-or-null ledger](LEDGER.md#e2e-serving-remote-vs-stock-day-0-build--same-checkpointquantgpus-slo).
+- End-to-end serving curves are pending the planned 8-GPU integration and final validation sessions. They must compare the same checkpoint, quantization, GPU set, workload, and SLO. [Validation plan](BLOCKERS.md#owner-decision-2026-07-19-lambda-only-lean-finish-plan)
+- The `sm_90` U2 path is not done until architecture-local parity passes. A fast parity failure is a failed kernel.
+- Blackwell variants are pending hardware capacity and architecture-local verification. Hopper or RTX 5090 results are not projected onto Blackwell.
+- RTX 5090 Laptop timings are relative-only. H100 figures in this README are per-op microbenchmarks, not end-to-end serving results. [Hardware ground truth](journal/phase0.md#hardware-ground-truth-measured-2026-07-17)
+
+## Roadmap
+
+1. Finish `sm_90` U2 parity, then rerun the H100 race and profiler gate.
+2. Validate the `sm_100` and `sm_110` U2 variants when Blackwell capacity is available.
+3. Add U3 quantized paged KV with per-block scales, validated separately per architecture.
+4. Run the full prompt-level parity and batched-consistency integration gate.
+5. Run stock-versus-turbo end-to-end serving sweeps on the same 8-GPU system and publish median, best, latency, throughput, and raw artifacts together.
+6. Upstream the kernel and compatibility fixes after tracker duplicate checks.
+
+The broader unit plan, including MoE, routing, QKVR, graphs, overlap, and batch-aware dispatch, is tracked in [the project rules](CLAUDE.md) and [the ledger](LEDGER.md).
+
+## Upstream findings
+
+The currently indexed issue drafts are under [`journal/upstream/`](journal/upstream/):
+
+- [Silent `rel_bias` omission on non-Blackwell kernels](journal/upstream/01-rel-bias-silently-ignored-non-blackwell.md), a wrong-output correctness issue.
+- [Four CuTe DSL compatibility breaks](journal/upstream/02-cutlass-4.6.0-api-drift-cluster.md) against the dependency version pinned by the day-0 stack.
+- [Three generic-path defects](journal/upstream/03-vllm-flash-attn-generic-path-bugs.md) exposed on `sm_120`.
+
+The drafts are evidence packages, not filed issue links. Duplicate-check the target trackers before filing, then update the [index](journal/upstream/00-INDEX.md) with the canonical upstream references.
