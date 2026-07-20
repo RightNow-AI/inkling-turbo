@@ -19,7 +19,7 @@ Baseline reference (external claim, NOT ours): vLLM day-0 blog reports 380 tok/s
 | Unit | Kernel | Binding roofline | % achieved | Parity 32/32 | batched==bs1 | Profile |
 |---|---|---|---|---|---|---|
 | U1 | fused NVFP4 MoE grouped GEMM | null | null | null | null | — |
-| U2 | rel-attn prefill | null | null | null | null | — |
+| U2 | rel-attn prefill | null (ncu pending) | null (ncu pending) | per-op 3/3 sm_90 native H100 + 3/3 sm_120 (2026-07-20); 32/32 pending | null | decode b1 kv64k 905.6us vs 2375-6209 prod (2.6-6.9x), prefill 8k 3362us vs 8483-13049 (2.5-3.9x) — journal/remote/microbench_attn_day0_native_sm90_session24.json |
 | U2 | rel-attn split-KV decode | null | null | null | null | — |
 | U3 | quantized paged KV | null | null | per-op 2/2 local sm_120 (2026-07-20, parity_kv_fp8.py); arch-local + 32/32 pending | null | — |
 | U4 | router+dispatch fusion | null | null | null | null | — |
