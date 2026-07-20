@@ -24,6 +24,7 @@ import os as _os
 _U2_DEBUG_ROWBIAS = _os.environ.get("U2_DEBUG_ROWBIAS") == "1"
 _U2_DEBUG_ZEROBIAS = _os.environ.get("U2_DEBUG_ZEROBIAS") == "1"
 _U2_DEBUG_COLBIAS = _os.environ.get("U2_DEBUG_COLBIAS") == "1"
+_U2_DEBUG_SENTINEL = _os.environ.get("U2_DEBUG_SENTINEL") == "1"
 
 from vllm.third_party.tml_fa4.cute_dsl_utils import assume_tensor_aligned
 from vllm.third_party.tml_fa4 import utils
@@ -1571,7 +1572,10 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
                 kv = n_block * self.tile_n + thr_col_offset + t0ScS_mn[0, c][1]
                 sheared_col = kv + shift
                 val = Float32(0.0)
-                if const_expr(_U2_DEBUG_ZEROBIAS):
+                if const_expr(_U2_DEBUG_SENTINEL):
+                    acc_S_mn[r, c] = Float32(-1.0e30)
+                    val = Float32(0.0)
+                elif const_expr(_U2_DEBUG_ZEROBIAS):
                     val = Float32(0.0)
                 elif const_expr(_U2_DEBUG_COLBIAS):
                     if row_g < seqlen.seqlen_q:

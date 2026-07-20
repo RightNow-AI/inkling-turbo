@@ -221,6 +221,13 @@ def debug_dump(T: int = 128, Hq: int = 8, Hkv: int = 1, ext: int = 1024) -> None
     if isinstance(out, tuple):
         out = out[0]
 
+    if os.environ.get("U2_DEBUG_SENTINEL") == "1":
+        ref_plain = reference_rel_attention(q, k, v, torch.zeros_like(rel), 1.0 / D, None)
+        d_plain = (out.float() - ref_plain.float()).abs().max().item()
+        print("DIAG SENTINEL: out max:", round(out.float().abs().max().item(), 3),
+              "| vs plain max:", round(d_plain, 4),
+              "(if >> 2.29 => apply RUNS & writes propagate)")
+        import sys; sys.exit(0)
     if os.environ.get("U2_DEBUG_ZEROBIAS") == "1":
         ref_plain = reference_rel_attention(q, k, v, torch.zeros_like(rel), 1.0 / D, None)
         e = (out.float() - ref_plain.float()).abs()
