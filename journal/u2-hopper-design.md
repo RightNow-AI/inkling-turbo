@@ -588,3 +588,27 @@ H100 RESULTS (parity_fa4_rel 3/3: 1.56e-2 / 7.8e-3 / 7.8e-3):
 ShearingBias pre-kernel is now a visible cost (25-38% of prefill total) —
 optimization candidate. Perf follow-ups: packed-bias addressing (decode tile
 occupancy), split-KV decode, intra_wg_overlap re-enable, shear-writer fusion.
+
+## SESSION 24 ncu (kernel gate evidence; reports in journal/ncu/)
+
+decode_b1_kv64k (ncu_u2_decode_b1_kv64k.ncu-rep): DRAM 7.2%, MemSOL 20.3%,
+SM 31.3%, occupancy 14.1%, 242 GB/s. NOT memory-bound: grid = heads x batch
+= 64 CTAs on 132 SMs, no split-KV -> parallelism/latency-bound. Plain
+attention shares the identical structural ceiling (same grid), which is why
+native bias costs only +21% over plain. The 90% HBM gate is unreachable at
+this shape by ANY non-split kernel; real fix = split-KV decode (original U2
+spec item, roadmap). L1/TEX hit 75% (GQA KV reuse dedups in cache).
+
+decode_b32-as-built profiles identically to b1 (the microbench case is 32 q
+rows over ONE shared kv sequence -> same 64-CTA grid). Real multi-sequence
+batched decode evidence comes from the 8x e2e session.
+
+prefill_8k (ncu_u2_prefill_8k.ncu-rep): SM SOL 45.6%, MemSOL 55.9%,
+490 GB/s, occupancy 14.0%. Cross-check: 1.10 PFLOP causal 8k / 989 TFLOP/s
+peak = 1111us ideal vs 2534us measured = 44% of absolute peak (consistent).
+Known recoverable costs, in leverage order: (1) intra_wg_overlap forced OFF
+for bias v0 (lockstep pipeline), (2) pack_gqa OFF (row occupancy), (3)
+per-element gmem bias reads (vectorize/stage), (4) ShearingBias pre-kernel
+825us not overlapped. Below the 90% gate; documented ceiling + iterate list
+per the rules. The RELEASE claim rests on parity + the measured 2.5-6.9x
+over the day-0 production paths, not on roofline saturation.

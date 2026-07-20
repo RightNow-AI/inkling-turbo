@@ -37,7 +37,8 @@ Baseline reference (external claim, NOT ours): vLLM day-0 blog reports 380 tok/s
 | 2026-07-18 | Lambda 1x H100 SXM5 (us-south-2) | 0.13 h | $0.56 | Session 4 HONEST BASELINE: sm_90 production score_mod path = 2375us @ b1/kv64k decode vs 743us plain attention (3.2x overhead measured); num_splits=1 confirmed production on sm_90; gate stable 4th session. Auto-terminated. |
 | 2026-07-20 | Lambda 1x H100 x3 (sessions 5-7) | 0.39 h | $1.65 | sm_90 U2 kernel first flights: s5 CRLF abort; s6 SPEED TARGET HIT (745.7us vs plain 736.9 vs prod 2411 = 3.24x available) but parity FAIL (misplaced bias, max ~2.3); s7 warpgroup-lockstep fix — no change (race ruled out). Debug-dump payload next. All auto-terminated. |
 | 2026-07-20 | Lambda 1x H100 x14 (sessions 8-23) | ~1.9 h | ~$13.4 | sm_90 debug campaign -> resolution: sentinel probe found unthreaded mBias (11 dead flights); probe ladder proved scale/row; sm_100 tiled-copy insight; SESSION 23: generic-routed parity 3/3 GREEN ON H100 (sm_90 correctness ACHIEVED), routed speed 31x slow = reference-only. All auto-terminated. |
-| | | | **~$17.4 total** | |
+| 2026-07-20 | Lambda 1x H100 (session 24, parked) | ~1.8 h | ~$7.7 | sm_90 NATIVE parity 3/3 GREEN (pack_gqa root cause) + race won (905.6us vs 2375-6209 prod @ b1/kv64k; prefill 2.5-3.9x) + U3 H100 2/2 OK + 3x ncu profiles banked (journal/ncu/). Terminated. |
+| | | | **~$25.1 total** | |
 
 ## last_error
 
