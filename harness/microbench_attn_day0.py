@@ -67,6 +67,34 @@ def attn_case(T_q: int, T_k: int, Hq: int, Hkv: int, ext: int,
     return fn
 
 
+def batched_decode_case(B: int, L: int, Hq: int, Hkv: int, ext: int,
+                        window_left: int | None):
+    """TRUE multi-sequence decode: B sequences, 1 query token each, each with
+    its own KV of length L. The plain attn_case "b32" proxy packs 32 rows into
+    ONE sequence, which keeps the grid at heads x 1 CTAs and hides batch
+    parallelism (session 24 ncu: identical profile to b1)."""
+    from vllm.third_party.tml_fa4 import flash_attn_varlen_func
+
+    D = 128
+    dev = "cuda"
+    q = torch.randn(B, Hq, D, dtype=torch.bfloat16, device=dev)
+    k = torch.randn(B * L, Hkv, D, dtype=torch.bfloat16, device=dev)
+    v = torch.randn(B * L, Hkv, D, dtype=torch.bfloat16, device=dev)
+    rel = torch.randn(B, Hq, ext, dtype=torch.bfloat16, device=dev)
+    cu_q = torch.arange(B + 1, dtype=torch.int32, device=dev)
+    cu_k = torch.arange(B + 1, dtype=torch.int32, device=dev) * L
+    window = (None, None) if window_left is None else (window_left, 0)
+
+    def fn():
+        flash_attn_varlen_func(
+            q=q, k=k, v=v, rel_bias=rel,
+            cu_seqlens_q=cu_q, cu_seqlens_k=cu_k,
+            max_seqlen_q=1, max_seqlen_k=L,
+            softmax_scale=1.0 / D, causal=True, window_size=window,
+        )
+    return fn
+
+
 def gate_case(T: int):
     from vllm.models.inkling.nvidia.moe import inkling_gate_select
 
@@ -92,6 +120,8 @@ def main() -> None:
         ("decode_b32_global_kv8k", lambda: attn_case(32, 8192, 64, 8, 1024, None)),
         ("decode_b32_global_kv64k", lambda: attn_case(32, 65536, 64, 8, 1024, None)),
         ("decode_b1_global_kv64k", lambda: attn_case(1, 65536, 64, 8, 1024, None)),
+        ("decode_32seqs_global_kv8k", lambda: batched_decode_case(32, 8192, 64, 8, 1024, None)),
+        ("decode_32seqs_global_kv64k", lambda: batched_decode_case(32, 65536, 64, 8, 1024, None)),
         ("gate_select_T1", lambda: gate_case(1)),
         ("gate_select_T4096", lambda: gate_case(4096)),
     ]
