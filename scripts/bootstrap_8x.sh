@@ -115,7 +115,10 @@ echo "=== model download -> ~/models/inkling ==="
 # the 1.9TB BF16 original, wrong for serving gates);
 # on Hopper (no FP4 MMA) it serves via the W4A16 dequant path.
 MODEL_REPO="${MODEL_REPO:-thinkingmachines/Inkling-NVFP4}"
-MODEL_DIR="$HOME/models/inkling"
+# On AWS DLAMI boxes the instance-store NVMe RAID is at /opt/dlami/nvme;
+# override MODEL_DIR (and HF cache) to land the 592GB download there.
+MODEL_DIR="${MODEL_DIR:-$HOME/models/inkling}"
+export HF_HOME="${HF_HOME:-$(dirname "$MODEL_DIR")/hf_cache}"
 mkdir -p "$MODEL_DIR"
 uv pip install hf_transfer >/dev/null 2>&1 || true
 export HF_HUB_ENABLE_HF_TRANSFER=1
