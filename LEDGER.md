@@ -38,7 +38,8 @@ Baseline reference (external claim, NOT ours): vLLM day-0 blog reports 380 tok/s
 | 2026-07-20 | Lambda 1x H100 x3 (sessions 5-7) | 0.39 h | $1.65 | sm_90 U2 kernel first flights: s5 CRLF abort; s6 SPEED TARGET HIT (745.7us vs plain 736.9 vs prod 2411 = 3.24x available) but parity FAIL (misplaced bias, max ~2.3); s7 warpgroup-lockstep fix — no change (race ruled out). Debug-dump payload next. All auto-terminated. |
 | 2026-07-20 | Lambda 1x H100 x14 (sessions 8-23) | ~1.9 h | ~$13.4 | sm_90 debug campaign -> resolution: sentinel probe found unthreaded mBias (11 dead flights); probe ladder proved scale/row; sm_100 tiled-copy insight; SESSION 23: generic-routed parity 3/3 GREEN ON H100 (sm_90 correctness ACHIEVED), routed speed 31x slow = reference-only. All auto-terminated. |
 | 2026-07-20 | Lambda 1x H100 (session 24, parked) | ~1.8 h | ~$7.7 | sm_90 NATIVE parity 3/3 GREEN (pack_gqa root cause) + race won (905.6us vs 2375-6209 prod @ b1/kv64k; prefill 2.5-3.9x) + U3 H100 2/2 OK + 3x ncu profiles banked (journal/ncu/). Terminated. |
-| | | | **~$25.1 total** | |
+| 2026-07-21 | Lambda 8x B200 (australia-east-1) | 0.34 h | $18.17 | CAPACITY FOUND + launched + bootstrapped, then the LAUNCHER crashed: Windows cp1252 could not decode a byte in the remote bootstrap stream, killing the subprocess reader thread (stdout=None -> TypeError). finally-block terminated correctly. NO gate evidence obtained. Fix: all subprocess pipes forced to utf-8/errors=replace + None-safe run_stage, regression test scripts/test_pipe_decode.py. |
+| | | | **~$43.3 total** | |
 
 ## last_error
 

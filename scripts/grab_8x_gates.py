@@ -66,10 +66,14 @@ def push_payload(ip: str) -> None:
 def run_stage(ip: str, name: str, cmd: str, timeout: int, outdir: Path) -> int:
     print(f"[{stamp()}] stage {name}: {cmd}", flush=True)
     r = gb.ssh(ip, cmd, timeout=timeout)
+    # never assume the pipes decoded: a lost 8x B200 (2026-07-21) came from
+    # cp1252 killing the reader thread, leaving stdout None mid-bootstrap.
+    out = r.stdout or ""
+    err = r.stderr or ""
     log = outdir / f"gates8x_{name}_{datetime.now(timezone.utc):%Y%m%d_%H%M}.log"
-    log.write_text(r.stdout + ("\n--- STDERR ---\n" + r.stderr if r.stderr else ""),
+    log.write_text(out + ("\n--- STDERR ---\n" + err if err else ""),
                    encoding="utf-8")
-    tail = "\n".join(r.stdout.splitlines()[-15:])
+    tail = "\n".join(out.splitlines()[-15:])
     print(f"[{stamp()}] stage {name} rc={r.returncode}; log: {log.name}\n{tail}",
           flush=True)
     return r.returncode
@@ -124,6 +128,7 @@ def main() -> int:
         for jf in ("gate_logit_parity.json",):
             subprocess.run(["scp", *gb.SSH_ARGS, f"ubuntu@{ip}:~/{jf}",
                             str(outdir / jf)], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace",
                            timeout=120)
         (REPO / "scripts" / ".gates8x_instance.json").write_text(
             f'{{"id": "{iid}", "ip": "{ip}", "type": "{itype}"}}')

@@ -99,7 +99,7 @@ def wait_active(iid: str, timeout_min: int = 25) -> str:
 
 def ssh(ip: str, cmd: str, timeout: int = 3600) -> subprocess.CompletedProcess:
     return subprocess.run(["ssh", *SSH_ARGS, f"ubuntu@{ip}", cmd],
-                          capture_output=True, text=True, timeout=timeout)
+                          capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
 
 
 def wait_ssh(ip: str, timeout_s: int = 600) -> None:
@@ -114,7 +114,7 @@ def wait_ssh(ip: str, timeout_s: int = 600) -> None:
 
 def scp_to(ip: str, local: Path, remote: str) -> None:
     r = subprocess.run(["scp", *SSH_ARGS, str(local), f"ubuntu@{ip}:{remote}"],
-                       capture_output=True, text=True, timeout=120)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
     if r.returncode != 0:
         raise RuntimeError(f"scp {local}: {r.stderr.strip()}")
 
@@ -176,7 +176,7 @@ def main() -> int:
             subprocess.run(["scp", *SSH_ARGS,
                             f"ubuntu@{ip}:~/{jf}.json",
                             str(outdir / f"{jf}_{args.type}.json")],
-                           capture_output=True, text=True, timeout=60)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
         print(f"[{stamp()}] bootstrap rc={r.returncode}; log: {log}", flush=True)
         tail = "\n".join(r.stdout.splitlines()[-25:])
         print(tail, flush=True)

@@ -56,7 +56,7 @@ AWS_CMD = ([str(_PY_FOR_AWS), str(_AWS_SCRIPT)]
 
 def aws(*args: str, timeout: int = 120):
     r = subprocess.run([*AWS_CMD, *args, "--region", REGION, "--output", "json"],
-                       capture_output=True, text=True, timeout=timeout)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     if r.returncode != 0:
         raise RuntimeError(f"aws {' '.join(args[:3])}: {r.stderr.strip()[:300]}")
     return json.loads(r.stdout) if r.stdout.strip() else {}
@@ -179,7 +179,7 @@ def wait_ip(iid: str) -> str:
 def wait_ssh(ip: str) -> None:
     for _ in range(60):
         r = subprocess.run(["ssh", *gb.SSH_ARGS, f"ubuntu@{ip}", "true"],
-                           capture_output=True, text=True, timeout=30)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
         if r.returncode == 0:
             print(f"[{stamp()}] ssh up", flush=True)
             return
@@ -262,7 +262,7 @@ def main() -> int:
         subprocess.run(["scp", *gb.SSH_ARGS,
                         f"ubuntu@{ip}:~/gate_logit_parity.json",
                         str(outdir / "gate_logit_parity.json")],
-                       capture_output=True, text=True, timeout=120)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
         (REPO / "scripts" / ".gates8x_instance.json").write_text(
             json.dumps({"id": iid, "ip": ip, "type": itype, "cloud": "aws"}))
         remaining = args.max_session_hours * 3600 - (time.monotonic() - t0)
