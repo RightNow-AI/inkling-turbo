@@ -44,11 +44,18 @@ def stamp() -> str:
     return f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M:%S} UTC"
 
 
-AWS_EXE = shutil.which("aws") or "aws"
+# The aws CLI on this box is a pip script whose shebang CreateProcess cannot
+# execute; invoke it through its own interpreter explicitly.
+_AWS_WHICH = Path(shutil.which("aws") or "aws")
+_AWS_SCRIPT = _AWS_WHICH.parent / "aws"  # extensionless pip script, not .CMD
+_PY_FOR_AWS = _AWS_WHICH.parent.parent / "python.exe"
+AWS_CMD = ([str(_PY_FOR_AWS), str(_AWS_SCRIPT)]
+           if _AWS_SCRIPT.exists() and _PY_FOR_AWS.exists()
+           else [str(_AWS_WHICH)])
 
 
 def aws(*args: str, timeout: int = 120):
-    r = subprocess.run([AWS_EXE, *args, "--region", REGION, "--output", "json"],
+    r = subprocess.run([*AWS_CMD, *args, "--region", REGION, "--output", "json"],
                        capture_output=True, text=True, timeout=timeout)
     if r.returncode != 0:
         raise RuntimeError(f"aws {' '.join(args[:3])}: {r.stderr.strip()[:300]}")
