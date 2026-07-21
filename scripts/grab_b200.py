@@ -42,8 +42,18 @@ def api(method: str, path: str, body: dict | None = None) -> dict:
                  "User-Agent": "inkling-turbo/1.0"},
         data=json.dumps(body).encode() if body else None,
     )
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read().decode())
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as exc:
+        # Lambda puts the real reason in the JSON body; a bare "HTTP 400" is
+        # undiagnosable and cost us a capacity window on 2026-07-21.
+        try:
+            detail = exc.read().decode()[:600]
+        except Exception:  # noqa: BLE001
+            detail = "<body unreadable>"
+        raise RuntimeError(
+            f"{method} {path} -> HTTP {exc.code}: {detail}") from exc
 
 
 def stamp() -> str:

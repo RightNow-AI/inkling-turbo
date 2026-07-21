@@ -101,12 +101,27 @@ def main() -> int:
               flush=True)
         return 2
 
-    itype, region = wait_for_capacity(types, args.interval, args.max_hours)
-    print(f"[{stamp()}] launching {itype} @ ${PRICE[itype]}/hr; "
-          f"hard cap {args.max_session_hours}h = "
-          f"${PRICE[itype] * args.max_session_hours:.0f} max", flush=True)
+    # Capacity windows are seconds wide: a failed launch must NOT kill the
+    # hunt (2026-07-21: an HTTP 400 crashed the hunter while australia-east-1
+    # still had 8x B200 stock). Retry the whole find-then-launch cycle.
+    deadline = time.monotonic() + args.max_hours * 3600
+    iid = None
+    while iid is None and time.monotonic() < deadline:
+        itype, region = wait_for_capacity(types, args.interval, args.max_hours)
+        print(f"[{stamp()}] launching {itype} @ ${PRICE[itype]}/hr; "
+              f"hard cap {args.max_session_hours}h = "
+              f"${PRICE[itype] * args.max_session_hours:.0f} max", flush=True)
+        try:
+            iid = gb.launch(itype, region)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[{stamp()}] LAUNCH FAILED ({itype}/{region}): {exc}",
+                  flush=True)
+            print(f"[{stamp()}] resuming hunt in 15s", flush=True)
+            time.sleep(15)
+    if iid is None:
+        print(f"[{stamp()}] no successful launch within max-hours", flush=True)
+        return 3
     t0 = time.monotonic()
-    iid = gb.launch(itype, region)
     outdir = REPO / "journal" / "remote"
     outdir.mkdir(parents=True, exist_ok=True)
     try:
