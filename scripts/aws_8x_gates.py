@@ -107,9 +107,15 @@ def ensure_sg() -> str:
 
 
 def get_ami() -> str:
-    r = aws("ssm", "get-parameter", "--name", DLAMI_SSM)
-    ami = r["Parameter"]["Value"]
-    print(f"[{stamp()}] DLAMI: {ami}", flush=True)
+    # IAM user lacks ssm:GetParameter; find the newest DLAMI base via EC2.
+    r = aws("ec2", "describe-images", "--owners", "amazon",
+            "--filters",
+            "Name=name,Values=Deep Learning Base OSS Nvidia Driver GPU AMI "
+            "(Ubuntu 22.04) *",
+            "Name=state,Values=available",
+            "--query", "sort_by(Images,&CreationDate)[-1].[ImageId,Name]")
+    ami, name = r[0], r[1]
+    print(f"[{stamp()}] DLAMI: {ami} ({name})", flush=True)
     return ami
 
 
