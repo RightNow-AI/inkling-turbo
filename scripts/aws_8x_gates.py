@@ -83,9 +83,9 @@ def ensure_keypair() -> str:
     except RuntimeError:
         pass
     pub = (Path.home() / ".ssh" / "id_ed25519.pub").read_text().strip()
-    import base64
+    # awscli v1 expects the raw OpenSSH text and base64-encodes it itself
     aws("ec2", "import-key-pair", "--key-name", name,
-        "--public-key-material", base64.b64encode(pub.encode()).decode())
+        "--public-key-material", pub)
     print(f"[{stamp()}] key pair imported: {name}", flush=True)
     return name
 
