@@ -161,6 +161,17 @@ def try_launch(itype: str, ami: str, key: str, sg: str) -> str | None:
                     or "InsufficientCapacity" in msg):
                 print(f"[{stamp()}] no capacity: {itype} {az}", flush=True)
                 continue
+            # Transient local/network faults ("Could not connect to the
+            # endpoint URL", throttling, timeouts) must NOT end the hunt: on
+            # 2026-07-22 one network blip killed a 24h sweep outright.
+            if ("Could not connect" in msg or "EndpointConnectionError" in msg
+                    or "RequestLimitExceeded" in msg or "Throttling" in msg
+                    or "timed out" in msg.lower()
+                    or "ServiceUnavailable" in msg):
+                print(f"[{stamp()}] transient ({itype} {az}): {msg[:120]}",
+                      flush=True)
+                time.sleep(20)
+                continue
             raise
     return None
 
@@ -223,7 +234,14 @@ def main() -> int:
     sweep_deadline = time.monotonic() + args.retry_minutes * 60
     while iid is None:
         for t in args.types.split(","):
-            iid = try_launch(t, ami, key, sg)
+            # belt-and-braces: nothing short of KeyboardInterrupt may end a
+            # multi-hour hunt. Unexpected faults log and cost one type-slot.
+            try:
+                iid = try_launch(t, ami, key, sg)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[{stamp()}] sweep error on {t}: "
+                      f"{str(exc)[:160]}; continuing", flush=True)
+                iid = None
             if iid:
                 itype = t
                 break
