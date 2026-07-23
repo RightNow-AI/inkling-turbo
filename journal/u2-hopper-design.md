@@ -639,3 +639,23 @@ from session 24's cu129, making these an independent reproduction):
   4.3/22.2us stable); fix = uv pip install --reinstall torchvision cu130.
 
 The 2.6-6.9x session-24 headline is now 2.7-8.4x on the newer stack.
+
+## SESSION 26 (2026-07-23, founder 8x A100 node): sm_80 — ours runs, day-0 CANNOT
+
+A100-SXM4-40GB, capability (8,0), torch 2.11/cu130 + compat (time-capsule
+bootstrap worked first try on a second box).
+
+- OUR generic sheared-bias kernel: parity 3/3 GREEN (7.8e-3 / 7.8e-3 / 1.56e-2)
+- DAY-0 production path: NotImplementedError on ALL cases — upstream
+  hard-blocks score_mod on SM8x (vllm_flash_attn cute interface.py:722),
+  and the relproj fallback is score_mod-based, so it dies identically.
+  There is NO day-0 Inkling attention on Ampere at all.
+- CONSEQUENCE: Inkling-turbo is the only working rel-attention
+  implementation on sm_80 => support claim, not a speedup claim. No
+  production comparison is possible on this arch (documented as such).
+- U3 parity_kv_fp8: 2/2 OK — third architecture (sm_120, sm_90, sm_80);
+  fp8 e4m3 storage+conversion works on Ampere without fp8 tensor cores.
+- Absolute per-op timings (no baseline exists to compare):
+  prefill_8k 10749.9us | swa_8k 10297.2 | decode_b1_kv64k 5510.3 |
+  32seqs_kv64k 75013.4 (2344/seq) | gate_select 7.4/47.1us (works here;
+  session-25 gate_select failure was that box's torchvision, not the kernel)

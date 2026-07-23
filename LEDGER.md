@@ -21,7 +21,7 @@ Baseline reference (external claim, NOT ours): vLLM day-0 blog reports 380 tok/s
 | U1 | fused NVFP4 MoE grouped GEMM | null | null | null | null | — |
 | U2 | rel-attn prefill | null (ncu pending) | null (ncu pending) | per-op 3/3 sm_90 native H100 + 3/3 sm_120 (2026-07-20); 32/32 pending | null | decode b1 kv64k 905.6us vs 2375-6209 prod (2.6-6.9x), prefill 8k 3362us vs 8483-13049 (2.5-3.9x) — journal/remote/microbench_attn_day0_native_sm90_session24.json |
 | U2 | rel-attn split-KV decode | null | null | null | null | — |
-| U3 | quantized paged KV | null | null | per-op 2/2 local sm_120 (2026-07-20, parity_kv_fp8.py); arch-local + 32/32 pending | null | — |
+| U3 | quantized paged KV | null | null | per-op 2/2 on sm_120 + sm_90/H100 + sm_80/A100 (2026-07-20/23); 32/32 pending | null | — |
 | U4 | router+dispatch fusion | null | null | null | null | — |
 | U5 | QKVR fused GEMM | null | null | null | null | — |
 | U6 | graphs+overlap | n/a (timeline) | null | null | null | — |
@@ -40,6 +40,7 @@ Baseline reference (external claim, NOT ours): vLLM day-0 blog reports 380 tok/s
 | 2026-07-20 | Lambda 1x H100 (session 24, parked) | ~1.8 h | ~$7.7 | sm_90 NATIVE parity 3/3 GREEN (pack_gqa root cause) + race won (905.6us vs 2375-6209 prod @ b1/kv64k; prefill 2.5-3.9x) + U3 H100 2/2 OK + 3x ncu profiles banked (journal/ncu/). Terminated. |
 | 2026-07-21 | Lambda 8x B200 (australia-east-1) | 0.34 h | $18.17 | CAPACITY FOUND + launched + bootstrapped, then the LAUNCHER crashed: Windows cp1252 could not decode a byte in the remote bootstrap stream, killing the subprocess reader thread (stdout=None -> TypeError). finally-block terminated correctly. NO gate evidence obtained. Fix: all subprocess pipes forced to utf-8/errors=replace + None-safe run_stage, regression test scripts/test_pipe_decode.py. |
 | 2026-07-23 | Lambda 1x H100 (session 25, parked, ONGOING) | ~1h+ | ~$4.3/hr | Drift #5 (wheel bucket regenerated) diagnosed + fixed live; env time-capsule baked into bootstrap. INDEPENDENT REPRODUCTION on torch 2.11/cu130: parity 3/3, U3 2/2, race now 2.7-8.4x, first true 32-seq batched-decode numbers. Box HELD as dev box (founder-authorized booking rule). |
+| 2026-07-23 | founder 8x A100 node (shared use, session 26) | ~0.7 h share | (node billed for founder use) | sm_80 sweep: OUR kernel parity 3/3 GREEN; day-0 path CANNOT RUN on SM8x (NotImplementedError, finding 05) => Inkling-turbo is the only working rel-attention on Ampere. U3 2/2 (3rd arch). Absolute timings banked. |
 | | | | **~$43.3 total** | |
 
 ## last_error

@@ -36,3 +36,14 @@ tensor silently break. Evidence: session 24 stride print (81920 = Hq*padded
 pack_gqa=False. sm_100 handles it via group_tile_bias in the shear writer;
 the generic path never packs (finding 03 context). Filing shape: doc/API
 note + the working native sm_90 sheared-bias port as the reference fix.
+
+## Finding 05 (2026-07-23): no Inkling rel-attention path exists on SM8x
+
+vllm_flash_attn cute interface.py:722 raises NotImplementedError for any
+score_mod on SM8x, and the Inkling serving router's only non-Blackwell path
+IS score_mod — so day-0 Inkling attention cannot execute on A100-class GPUs
+at all. Evidence: session 26, parity harness on A100-SXM4-40GB: our sheared
+generic kernel 3/3 green on the same cases where every day-0 path raises.
+Filing shape: gap report + our generic sheared-bias kernel as the working
+sm_80 reference. Dup-check: covered by the 2026-07-21 sweep (trackers had
+zero issues); re-run before filing.
