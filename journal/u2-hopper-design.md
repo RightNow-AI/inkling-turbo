@@ -659,3 +659,18 @@ bootstrap worked first try on a second box).
   prefill_8k 10749.9us | swa_8k 10297.2 | decode_b1_kv64k 5510.3 |
   32seqs_kv64k 75013.4 (2344/seq) | gate_select 7.4/47.1us (works here;
   session-25 gate_select failure was that box's torchvision, not the kernel)
+
+## SESSION 27 (2026-07-23, founder A100 node): sm_80 tile tuning
+
+Parity-gated sweep (harness/tune_sm80.py; every config must pass a float32
+oracle before its timing counts). Legal space with bias: tile_m=128 fixed
+(shear contract), tile_n in {32, 64, 128}. Results
+(journal/remote/tune_sm80_a100.json):
+  tile_n=32: b1 decode 5350.1us | 32-seq 60801.4 | prefill_g 10712.7 | swa 10565.6
+  tile_n=64: b1 decode 5953.7   | 32-seq 74356.6 | prefill_g 11124.1 | swa 9175.2
+  tile_n=128: 30x collapse everywhere (131.7ms b1) - sm_80 smem pressure.
+SHIPPED: interface sm_80 branch now picks tile_n=32 when max_seqlen_q<=32
+(decode-shaped), 64 otherwise. Upstream default was an untuned 64 with a
+literal "should tune" comment. Post-deploy validation on A100: parity 3/3,
+32-seq decode 60977.5us vs 75013.4 pre-tune = 18.7 percent faster; sm_120
+regression 3/3 green (arch-12 branch untouched).

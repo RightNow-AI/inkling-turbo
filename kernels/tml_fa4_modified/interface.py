@@ -540,7 +540,15 @@ def _flash_attn_fwd(
             else:
                 fwd_cfg = FwdConfig(128, 64, True, True)
         elif arch // 10 == 8:
-            fwd_cfg = FwdConfig(128, 64, True, True)  # SM80, should tune
+            # A100-tuned (parity-gated sweep, harness/tune_sm80.py):
+            # decode-shaped calls run 10-18 percent faster at tile_n=32
+            # (5350 vs 5954 us b1/kv64k; 60.8 vs 74.4 ms 32-seq batched);
+            # SWA prefill prefers 64 (9.2 vs 10.6 ms). 128x128 collapses
+            # ~30x on sm_80 smem pressure - never select it here.
+            if max_seqlen_q is not None and max_seqlen_q <= 32:
+                fwd_cfg = FwdConfig(128, 32, True, True)
+            else:
+                fwd_cfg = FwdConfig(128, 64, True, True)
         elif arch // 10 == 9:
             sparse_q = get_sparse_q_block_size(block_sparse_tensors, seqlen_q)
             fwd_cfg = _tile_size_fwd_sm90(head_dim, head_dim_v, causal, local, sparse_block_size_q=sparse_q)

@@ -34,6 +34,9 @@ def _install_tile_injector() -> None:
             kwargs["tile_mn"] = _TILE[0]
         return orig(*args, **kwargs)
 
+    # the interface stores its compile caches as attributes on the function
+    # object and reads them through the module-global name; inherit them all
+    patched.__dict__.update(orig.__dict__)
     itf._flash_attn_fwd = patched
 
 
@@ -102,6 +105,8 @@ def parity_ok() -> tuple[bool, float]:
             q=q, k=k, v=v, rel_bias=rel, cu_seqlens_q=cu, cu_seqlens_k=cu,
             max_seqlen_q=T, max_seqlen_k=T, softmax_scale=1.0 / D,
             causal=True, window_size=window)
+        if isinstance(out, tuple):
+            out = out[0]
         # float32 oracle
         qf, kf, vf = q.float(), k.float(), v.float()
         scores = torch.einsum("qhd,khd->hqk", qf.view(T, Hq, D),
