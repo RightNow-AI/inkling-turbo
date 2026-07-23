@@ -612,3 +612,30 @@ per-element gmem bias reads (vectorize/stage), (4) ShearingBias pre-kernel
 825us not overlapped. Below the 90% gate; documented ceiling + iterate list
 per the rules. The RELEASE claim rests on parity + the measured 2.5-6.9x
 over the day-0 production paths, not on roofline saturation.
+
+## SESSION 25 (2026-07-23, parked 1x H100): reproducibility + true batched decode
+
+Environment drift #5 hit first: upstream regenerated wheels.vllm.ai (bucket
+timestamp 2026-07-17), deleting cu12x wheels for the pinned sha; the default
+resolver then served an aarch64/CUDA-13 wheel and install died. Recovery
+recipe (now baked into bootstrap_b200.sh as the time-capsule): exact-sha x86
+wheel pinned by URL + torch==2.11.0 cu130 + torchvision cu130 + NVIDIA
+cuda-compat-13-0 (580.173.02) forward-compat shim for Lambda driver 570 +
+LD_LIBRARY_PATH to compat and nvidia/cu13/lib.
+
+RESULTS (all on the SAME box, torch 2.11.0+cu130 — a fully different stack
+from session 24's cu129, making these an independent reproduction):
+- parity_fa4_rel: 3/3 GREEN native sm_90 (max 1.56e-2)
+- U3 parity_kv_fp8: 2/2 OK
+- decode_b1_kv64k: ours 852.6us | plain 736.0 (+15.8 pct bias cost) |
+  score_mod 2326.6 (2.7x) | relprojT 5154.7 (6.0x) | relproj 7194.5 (8.4x)
+- decode_b32(rows)_kv64k: ours 854.8 | score_mod 2391.2 | relprojT 5065.1
+- prefill_global_8k: ours 3308.8 | relprojT 10551.5 (3.2x) | relproj 15254.6 (4.6x)
+- NEW true multi-sequence decode (32 seqs x own KV):
+  kv8k 1799.1us (56.2/seq), kv64k 13821.4us (431.9/seq — 2.0x per-seq
+  efficiency vs b1, still latency-bound: split-KV headroom confirmed at batch)
+- gate_select cases FAILED on this stack (torchvision cu-mismatch persists
+  after non-forced reinstall) — NOT release-blocking (4 prior green sessions,
+  4.3/22.2us stable); fix = uv pip install --reinstall torchvision cu130.
+
+The 2.6-6.9x session-24 headline is now 2.7-8.4x on the newer stack.
