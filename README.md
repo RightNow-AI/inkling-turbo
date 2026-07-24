@@ -8,7 +8,7 @@ This project replaces it with a tile-level sheared-bias kernel. On an H100 it ru
 
 The checkpoint is untouched. No quantization, no retraining, no changes to the attention math. Only the kernel and the code that dispatches to it.
 
-![Measured latency and project status](docs/figures/status.png)
+![Attention kernel latency on H100](docs/figures/fig1_latency.png)
 
 ## What is measured
 
@@ -23,6 +23,8 @@ The checkpoint is untouched. No quantization, no retraining, no changes to the a
 
 Every timing has a passing parity run behind it. A fast kernel that returns the wrong answer is a failed kernel, and the harness discards its timing.
 
+![Full-model agreement with the stock build](docs/figures/fig2_correctness.png)
+
 ## What is not measured
 
 Read this section before quoting any number above.
@@ -36,6 +38,8 @@ Read this section before quoting any number above.
 - The upstream bug reports are written but not filed.
 
 ## Architecture support
+
+![Validation status by unit and architecture](docs/figures/fig3_status.png)
 
 | GPU | State | Detail |
 |---|---|---|
@@ -123,7 +127,7 @@ journal/remote/             raw measurement artifacts as JSON
 journal/ncu/                Nsight Compute profiles
 journal/upstream/           bug reports written against upstream
 docs/METHODOLOGY.md         the evidence rules
-docs/figures/               the status figure, LaTeX source and rendered PNG
+docs/figures/               figures: LaTeX source, build script, rendered PNG
 LEDGER.md                   every number, measured or null
 ```
 
