@@ -1,0 +1,341 @@
+{
+  "started": "2026-07-24 11:59:34 UTC",
+  "config": {
+    "model_dir": "/home/ubuntu/models/inkling",
+    "served_name": "inkling",
+    "tp": 8,
+    "max_model_len": 3072,
+    "port": 8000,
+    "tol_max": 0.25,
+    "tol_mean": 0.02,
+    "num_prompts": 32,
+    "batch_prompts": 4,
+    "batch_max_tokens": 32
+  },
+  "builds": {
+    "stock": {
+      "deployed_files": [
+        "__init__.py",
+        "ampere_helpers.py",
+        "barrier.py",
+        "blackwell_helpers.py",
+        "block_info.py",
+        "block_sparse_utils.py",
+        "block_sparsity.py",
+        "blockscaled_utils.py",
+        "cache_utils.py",
+        "compute_block_sparsity.py",
+        "copy_utils.py",
+        "cu_blocks_kernels.py",
+        "cute_dsl_ptxas.py",
+        "cute_dsl_utils.py",
+        "fa_logging.py",
+        "fast_math.py",
+        "flash_fwd.py",
+        "flash_fwd_combine.py",
+        "flash_fwd_mla_sm100.py",
+        "flash_fwd_sm100.py",
+        "flash_fwd_sm120.py",
+        "flash_fwd_sm90.py",
+        "interface.py",
+        "kernel_info_utils.py",
+        "mask.py",
+        "mixed_dtype_gemm.py",
+        "mma_sm100_desc.py",
+        "named_barrier.py",
+        "pack_gqa.py",
+        "paged_kv.py",
+        "pipeline.py",
+        "prepare_scheduler.py",
+        "seqlen_info.py",
+        "shearing_bias.py",
+        "sm100_hd256_2cta_fmha_forward.py",
+        "softmax.py",
+        "testing.py",
+        "tile_scheduler.py",
+        "topk_gather_kv.py",
+        "utils.py"
+      ],
+      "serve_log": "/home/ubuntu/gate_logs/serve_stock.log"
+    },
+    "ours": {
+      "deployed_files": [
+        "flash_fwd.py",
+        "flash_fwd_sm90.py",
+        "interface.py"
+      ],
+      "serve_log": "/home/ubuntu/gate_logs/serve_ours.log"
+    }
+  },
+  "parity": {
+    "per_prompt": [
+      {
+        "tokens_match": true,
+        "n": 4,
+        "max": 0.0,
+        "mean": 0.0
+      },
+      {
+        "tokens_match": true,
+        "n": 4,
+        "max": 0.0,
+        "mean": 0.0
+      },
+      {
+        "tokens_match": true,
+        "n": 3,
+        "max": 0.0,
+        "mean": 0.0
+      },
+      {
+        "tokens_match": true,
+        "n": 4,
+        "max": 0.0,
+        "mean": 0.0
+      },
+      {
+        "tokens_match": true,
+        "n": 5,
+        "max": 0.0,
+        "mean": 0.0
+      },
+      {
+        "tokens_match": true,
+        "n": 4,
+        "max": 0.0,
+        "mean": 0.0
+      },
+      {
+        "tokens_match": true,
+        "n": 4,
+        "max": 0.0,
+        "mean": 0.0
+      },
+      {
+        "tokens_match": true,
+        "n": 2,
+        "max": 0.0,
+        "mean": 0.0
+      },
+      {
+        "tokens_match": true,
+        "n": 12,
+        "max": 1.1459884643554688,
+        "mean": 0.12707397217551866
+      },
+      {
+        "tokens_match": true,
+        "n": 13,
+        "max": 0.49799513816833496,
+        "mean": 0.07280451976335965
+      },
+      {
+        "tokens_match": true,
+        "n": 11,
+        "max": 0.5352592468261719,
+        "mean": 0.0938337692482905
+      },
+      {
+        "tokens_match": true,
+        "n": 13,
+        "max": 0.9474315643310547,
+        "mean": 0.20550031702105814
+      },
+      {
+        "tokens_match": true,
+        "n": 11,
+        "max": 0.18643569946289062,
+        "mean": 0.03580058755522424
+      },
+      {
+        "tokens_match": true,
+        "n": 12,
+        "max": 0.07652008533477783,
+        "mean": 0.027496468120565016
+      },
+      {
+        "tokens_match": true,
+        "n": 14,
+        "max": 0.8692898750305176,
+        "mean": 0.12133751064538956
+      },
+      {
+        "tokens_match": true,
+        "n": 18,
+        "max": 0.21054935455322266,
+        "mean": 0.05557692682163583
+      },
+      {
+        "tokens_match": true,
+        "n": 44,
+        "max": 0.34908580780029297,
+        "mean": 0.05701122822541616
+      },
+      {
+        "tokens_match": true,
+        "n": 43,
+        "max": 0.529292106628418,
+        "mean": 0.0935836597887236
+      },
+      {
+        "tokens_match": true,
+        "n": 39,
+        "max": 1.847456932067871,
+        "mean": 0.09988605866256432
+      },
+      {
+        "tokens_match": true,
+        "n": 45,
+        "max": 0.734489917755127,
+        "mean": 0.10377100912026233
+      },
+      {
+        "tokens_match": true,
+        "n": 43,
+        "max": 0.5979194641113281,
+        "mean": 0.07500670995356158
+      },
+      {
+        "tokens_match": true,
+        "n": 44,
+        "max": 4.850350856781006,
+        "mean": 0.18752187938529954
+      },
+      {
+        "tokens_match": true,
+        "n": 44,
+        "max": 0.23831939697265625,
+        "mean": 0.06368597317487001
+      },
+      {
+        "tokens_match": true,
+        "n": 49,
+        "max": 0.8839931488037109,
+        "mean": 0.11599651214010938
+      },
+      {
+        "tokens_match": true,
+        "n": 121,
+        "max": 3.3603992462158203,
+        "mean": 0.12857782439673165
+      },
+      {
+        "tokens_match": true,
+        "n": 115,
+        "max": 0.7493495941162109,
+        "mean": 0.10433881634988053
+      },
+      {
+        "tokens_match": true,
+        "n": 114,
+        "max": 3.313770294189453,
+        "mean": 0.13562985575098488
+      },
+      {
+        "tokens_match": true,
+        "n": 174,
+        "max": 0.7196497917175293,
+        "mean": 0.053921114051702496
+      },
+      {
+        "tokens_match": true,
+        "n": 1212,
+        "max": 0.45734310150146484,
+        "mean": 0.008870281760001038
+      },
+      {
+        "tokens_match": true,
+        "n": 41,
+        "max": 0.5742979049682617,
+        "mean": 0.027678740614025695
+      },
+      {
+        "tokens_match": true,
+        "n": 80,
+        "max": 1.8890113830566406,
+        "mean": 0.03307904461689759
+      },
+      {
+        "tokens_match": true,
+        "n": 27,
+        "max": 0.6758236885070801,
+        "mean": 0.05095764915286391
+      }
+    ],
+    "max": 4.850350856781006,
+    "mean": 0.04768541585168423,
+    "tokens_compared": 2369,
+    "tokens_match_all": true,
+    "pass": false
+  },
+  "batch_consistency": {
+    "stock": {
+      "per_prompt": [
+        {
+          "tokens_match": false,
+          "n": 44,
+          "max": 1.3905639499425888,
+          "mean": 0.22799950994538615
+        },
+        {
+          "tokens_match": true,
+          "n": 76,
+          "max": 0.4102058410644531,
+          "mean": 0.07156719753555463
+        },
+        {
+          "tokens_match": false,
+          "n": 75,
+          "max": 2.0085542649030685,
+          "mean": 0.2830217757749294
+        },
+        {
+          "tokens_match": true,
+          "n": 153,
+          "max": 1.3292694091796875,
+          "mean": 0.10037188193187487
+        }
+      ],
+      "max": 2.0085542649030685,
+      "mean": 0.14958223152010258,
+      "tokens_compared": 348,
+      "tokens_match_all": false,
+      "pass": false
+    },
+    "ours": {
+      "per_prompt": [
+        {
+          "tokens_match": false,
+          "n": 44,
+          "max": 1.6978705823421478,
+          "mean": 0.3704062238979201
+        },
+        {
+          "tokens_match": false,
+          "n": 76,
+          "max": 0.7150363922119141,
+          "mean": 0.07761238909427591
+        },
+        {
+          "tokens_match": true,
+          "n": 75,
+          "max": 0.2617521286010742,
+          "mean": 0.046830346075391084
+        },
+        {
+          "tokens_match": false,
+          "n": 153,
+          "max": 2.3772267401218414,
+          "mean": 0.202182070882854
+        }
+      ],
+      "max": 2.3772267401218414,
+      "mean": 0.16276594317070242,
+      "tokens_compared": 348,
+      "tokens_match_all": false,
+      "pass": false
+    }
+  },
+  "last_error": null,
+  "finished": "2026-07-24 12:07:21 UTC"
+}

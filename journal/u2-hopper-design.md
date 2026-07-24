@@ -674,3 +674,35 @@ SHIPPED: interface sm_80 branch now picks tile_n=32 when max_seqlen_q<=32
 literal "should tune" comment. Post-deploy validation on A100: parity 3/3,
 32-seq decode 60977.5us vs 75013.4 pre-tune = 18.7 percent faster; sm_120
 regression 3/3 green (arch-12 branch untouched).
+
+## SESSION 28 (2026-07-24, 8x H100): FIRST FULL-MODEL SERVING + LOGIT GATE
+
+MEMORY MAP (7 attempts, each peeling one real layer - the definitive recipe
+for 592GB NVFP4 Inkling on 8x H100 640GB):
+  scipy missing (worker import) -> ctx 16384 infeasible (KV 5.07 vs 2.13GB)
+  -> CUDA graph capture OOM (394MB short at util 0.95) -> eager
+  -> warmup activation OOM at 0.95 (782MB short) -> util 0.90 starves KV
+  entirely -> 0.93 still short (KV 0.58 vs 1.27) -> WORKING: util 0.94,
+  ctx 3072, enforce-eager, expandable_segments. Serving confirmed with real
+  tokens ("The capital of France is" -> " Paris."). KV sensitivity measured:
+  ~0.77GB per 0.01 util; non-torch overhead ~2.8GB/GPU; warmup spike ~0.8GB.
+
+LOGIT GATE (32 prompts, echo logprobs, stock vs ours, n=2369 tokens):
+  - GREEDY TOKENS: 32/32 prompts IDENTICAL between stock and our kernels
+    (parity.tokens_match_all = true). THE full-model correctness result.
+  - Logprob deltas: mean 0.048, max 4.85.
+  - CONTROL (same-build batched vs single): stock mean 0.150 max 2.01 with
+    tokens_match=FALSE; ours mean 0.163 max 2.38 tokens_match=FALSE.
+    The platform itself is not batch-deterministic at TP8 bf16/66 layers;
+    the a-priori tolerances (0.02 mean) sit BELOW that noise floor, so the
+    gate as-specified records FAIL for the comparison AND for both controls.
+  - Honest verdict: ours-vs-stock mean is 3.1x SMALLER than the same-build
+    noise floor, and token-level behavior is exactly preserved where the
+    platform itself preserves it. Recorded as: token gate PASS 32/32;
+    logprob gate FAIL-as-specified with tolerance shown to be tighter than
+    platform reproducibility (control failure documented, not waived).
+  - Ours build verified genuinely ours: gate deploy raises on route-patch
+    failure, deployed_files = our 3 kernels, serve_ours.log shows CuTeDSL
+    warmup of inkling_fa4 (28 compile units).
+Evidence: journal/remote/gate_logit_parity_8xh100.json
+E2e serving bench (stock vs ours, 2 mixes, median-of-5) running.
