@@ -62,13 +62,36 @@ COVERAGE
 
 REQUIREMENTS
   a GPU, a vLLM tree with kernels/patches/u2_shear_fusion.py applied, and
-  kernels/tml_fa4_modified deployed.  Nothing here has run on silicon yet.
+  kernels/tml_fa4_modified deployed.
+
+WHERE THIS HAS RUN
+  sm_120 (RTX 5090): 16/16.  One recorded run, no artifact; the only record is
+  commit 7375849.
+  sm_90 (H100, session 26): 14/16.  All 14 writer cases bit-exact.  Both
+  attention_consumes_* cases failed on a defect in flash_fwd_sm90.py that has
+  since been fixed, so the current expectation on sm_90 is 16/16 and that has
+  not been re-run.  Artifact: journal/remote/validate_s26_h100x1/.
+  NOT run on sm_100.
+  On performance: the fusion has been measured and it is a net LOSS on prefill,
+  costing 1019us on global and 561us on sliding-window 8K while saving 5us on
+  batch-32 decode.  See journal/remote/validate_s26_h100x1/README.md.  Passing
+  this gate says the writer is correct, not that it is worth enabling.
+
+ARTIFACT
+  Writes parity_shear_fusion_sm<cc>.json next to this script: device name,
+  torch version, CUDA capability, and every case with its pass/fail state and
+  error strings.  The compute capability is in the filename so an sm_90 run
+  does not overwrite the sm_120 one.  Exit code is unchanged: 0 iff every
+  case passed.
 
 Run (WSL): cd ~/inkling-turbo/vllm && source .venv/bin/activate && \\
   python $REPO/harness/parity_shear_fusion.py
 """
 
 from __future__ import annotations
+
+import json
+from pathlib import Path
 
 import torch
 
@@ -717,7 +740,11 @@ CASES = [
 
 
 def main() -> None:
-    print(f"device: {torch.cuda.get_device_name(0)}")
+    device = torch.cuda.get_device_name(0)
+    cc = torch.cuda.get_device_capability(0)
+    print(f"device: {device}, capability {cc}")
+
+    cases: dict[str, dict] = {}
     failures = 0
     for fn, name, kwargs in CASES:
         try:
@@ -734,7 +761,33 @@ def main() -> None:
                 print(f"    {line}")
         else:
             print(f"[{name}] OK")
-    print(f"\n{len(CASES) - failures}/{len(CASES)} cases bit-exact")
+        cases[name] = {"pass": not errs, "errors": list(errs)}
+
+    passed = len(CASES) - failures
+    print(f"\n{passed}/{len(CASES)} cases bit-exact")
+
+    # Artifact. Same convention as the other harnesses (JSON next to the
+    # script), with the compute capability in the name so runs on different
+    # arches accumulate instead of overwriting each other.
+    out = Path(__file__).with_name(
+        f"parity_shear_fusion_sm{cc[0]}{cc[1]}.json"
+    )
+    out.write_text(
+        json.dumps(
+            {
+                "device": device,
+                "compute_capability": f"{cc[0]}.{cc[1]}",
+                "torch_version": torch.__version__,
+                "cuda_version": torch.version.cuda,
+                "passed": passed,
+                "total": len(CASES),
+                "summary": f"{passed}/{len(CASES)} cases bit-exact",
+                "cases": cases,
+            },
+            indent=2,
+        )
+    )
+    print(f"saved: {out}")
     raise SystemExit(1 if failures else 0)
 
 

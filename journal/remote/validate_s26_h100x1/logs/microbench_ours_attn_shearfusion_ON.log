@@ -1,0 +1,1327 @@
+device: NVIDIA H100 80GB HBM3, capability (9, 0)
+
+[prefill_global_8k] FAILED:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1855, in build_ir_module
+    result = funcBody(*ir_args, **ir_kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 448, in __call__
+    ).launch(
+      ^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass.py", line 2171, in launch
+    ret, name = kernel_generator(*self.func_args, **self.func_kwargs, config=config)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 3023, in kernel_wrapper
+    kernel_ret = funcBody(*ir_args, **ir_kwargs)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 644, in kernel
+    if warp_idx < 4:  # Producer
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 644, in if_region_9
+    if warp_idx < 4:  # Producer
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 646, in then_block_10
+    self.load(
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 875, in jit_wrapper
+    return getattr(func._dsl_object, executor_name)(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2688, in _func_impl
+    return funcBody(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 738, in load
+    if is_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 738, in if_region_0
+    if is_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 745, in then_block_30
+    while work_tile.is_valid_tile:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 277, in ir_while_loop
+    return func(*write_args)
+           ^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 745, in while_region_1
+    while work_tile.is_valid_tile:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 289, in while_executor
+    return executor.while_execute(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 175, in while_execute
+    return self._while_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 672, in _while_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 659, in after_block_builder
+    after_results = while_after_block(*flat_args)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 888, in while_after_block_2
+    if has_work:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 888, in if_region_12
+    if has_work:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 889, in then_block_21
+    if is_kv_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 889, in if_region_13
+    if is_kv_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 893, in then_block_20
+    block=n_block,
+          ^^^^^^^
+UnboundLocalError: cannot access local variable 'n_block' where it is not associated with a value
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 138, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 35, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 71, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/third_party/tml_fa4/interface.py", line 1597, in flash_attn_varlen_func
+    out, lse, logits_max, *_ = _flash_attn_fwd(
+                               ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/interface.py", line 1378, in _flash_attn_fwd
+    _flash_attn_fwd.compile_cache[compile_key] = cute.compile(
+                                                 ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1250, in __call__
+    return self._compile(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1400, in _compile
+    return func._dsl_object._func(func, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2693, in _func_impl
+    result = self.generate_mlir(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2223, in generate_mlir
+    module, module_hash, result = self.generate_original_ir(
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1894, in generate_original_ir
+    module, result = build_ir_module()
+                     ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1870, in build_ir_module
+    raise DSLUserCodeError(
+cutlass.base_dsl.common.DSLUserCodeError: 
+[91m[1merror:[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value
+   [94m-->[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893
+    |
+891 |                                 pipeline_v.producer_acquire(kv_producer_state)
+892 |                                 load_V(
+893 |                                     block=n_block,
+    |                                     [91m^[0m
+  [94m= note:[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value
+  [92msuggestion:[0m Variables used inside staged control flow (for/if/while) must be defined before the
+              control flow region. Give the variable an initial value before the loop or branch.
+
+
+[prefill_swa_8k] FAILED:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1855, in build_ir_module
+    result = funcBody(*ir_args, **ir_kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 448, in __call__
+    ).launch(
+      ^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass.py", line 2171, in launch
+    ret, name = kernel_generator(*self.func_args, **self.func_kwargs, config=config)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 3023, in kernel_wrapper
+    kernel_ret = funcBody(*ir_args, **ir_kwargs)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 644, in kernel
+    if warp_idx < 4:  # Producer
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 644, in if_region_9
+    if warp_idx < 4:  # Producer
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 646, in then_block_10
+    self.load(
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 875, in jit_wrapper
+    return getattr(func._dsl_object, executor_name)(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2688, in _func_impl
+    return funcBody(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 738, in load
+    if is_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 738, in if_region_0
+    if is_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 745, in then_block_30
+    while work_tile.is_valid_tile:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 277, in ir_while_loop
+    return func(*write_args)
+           ^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 745, in while_region_1
+    while work_tile.is_valid_tile:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 289, in while_executor
+    return executor.while_execute(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 175, in while_execute
+    return self._while_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 672, in _while_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 659, in after_block_builder
+    after_results = while_after_block(*flat_args)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 888, in while_after_block_2
+    if has_work:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 888, in if_region_12
+    if has_work:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 889, in then_block_21
+    if is_kv_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 889, in if_region_13
+    if is_kv_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 893, in then_block_20
+    block=n_block,
+          ^^^^^^^
+UnboundLocalError: cannot access local variable 'n_block' where it is not associated with a value
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 138, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 35, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 71, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/third_party/tml_fa4/interface.py", line 1597, in flash_attn_varlen_func
+    out, lse, logits_max, *_ = _flash_attn_fwd(
+                               ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/interface.py", line 1378, in _flash_attn_fwd
+    _flash_attn_fwd.compile_cache[compile_key] = cute.compile(
+                                                 ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1250, in __call__
+    return self._compile(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1400, in _compile
+    return func._dsl_object._func(func, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2693, in _func_impl
+    result = self.generate_mlir(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2223, in generate_mlir
+    module, module_hash, result = self.generate_original_ir(
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1894, in generate_original_ir
+    module, result = build_ir_module()
+                     ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1870, in build_ir_module
+    raise DSLUserCodeError(
+cutlass.base_dsl.common.DSLUserCodeError: 
+[91m[1merror:[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value
+   [94m-->[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893
+    |
+891 |                                 pipeline_v.producer_acquire(kv_producer_state)
+892 |                                 load_V(
+893 |                                     block=n_block,
+    |                                     [91m^[0m
+  [94m= note:[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value
+  [92msuggestion:[0m Variables used inside staged control flow (for/if/while) must be defined before the
+              control flow region. Give the variable an initial value before the loop or branch.
+
+
+[decode_b32_global_kv8k] FAILED:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1855, in build_ir_module
+    result = funcBody(*ir_args, **ir_kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 448, in __call__
+    ).launch(
+      ^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass.py", line 2171, in launch
+    ret, name = kernel_generator(*self.func_args, **self.func_kwargs, config=config)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 3023, in kernel_wrapper
+    kernel_ret = funcBody(*ir_args, **ir_kwargs)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 644, in kernel
+    if warp_idx < 4:  # Producer
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 644, in if_region_9
+    if warp_idx < 4:  # Producer
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 646, in then_block_10
+    self.load(
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 875, in jit_wrapper
+    return getattr(func._dsl_object, executor_name)(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2688, in _func_impl
+    return funcBody(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 738, in load
+    if is_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 738, in if_region_0
+    if is_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 745, in then_block_30
+    while work_tile.is_valid_tile:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 277, in ir_while_loop
+    return func(*write_args)
+           ^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 745, in while_region_1
+    while work_tile.is_valid_tile:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 289, in while_executor
+    return executor.while_execute(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 175, in while_execute
+    return self._while_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 672, in _while_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 659, in after_block_builder
+    after_results = while_after_block(*flat_args)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 888, in while_after_block_2
+    if has_work:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 888, in if_region_12
+    if has_work:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 889, in then_block_21
+    if is_kv_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 889, in if_region_13
+    if is_kv_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 893, in then_block_20
+    block=n_block,
+          ^^^^^^^
+UnboundLocalError: cannot access local variable 'n_block' where it is not associated with a value
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 138, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 35, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 71, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/third_party/tml_fa4/interface.py", line 1597, in flash_attn_varlen_func
+    out, lse, logits_max, *_ = _flash_attn_fwd(
+                               ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/interface.py", line 1378, in _flash_attn_fwd
+    _flash_attn_fwd.compile_cache[compile_key] = cute.compile(
+                                                 ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1250, in __call__
+    return self._compile(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1400, in _compile
+    return func._dsl_object._func(func, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2693, in _func_impl
+    result = self.generate_mlir(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2223, in generate_mlir
+    module, module_hash, result = self.generate_original_ir(
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1894, in generate_original_ir
+    module, result = build_ir_module()
+                     ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1870, in build_ir_module
+    raise DSLUserCodeError(
+cutlass.base_dsl.common.DSLUserCodeError: 
+[91m[1merror:[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value
+   [94m-->[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893
+    |
+891 |                                 pipeline_v.producer_acquire(kv_producer_state)
+892 |                                 load_V(
+893 |                                     block=n_block,
+    |                                     [91m^[0m
+  [94m= note:[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value
+  [92msuggestion:[0m Variables used inside staged control flow (for/if/while) must be defined before the
+              control flow region. Give the variable an initial value before the loop or branch.
+
+
+[decode_b32_global_kv64k] FAILED:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1855, in build_ir_module
+    result = funcBody(*ir_args, **ir_kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 448, in __call__
+    ).launch(
+      ^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass.py", line 2171, in launch
+    ret, name = kernel_generator(*self.func_args, **self.func_kwargs, config=config)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 3023, in kernel_wrapper
+    kernel_ret = funcBody(*ir_args, **ir_kwargs)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 644, in kernel
+    if warp_idx < 4:  # Producer
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 644, in if_region_9
+    if warp_idx < 4:  # Producer
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 646, in then_block_10
+    self.load(
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 875, in jit_wrapper
+    return getattr(func._dsl_object, executor_name)(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2688, in _func_impl
+    return funcBody(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 738, in load
+    if is_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 738, in if_region_0
+    if is_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 745, in then_block_30
+    while work_tile.is_valid_tile:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 277, in ir_while_loop
+    return func(*write_args)
+           ^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 745, in while_region_1
+    while work_tile.is_valid_tile:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 289, in while_executor
+    return executor.while_execute(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 175, in while_execute
+    return self._while_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 672, in _while_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 659, in after_block_builder
+    after_results = while_after_block(*flat_args)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 888, in while_after_block_2
+    if has_work:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 888, in if_region_12
+    if has_work:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 889, in then_block_21
+    if is_kv_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 889, in if_region_13
+    if is_kv_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 893, in then_block_20
+    block=n_block,
+          ^^^^^^^
+UnboundLocalError: cannot access local variable 'n_block' where it is not associated with a value
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 138, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 35, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 71, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/third_party/tml_fa4/interface.py", line 1597, in flash_attn_varlen_func
+    out, lse, logits_max, *_ = _flash_attn_fwd(
+                               ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/interface.py", line 1378, in _flash_attn_fwd
+    _flash_attn_fwd.compile_cache[compile_key] = cute.compile(
+                                                 ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1250, in __call__
+    return self._compile(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1400, in _compile
+    return func._dsl_object._func(func, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2693, in _func_impl
+    result = self.generate_mlir(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2223, in generate_mlir
+    module, module_hash, result = self.generate_original_ir(
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1894, in generate_original_ir
+    module, result = build_ir_module()
+                     ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1870, in build_ir_module
+    raise DSLUserCodeError(
+cutlass.base_dsl.common.DSLUserCodeError: 
+[91m[1merror:[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value
+   [94m-->[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893
+    |
+891 |                                 pipeline_v.producer_acquire(kv_producer_state)
+892 |                                 load_V(
+893 |                                     block=n_block,
+    |                                     [91m^[0m
+  [94m= note:[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value
+  [92msuggestion:[0m Variables used inside staged control flow (for/if/while) must be defined before the
+              control flow region. Give the variable an initial value before the loop or branch.
+
+
+[decode_b1_global_kv64k] FAILED:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1855, in build_ir_module
+    result = funcBody(*ir_args, **ir_kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 448, in __call__
+    ).launch(
+      ^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass.py", line 2171, in launch
+    ret, name = kernel_generator(*self.func_args, **self.func_kwargs, config=config)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 3023, in kernel_wrapper
+    kernel_ret = funcBody(*ir_args, **ir_kwargs)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 644, in kernel
+    if warp_idx < 4:  # Producer
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 644, in if_region_9
+    if warp_idx < 4:  # Producer
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 646, in then_block_10
+    self.load(
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 875, in jit_wrapper
+    return getattr(func._dsl_object, executor_name)(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2688, in _func_impl
+    return funcBody(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 738, in load
+    if is_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 738, in if_region_0
+    if is_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 745, in then_block_30
+    while work_tile.is_valid_tile:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 277, in ir_while_loop
+    return func(*write_args)
+           ^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 745, in while_region_1
+    while work_tile.is_valid_tile:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 289, in while_executor
+    return executor.while_execute(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 175, in while_execute
+    return self._while_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 672, in _while_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 659, in after_block_builder
+    after_results = while_after_block(*flat_args)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 888, in while_after_block_2
+    if has_work:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 888, in if_region_12
+    if has_work:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 889, in then_block_21
+    if is_kv_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 889, in if_region_13
+    if is_kv_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 893, in then_block_20
+    block=n_block,
+          ^^^^^^^
+UnboundLocalError: cannot access local variable 'n_block' where it is not associated with a value
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 138, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 35, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 71, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/third_party/tml_fa4/interface.py", line 1597, in flash_attn_varlen_func
+    out, lse, logits_max, *_ = _flash_attn_fwd(
+                               ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/interface.py", line 1378, in _flash_attn_fwd
+    _flash_attn_fwd.compile_cache[compile_key] = cute.compile(
+                                                 ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1250, in __call__
+    return self._compile(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1400, in _compile
+    return func._dsl_object._func(func, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2693, in _func_impl
+    result = self.generate_mlir(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2223, in generate_mlir
+    module, module_hash, result = self.generate_original_ir(
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1894, in generate_original_ir
+    module, result = build_ir_module()
+                     ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1870, in build_ir_module
+    raise DSLUserCodeError(
+cutlass.base_dsl.common.DSLUserCodeError: 
+[91m[1merror:[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value
+   [94m-->[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893
+    |
+891 |                                 pipeline_v.producer_acquire(kv_producer_state)
+892 |                                 load_V(
+893 |                                     block=n_block,
+    |                                     [91m^[0m
+  [94m= note:[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value
+  [92msuggestion:[0m Variables used inside staged control flow (for/if/while) must be defined before the
+              control flow region. Give the variable an initial value before the loop or branch.
+
+
+[decode_32seqs_global_kv8k] FAILED:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1855, in build_ir_module
+    result = funcBody(*ir_args, **ir_kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 448, in __call__
+    ).launch(
+      ^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass.py", line 2171, in launch
+    ret, name = kernel_generator(*self.func_args, **self.func_kwargs, config=config)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 3023, in kernel_wrapper
+    kernel_ret = funcBody(*ir_args, **ir_kwargs)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 644, in kernel
+    if warp_idx < 4:  # Producer
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 644, in if_region_9
+    if warp_idx < 4:  # Producer
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 646, in then_block_10
+    self.load(
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 875, in jit_wrapper
+    return getattr(func._dsl_object, executor_name)(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2688, in _func_impl
+    return funcBody(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 738, in load
+    if is_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 738, in if_region_0
+    if is_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 745, in then_block_30
+    while work_tile.is_valid_tile:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 277, in ir_while_loop
+    return func(*write_args)
+           ^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 745, in while_region_1
+    while work_tile.is_valid_tile:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 289, in while_executor
+    return executor.while_execute(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 175, in while_execute
+    return self._while_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 672, in _while_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 659, in after_block_builder
+    after_results = while_after_block(*flat_args)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 888, in while_after_block_2
+    if has_work:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 888, in if_region_12
+    if has_work:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 889, in then_block_21
+    if is_kv_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 889, in if_region_13
+    if is_kv_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 893, in then_block_20
+    block=n_block,
+          ^^^^^^^
+UnboundLocalError: cannot access local variable 'n_block' where it is not associated with a value
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 138, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 35, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 98, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/third_party/tml_fa4/interface.py", line 1597, in flash_attn_varlen_func
+    out, lse, logits_max, *_ = _flash_attn_fwd(
+                               ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/interface.py", line 1378, in _flash_attn_fwd
+    _flash_attn_fwd.compile_cache[compile_key] = cute.compile(
+                                                 ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1250, in __call__
+    return self._compile(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1400, in _compile
+    return func._dsl_object._func(func, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2693, in _func_impl
+    result = self.generate_mlir(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2223, in generate_mlir
+    module, module_hash, result = self.generate_original_ir(
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1894, in generate_original_ir
+    module, result = build_ir_module()
+                     ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1870, in build_ir_module
+    raise DSLUserCodeError(
+cutlass.base_dsl.common.DSLUserCodeError: 
+[91m[1merror:[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value
+   [94m-->[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893
+    |
+891 |                                 pipeline_v.producer_acquire(kv_producer_state)
+892 |                                 load_V(
+893 |                                     block=n_block,
+    |                                     [91m^[0m
+  [94m= note:[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value
+  [92msuggestion:[0m Variables used inside staged control flow (for/if/while) must be defined before the
+              control flow region. Give the variable an initial value before the loop or branch.
+
+
+[decode_32seqs_global_kv64k] FAILED:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1855, in build_ir_module
+    result = funcBody(*ir_args, **ir_kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 448, in __call__
+    ).launch(
+      ^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass.py", line 2171, in launch
+    ret, name = kernel_generator(*self.func_args, **self.func_kwargs, config=config)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 3023, in kernel_wrapper
+    kernel_ret = funcBody(*ir_args, **ir_kwargs)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 644, in kernel
+    if warp_idx < 4:  # Producer
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 644, in if_region_9
+    if warp_idx < 4:  # Producer
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 646, in then_block_10
+    self.load(
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 875, in jit_wrapper
+    return getattr(func._dsl_object, executor_name)(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2688, in _func_impl
+    return funcBody(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 738, in load
+    if is_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 738, in if_region_0
+    if is_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 745, in then_block_30
+    while work_tile.is_valid_tile:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 277, in ir_while_loop
+    return func(*write_args)
+           ^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 745, in while_region_1
+    while work_tile.is_valid_tile:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 289, in while_executor
+    return executor.while_execute(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 175, in while_execute
+    return self._while_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 672, in _while_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 659, in after_block_builder
+    after_results = while_after_block(*flat_args)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 888, in while_after_block_2
+    if has_work:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 888, in if_region_12
+    if has_work:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 889, in then_block_21
+    if is_kv_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 270, in ir_loop
+    return func(pred, *write_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 889, in if_region_13
+    if is_kv_load_warp:
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 306, in if_executor
+    return executor.if_execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 155, in if_execute
+    return self._if_dynamic(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 535, in _if_execute_dynamic
+    return scf_gen.scf_execute_dynamic(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 207, in scf_execute_dynamic
+    region_result = builder(
+                    ^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass_ast_decorators.py", line 510, in then_builder
+    return then_block(*flat_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py", line 893, in then_block_20
+    block=n_block,
+          ^^^^^^^
+UnboundLocalError: cannot access local variable 'n_block' where it is not associated with a value
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 138, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 35, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_day0.py", line 98, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/third_party/tml_fa4/interface.py", line 1597, in flash_attn_varlen_func
+    out, lse, logits_max, *_ = _flash_attn_fwd(
+                               ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/third_party/tml_fa4/interface.py", line 1378, in _flash_attn_fwd
+    _flash_attn_fwd.compile_cache[compile_key] = cute.compile(
+                                                 ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1250, in __call__
+    return self._compile(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1400, in _compile
+    return func._dsl_object._func(func, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2693, in _func_impl
+    result = self.generate_mlir(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2223, in generate_mlir
+    module, module_hash, result = self.generate_original_ir(
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1894, in generate_original_ir
+    module, result = build_ir_module()
+                     ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1870, in build_ir_module
+    raise DSLUserCodeError(
+cutlass.base_dsl.common.DSLUserCodeError: 
+[91m[1merror:[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value
+   [94m-->[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893
+    |
+891 |                                 pipeline_v.producer_acquire(kv_producer_state)
+892 |                                 load_V(
+893 |                                     block=n_block,
+    |                                     [91m^[0m
+  [94m= note:[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value
+  [92msuggestion:[0m Variables used inside staged control flow (for/if/while) must be defined before the
+              control flow region. Give the variable an initial value before the loop or branch.
+
+/usr/local/lib/python3.12/site-packages/torch/profiler/profiler.py:224: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+
+[gate_select_T1] total 3.9 us/iter
+          3.9 us  100.0%  _inkling_gate_select_kernel
+
+[gate_select_T4096] total 21.8 us/iter
+         21.8 us  100.0%  _inkling_gate_select_kernel
+
+saved: /tmp/inkling_validate/harness/microbench_attn_day0.json

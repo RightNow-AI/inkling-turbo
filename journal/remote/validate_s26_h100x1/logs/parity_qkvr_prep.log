@@ -1,0 +1,6 @@
+device: NVIDIA H100 80GB HBM3
+[prefill_single_local] OK
+[prefill_multi_global] OK
+[decode_steps_local] OK
+[chunked_continue_global] OK
+[tiled_path_160tok] OK

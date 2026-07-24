@@ -1,0 +1,43 @@
+device: NVIDIA H100 80GB HBM3, capability (9, 0)
+[global_short] tml_fa4_rel_bias: FAILED: DSLUserCodeError: 
+[91m[1merror:[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value
+   [94m-->[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893
+    |
+891 |                                 pipeline_v.producer_acquire(kv_producer_state)
+892 |                                 load_V(
+893 |                                     block=n_block,
+    |                                     [91m^[0m
+  [94m= note:[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value
+  [92msuggestion:[0m Variables used inside staged control flow (for/if/while) must be defined before the
+              control flow region. Give the variable an initial value before the loop or branch.
+
+[global_short] score_mod: max_diff=7.8125e-03 mean=1.9751e-04 OK
+[global_short] relproj_v1: max_diff=1.5625e-02 mean=2.3806e-04 OK
+[global_beyond_extent] tml_fa4_rel_bias: FAILED: DSLUserCodeError: 
+[91m[1merror:[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value
+   [94m-->[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893
+    |
+891 |                                 pipeline_v.producer_acquire(kv_producer_state)
+892 |                                 load_V(
+893 |                                     block=n_block,
+    |                                     [91m^[0m
+  [94m= note:[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value
+  [92msuggestion:[0m Variables used inside staged control flow (for/if/while) must be defined before the
+              control flow region. Give the variable an initial value before the loop or branch.
+
+[global_beyond_extent] score_mod: max_diff=7.8125e-03 mean=6.8229e-05 OK
+[global_beyond_extent] relproj_v1: max_diff=7.8125e-03 mean=8.2361e-05 OK
+[swa_512] tml_fa4_rel_bias: FAILED: DSLUserCodeError: 
+[91m[1merror:[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value
+   [94m-->[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893
+    |
+891 |                                 pipeline_v.producer_acquire(kv_producer_state)
+892 |                                 load_V(
+893 |                                     block=n_block,
+    |                                     [91m^[0m
+  [94m= note:[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value
+  [92msuggestion:[0m Variables used inside staged control flow (for/if/while) must be defined before the
+              control flow region. Give the variable an initial value before the loop or branch.
+
+[swa_512] score_mod: max_diff=7.8125e-03 mean=7.9852e-05 OK
+[swa_512] relproj_v1: max_diff=7.8125e-03 mean=9.7831e-05 OK

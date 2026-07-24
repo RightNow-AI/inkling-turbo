@@ -1,0 +1,125 @@
+{
+  "presheared_prefill_global_8k": {
+    "error": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py\", line 1855, in build_ir_module\n    result = funcBody(*ir_args, **ir_kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py\", line 448, in __call__\n    ).launch(\n      ^^^^^^^\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass.py\", line 2171, in launch\n    ret, name = kernel_generator(*self.func_args, **self.func_kwargs, config=config)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py\", line 3023, in kernel_wrapper\n    kernel_ret = funcBody(*ir_args, **ir_kwargs)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnboundLocalError: cannot access local variable 'n_block' where it is not associated with a value\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 379, in main\n    presheared_case(name, **kwargs)\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 118, in presheared_case\n    ref = run(rel_bias=rel).float()\n          ^^^^^^^^^^^^^^^^^\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 112, in run\n    out = flash_attn_varlen_func(**kw, **bias_kw)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/vllm/vllm/third_party/tml_fa4/interface.py\", line 1597, in flash_attn_varlen_func\n    out, lse, logits_max, *_ = _flash_attn_fwd(\n                               ^^^^^^^^^^^^^^^^\ncutlass.base_dsl.common.DSLUserCodeError: \n\u001b[91m\u001b[1merror:\u001b[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value\n   \u001b[94m-->\u001b[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893\n    |\n891 |                                 pipeline_v.producer_acquire(kv_producer_state)\n892 |                                 load_V(\n893 |                                     block=n_block,\n    |                                     \u001b[91m^\u001b[0m\n  \u001b[94m= note:\u001b[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value\n  \u001b[92msuggestion:\u001b[0m Variables used inside staged control flow (for/if/while) must be defined before the\n              control flow region. Give the variable an initial value before the loop or branch.\n\n"
+  },
+  "presheared_prefill_swa_8k": {
+    "error": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py\", line 1855, in build_ir_module\n    result = funcBody(*ir_args, **ir_kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py\", line 448, in __call__\n    ).launch(\n      ^^^^^^^\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass.py\", line 2171, in launch\n    ret, name = kernel_generator(*self.func_args, **self.func_kwargs, config=config)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py\", line 3023, in kernel_wrapper\n    kernel_ret = funcBody(*ir_args, **ir_kwargs)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnboundLocalError: cannot access local variable 'n_block' where it is not associated with a value\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 379, in main\n    presheared_case(name, **kwargs)\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 118, in presheared_case\n    ref = run(rel_bias=rel).float()\n          ^^^^^^^^^^^^^^^^^\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 112, in run\n    out = flash_attn_varlen_func(**kw, **bias_kw)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/vllm/vllm/third_party/tml_fa4/interface.py\", line 1597, in flash_attn_varlen_func\n    out, lse, logits_max, *_ = _flash_attn_fwd(\n                               ^^^^^^^^^^^^^^^^\ncutlass.base_dsl.common.DSLUserCodeError: \n\u001b[91m\u001b[1merror:\u001b[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value\n   \u001b[94m-->\u001b[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893\n    |\n891 |                                 pipeline_v.producer_acquire(kv_producer_state)\n892 |                                 load_V(\n893 |                                     block=n_block,\n    |                                     \u001b[91m^\u001b[0m\n  \u001b[94m= note:\u001b[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value\n  \u001b[92msuggestion:\u001b[0m Variables used inside staged control flow (for/if/while) must be defined before the\n              control flow region. Give the variable an initial value before the loop or branch.\n\n"
+  },
+  "presheared_decode_b1_global_kv64k": {
+    "error": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py\", line 1855, in build_ir_module\n    result = funcBody(*ir_args, **ir_kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py\", line 448, in __call__\n    ).launch(\n      ^^^^^^^\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass.py\", line 2171, in launch\n    ret, name = kernel_generator(*self.func_args, **self.func_kwargs, config=config)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py\", line 3023, in kernel_wrapper\n    kernel_ret = funcBody(*ir_args, **ir_kwargs)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnboundLocalError: cannot access local variable 'n_block' where it is not associated with a value\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 379, in main\n    presheared_case(name, **kwargs)\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 118, in presheared_case\n    ref = run(rel_bias=rel).float()\n          ^^^^^^^^^^^^^^^^^\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 112, in run\n    out = flash_attn_varlen_func(**kw, **bias_kw)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/vllm/vllm/third_party/tml_fa4/interface.py\", line 1597, in flash_attn_varlen_func\n    out, lse, logits_max, *_ = _flash_attn_fwd(\n                               ^^^^^^^^^^^^^^^^\ncutlass.base_dsl.common.DSLUserCodeError: \n\u001b[91m\u001b[1merror:\u001b[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value\n   \u001b[94m-->\u001b[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893\n    |\n891 |                                 pipeline_v.producer_acquire(kv_producer_state)\n892 |                                 load_V(\n893 |                                     block=n_block,\n    |                                     \u001b[91m^\u001b[0m\n  \u001b[94m= note:\u001b[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value\n  \u001b[92msuggestion:\u001b[0m Variables used inside staged control flow (for/if/while) must be defined before the\n              control flow region. Give the variable an initial value before the loop or branch.\n\n"
+  },
+  "presheared_decode_b32_global_kv64k": {
+    "error": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py\", line 1855, in build_ir_module\n    result = funcBody(*ir_args, **ir_kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py\", line 448, in __call__\n    ).launch(\n      ^^^^^^^\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass.py\", line 2171, in launch\n    ret, name = kernel_generator(*self.func_args, **self.func_kwargs, config=config)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py\", line 3023, in kernel_wrapper\n    kernel_ret = funcBody(*ir_args, **ir_kwargs)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnboundLocalError: cannot access local variable 'n_block' where it is not associated with a value\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 379, in main\n    presheared_case(name, **kwargs)\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 118, in presheared_case\n    ref = run(rel_bias=rel).float()\n          ^^^^^^^^^^^^^^^^^\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 112, in run\n    out = flash_attn_varlen_func(**kw, **bias_kw)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/vllm/vllm/third_party/tml_fa4/interface.py\", line 1597, in flash_attn_varlen_func\n    out, lse, logits_max, *_ = _flash_attn_fwd(\n                               ^^^^^^^^^^^^^^^^\ncutlass.base_dsl.common.DSLUserCodeError: \n\u001b[91m\u001b[1merror:\u001b[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value\n   \u001b[94m-->\u001b[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893\n    |\n891 |                                 pipeline_v.producer_acquire(kv_producer_state)\n892 |                                 load_V(\n893 |                                     block=n_block,\n    |                                     \u001b[91m^\u001b[0m\n  \u001b[94m= note:\u001b[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value\n  \u001b[92msuggestion:\u001b[0m Variables used inside staged control flow (for/if/while) must be defined before the\n              control flow region. Give the variable an initial value before the loop or branch.\n\n"
+  },
+  "writer_prefill_global_8k__natural_writer_plus_shearingbias": {
+    "total_us_per_iter": 1730.0895499999983,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_00_inf__tensorptri32_gme_0": 872.3616999999997,
+      "_rel_proj_throughput_kernel": 439.66954999999933,
+      "void at::native::vectorized_elementwise_kernel<8, at::native::FillFunctor<c10::BFloat16>, std::array<char*, 1ul> >(int, at::native::FillFunctor<c10::BFloat16>, std::array<char*, 1ul>)": 413.3910499999996,
+      "Memcpy DtoH (Device -> Pinned)": 2.548849999999993,
+      "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<int, at::native::func_wrapper_t<int, at::native::MaxNanFunctor<int> >, unsigned int, int, 4, 4> >(at::native::ReduceOp<int, at::native::func_wrapper_t<int, at::native::MaxNanFunctor<int> >, unsigned int, int, 4, 4>)": 2.1183999999997694
+    },
+    "path": "qkvr_rel_proj natural layout, then the ShearingBias kernel",
+    "shape": {
+      "tokens": 8192,
+      "Hq": 64,
+      "Hkv": 8,
+      "ext": 1024,
+      "is_local": false
+    }
+  },
+  "writer_prefill_global_8k": {
+    "total_us_per_iter": 2336.08385,
+    "kernels_us": {
+      "_rel_proj_throughput_kernel": 2336.08385
+    },
+    "path": "qkvr_rel_proj writing the sheared buffer directly",
+    "parity_ok": true,
+    "shape": {
+      "tokens": 8192,
+      "Hq": 64,
+      "Hkv": 8,
+      "ext": 1024,
+      "is_local": false
+    },
+    "writer_delta_us_per_iter": 606.0,
+    "writer_delta_note": "positive means the fused writer costs MORE than the natural writer plus ShearingBias combined, which would make the fusion a net loss on this shape regardless of what attention saves."
+  },
+  "writer_prefill_swa_8k__natural_writer_plus_shearingbias": {
+    "total_us_per_iter": 936.7330500000007,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_inf_inf__tensorptri32_gm_0": 468.10500000000013,
+      "void at::native::vectorized_elementwise_kernel<8, at::native::FillFunctor<c10::BFloat16>, std::array<char*, 1ul> >(int, at::native::FillFunctor<c10::BFloat16>, std::array<char*, 1ul>)": 246.25804999999986,
+      "_rel_proj_throughput_kernel": 217.76255000000037,
+      "Memcpy DtoH (Device -> Pinned)": 2.4976000000003635,
+      "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<int, at::native::func_wrapper_t<int, at::native::MaxNanFunctor<int> >, unsigned int, int, 4, 4> >(at::native::ReduceOp<int, at::native::func_wrapper_t<int, at::native::MaxNanFunctor<int> >, unsigned int, int, 4, 4>)": 2.109850000000006
+    },
+    "path": "qkvr_rel_proj natural layout, then the ShearingBias kernel",
+    "shape": {
+      "tokens": 8192,
+      "Hq": 64,
+      "Hkv": 16,
+      "ext": 512,
+      "is_local": true
+    }
+  },
+  "writer_prefill_swa_8k": {
+    "total_us_per_iter": 1251.6134499999998,
+    "kernels_us": {
+      "_rel_proj_throughput_kernel": 1251.6134499999998
+    },
+    "path": "qkvr_rel_proj writing the sheared buffer directly",
+    "parity_ok": true,
+    "shape": {
+      "tokens": 8192,
+      "Hq": 64,
+      "Hkv": 16,
+      "ext": 512,
+      "is_local": true
+    },
+    "writer_delta_us_per_iter": 314.9,
+    "writer_delta_note": "positive means the fused writer costs MORE than the natural writer plus ShearingBias combined, which would make the fusion a net loss on this shape regardless of what attention saves."
+  },
+  "writer_decode_b32_global_kv64k__natural_writer_plus_shearingbias": {
+    "total_us_per_iter": 23.65650000000004,
+    "kernels_us": {
+      "void at::native::vectorized_elementwise_kernel<8, at::native::FillFunctor<c10::BFloat16>, std::array<char*, 1ul> >(int, at::native::FillFunctor<c10::BFloat16>, std::array<char*, 1ul>)": 8.671600000000007,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_00_inf__tensorptri32_gme_0": 7.351699999999949,
+      "_rel_proj_throughput_kernel": 3.3853999999999984,
+      "Memcpy DtoH (Device -> Pinned)": 2.462199999999979,
+      "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<int, at::native::func_wrapper_t<int, at::native::MaxNanFunctor<int> >, unsigned int, int, 4, 4> >(at::native::ReduceOp<int, at::native::func_wrapper_t<int, at::native::MaxNanFunctor<int> >, unsigned int, int, 4, 4>)": 1.7856000000001075
+    },
+    "path": "qkvr_rel_proj natural layout, then the ShearingBias kernel",
+    "shape": {
+      "tokens": 32,
+      "Hq": 64,
+      "Hkv": 8,
+      "ext": 1024,
+      "is_local": false
+    }
+  },
+  "writer_decode_b32_global_kv64k": {
+    "total_us_per_iter": 10.310300000000051,
+    "kernels_us": {
+      "_rel_proj_throughput_kernel": 10.310300000000051
+    },
+    "path": "qkvr_rel_proj writing the sheared buffer directly",
+    "parity_ok": true,
+    "shape": {
+      "tokens": 32,
+      "Hq": 64,
+      "Hkv": 8,
+      "ext": 1024,
+      "is_local": false
+    },
+    "writer_delta_us_per_iter": -13.3,
+    "writer_delta_note": "positive means the fused writer costs MORE than the natural writer plus ShearingBias combined, which would make the fusion a net loss on this shape regardless of what attention saves."
+  },
+  "splitkv_decode_1seq_global_kv64k": {
+    "error": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py\", line 1855, in build_ir_module\n    result = funcBody(*ir_args, **ir_kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py\", line 448, in __call__\n    ).launch(\n      ^^^^^^^\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass.py\", line 2171, in launch\n    ret, name = kernel_generator(*self.func_args, **self.func_kwargs, config=config)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py\", line 3023, in kernel_wrapper\n    kernel_ret = funcBody(*ir_args, **ir_kwargs)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnboundLocalError: cannot access local variable 'n_block' where it is not associated with a value\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 419, in main\n    splitkv_case(name, B, L, 64, 8, 1024, splits)\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 339, in splitkv_case\n    base = run(1).float()\n           ^^^^^^\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 331, in run\n    out = flash_attn_varlen_func(\n          ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/vllm/vllm/third_party/tml_fa4/interface.py\", line 1597, in flash_attn_varlen_func\n    out, lse, logits_max, *_ = _flash_attn_fwd(\n                               ^^^^^^^^^^^^^^^^\ncutlass.base_dsl.common.DSLUserCodeError: \n\u001b[91m\u001b[1merror:\u001b[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value\n   \u001b[94m-->\u001b[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893\n    |\n891 |                                 pipeline_v.producer_acquire(kv_producer_state)\n892 |                                 load_V(\n893 |                                     block=n_block,\n    |                                     \u001b[91m^\u001b[0m\n  \u001b[94m= note:\u001b[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value\n  \u001b[92msuggestion:\u001b[0m Variables used inside staged control flow (for/if/while) must be defined before the\n              control flow region. Give the variable an initial value before the loop or branch.\n\n"
+  },
+  "splitkv_decode_32seqs_global_kv64k": {
+    "error": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py\", line 1855, in build_ir_module\n    result = funcBody(*ir_args, **ir_kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py\", line 448, in __call__\n    ).launch(\n      ^^^^^^^\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass.py\", line 2171, in launch\n    ret, name = kernel_generator(*self.func_args, **self.func_kwargs, config=config)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py\", line 3023, in kernel_wrapper\n    kernel_ret = funcBody(*ir_args, **ir_kwargs)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnboundLocalError: cannot access local variable 'n_block' where it is not associated with a value\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 419, in main\n    splitkv_case(name, B, L, 64, 8, 1024, splits)\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 339, in splitkv_case\n    base = run(1).float()\n           ^^^^^^\n  File \"/tmp/inkling_validate/harness/extra_microbench.py\", line 331, in run\n    out = flash_attn_varlen_func(\n          ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/vllm/vllm/third_party/tml_fa4/interface.py\", line 1597, in flash_attn_varlen_func\n    out, lse, logits_max, *_ = _flash_attn_fwd(\n                               ^^^^^^^^^^^^^^^^\ncutlass.base_dsl.common.DSLUserCodeError: \n\u001b[91m\u001b[1merror:\u001b[0m NameError in `__call__`: cannot access local variable 'n_block' where it is not associated with a value\n   \u001b[94m-->\u001b[0m /opt/vllm/vllm/third_party/tml_fa4/flash_fwd_sm90.py:893\n    |\n891 |                                 pipeline_v.producer_acquire(kv_producer_state)\n892 |                                 load_V(\n893 |                                     block=n_block,\n    |                                     \u001b[91m^\u001b[0m\n  \u001b[94m= note:\u001b[0m Caused exception: cannot access local variable 'n_block' where it is not associated with a value\n  \u001b[92msuggestion:\u001b[0m Variables used inside staged control flow (for/if/while) must be defined before the\n              control flow region. Give the variable an initial value before the loop or branch.\n\n"
+  }
+}

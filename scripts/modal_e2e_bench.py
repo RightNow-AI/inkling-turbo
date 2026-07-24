@@ -26,6 +26,11 @@ WHAT IT DOES
   step=bench     8x H100 container. Deploy kernels, serve, benchmark,
                  persist. No downloading.
   step=all       download then bench.
+  step=validate  ONE H100. Parity gates + microbenches only. NEEDS NO MODEL:
+                 every harness builds random tensors and calls the kernels
+                 directly, so this answers the open kernel questions at
+                 ~$4.6/hr instead of ~$34.4/hr and without waiting for the
+                 552GB download. Mounts only the results Volume.
 
 LAUNCH
   modal run --detach scripts/modal_e2e_bench.py --step all
@@ -33,8 +38,11 @@ LAUNCH
   RUNS=3 CONCURRENCIES="1 8 32" modal run --detach scripts/modal_e2e_bench.py --step bench
   # resume an interrupted matrix (existing run JSONs are skipped):
   modal run --detach scripts/modal_e2e_bench.py --step bench
+  # cheap single-GPU kernel validation (no model needed):
+  modal run --detach scripts/modal_e2e_bench.py --step validate
   # pull results down:
   modal volume get inkling-bench-results /bench ./bench_results
+  modal volume get inkling-bench-results /validate ./validate_results
 
 MODAL API PROVENANCE (verified 2026-07-24 against modal.com/docs, and
 against the installed modal 1.5.2 by constructing the object graph)
@@ -78,11 +86,13 @@ BENCH FLAG PROVENANCE
 
 from __future__ import annotations
 
+import atexit
 import hashlib
 import json
 import os
 
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+import re
 import shutil
 import signal
 import subprocess
@@ -121,6 +131,16 @@ ROUTE_PATCH = f"{INK_DIR}/u2_serving_route.py"
 STOCK_TML_DIR = f"{INK_DIR}/tml_fa4_stock"
 STOCK_ROUTE = f"{INK_DIR}/fa4_rel_attention.stock.py"
 ROUTE_REL = "vllm/models/inkling/nvidia/ops/fa4_rel_attention.py"
+# The u3 and u2 patches edit files in the vLLM tree, not just the tml_fa4
+# package. Restoring only tml_fa4 leaves them patched, and u2 rewrites the
+# exact text u3 anchors on, so a reused warm container fails setup with
+# "anchor not found in qkvr_prep.py".
+#
+# The span has to be the whole nvidia/ subtree, not nvidia/ops/: u2 targets
+# ops/qkvr_prep.py and ops/fa4_rel_attention.py but ALSO nvidia/attention.py,
+# one level up. Backing up ops/ alone leaves attention.py patched forever.
+INK_NVIDIA_REL = "vllm/models/inkling/nvidia"
+STOCK_OPS_DIR = f"{INK_DIR}/inkling_nvidia_stock"
 
 MODEL_MOUNT = "/models"
 MODEL_DIR = f"{MODEL_MOUNT}/inkling"
@@ -129,6 +149,29 @@ RESULTS_MOUNT = "/results"
 RESULTS_ROOT = f"{RESULTS_MOUNT}/bench"
 LOGS_ROOT = f"{RESULTS_MOUNT}/logs"
 LEDGER_PATH = f"{RESULTS_MOUNT}/spend_ledger.json"
+
+# Validate step (single GPU, no model). Image-mounted sources.
+HARNESS_SRC_DIR = f"{INK_DIR}/harness"
+RELPROJ_SRC = f"{INK_DIR}/relproj_score_mod.py"
+U3_PATCH = f"{INK_DIR}/u3_fp8_kv.py"
+SHEAR_PATCH = f"{INK_DIR}/u2_shear_fusion.py"
+# Writable staging area. The harnesses write their JSON next to themselves
+# (Path(__file__).with_suffix(".json")), so they cannot run from an image
+# mount; they are copied here first.
+WORK_ROOT = "/tmp/inkling_validate"
+# Rebound per run by _set_validate_root, so two patch sets cannot overwrite
+# each other's manifest.json and summary.json. Those two filenames are not
+# tagged, unlike the microbench artifacts, so without this the second run
+# silently replaces the first run's verdict.
+VALIDATE_ROOT = f"{RESULTS_MOUNT}/validate"
+VALIDATE_LOGS = f"{VALIDATE_ROOT}/logs"
+
+
+def _set_validate_root(tag: str) -> None:
+    """Point every validate write at a per-tag subdirectory."""
+    global VALIDATE_ROOT, VALIDATE_LOGS
+    VALIDATE_ROOT = f"{RESULTS_MOUNT}/validate/{tag}"
+    VALIDATE_LOGS = f"{VALIDATE_ROOT}/logs"
 
 # --------------------------------------------------------------------------
 # Serving recipe. These exact values are the outcome of seven distinct
@@ -202,6 +245,29 @@ SERVER_WAIT_S = 5400  # model load from a Volume across 8 ranks is slow
 SERVER_STOP_WAIT_S = 240
 GPU_RELEASE_SLEEP_S = 30
 
+# --------------------------------------------------------------------------
+# Validate step cost. One H100 plus modest CPU/memory. Same ledger, same cap.
+#   1 x $3.9492 + 8 x $0.04716 + 32 x $0.007992 = ~$4.58/hr
+# The harnesses allocate at most ~10 GB of DEVICE memory (32 sequences x 64K
+# KV in bf16) and almost no host memory, so 32 GiB is generous; memory is the
+# second-largest term in the rate, which is why it is not 256 GiB here.
+# --------------------------------------------------------------------------
+
+VALIDATE_N_GPU = 1
+VALIDATE_CPU = 8.0
+VALIDATE_MEMORY_MIB = 32768
+# CuTe DSL JIT compiles dominate the wall clock, not the kernels. 2h is a
+# ceiling, not an expectation; every artifact is committed the instant it
+# exists, so a timeout costs at most one harness.
+VALIDATE_TIMEOUT_HOURS = 2.0
+VALIDATE_TIMEOUT_S = int(VALIDATE_TIMEOUT_HOURS * 3600)
+VALIDATE_SHUTDOWN_MARGIN_S = 180
+# Below this a container cannot finish the parity gates plus one microbench.
+MIN_USEFUL_VALIDATE_USD = 10.0
+# Goes into every artifact filename so these can never be confused with the
+# session-25 H100 numbers or with an 8x run.
+VALIDATE_TAG = "modal_h100x1"
+
 BENCH_FLAG_EVIDENCE = """\
 Verified against the pinned fork @850295881 (repo path vllm/):
   benchmarks/benchmark_serving.py is a deprecated shim that exits 1; the
@@ -252,6 +318,10 @@ _NVVM_SED = (
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _LOCAL_OURS_TML = _REPO_ROOT / "kernels" / "tml_fa4_modified"
 _LOCAL_ROUTE_PATCH = _REPO_ROOT / "kernels" / "patches" / "u2_serving_route.py"
+_LOCAL_HARNESS = _REPO_ROOT / "harness"
+_LOCAL_RELPROJ = _REPO_ROOT / "kernels" / "relproj_score_mod.py"
+_LOCAL_U3_PATCH = _REPO_ROOT / "kernels" / "patches" / "u3_fp8_kv.py"
+_LOCAL_SHEAR_PATCH = _REPO_ROOT / "kernels" / "patches" / "u2_shear_fusion.py"
 
 bench_image = (
     modal.Image.from_registry(CUDA_IMAGE, add_python=PYTHON_VERSION)
@@ -359,6 +429,22 @@ bench_image = (
         ignore=["__pycache__", "*.pyc"],
     )
     .add_local_file(_LOCAL_ROUTE_PATCH.as_posix(), ROUTE_PATCH)
+    # Validate-step inputs. All copy=False mounts, so they add no build time
+    # and cannot invalidate the expensive layers above. The bench step never
+    # looks at them.
+    # *.json is excluded deliberately: the repo carries stale local
+    # microbench_attn_*.json artifacts, and a crashed run must never be able
+    # to publish one of those as if it were a fresh measurement.
+    .add_local_dir(
+        _LOCAL_HARNESS.as_posix(),
+        HARNESS_SRC_DIR,
+        ignore=["__pycache__", "*.pyc", "*.json"],
+    )
+    # harness/parity_fa4_rel.py and harness/microbench_attn_scoremod.py import
+    # kernels.relproj_score_mod from the repo root.
+    .add_local_file(_LOCAL_RELPROJ.as_posix(), RELPROJ_SRC)
+    .add_local_file(_LOCAL_U3_PATCH.as_posix(), U3_PATCH)
+    .add_local_file(_LOCAL_SHEAR_PATCH.as_posix(), SHEAR_PATCH)
 )
 
 app = modal.App(APP_NAME)
@@ -391,6 +477,39 @@ def _bench_usd_per_hour() -> float:
 
 def _download_usd_per_hour() -> float:
     return _usd_per_hour(0.0, DL_CPU, DL_MEMORY_MIB)
+
+
+def _validate_usd_per_hour() -> float:
+    return _usd_per_hour(VALIDATE_N_GPU, VALIDATE_CPU, VALIDATE_MEMORY_MIB)
+
+
+def _print_validate_cost_banner(where: str) -> None:
+    rate = _validate_usd_per_hour()
+    print(f"=== COST ESTIMATE, validate ({where}) ===")
+    print(
+        f"H100 ${USD_PER_H100_SEC * 3600:.4f}/GPU-hr x {VALIDATE_N_GPU} GPU "
+        f"+ {VALIDATE_CPU:g} cores + {VALIDATE_MEMORY_MIB // 1024} GiB "
+        f"= ${rate:.2f}/hr"
+    )
+    print(
+        f"hard timeout {VALIDATE_TIMEOUT_HOURS:g}h => worst case "
+        f"${rate * VALIDATE_TIMEOUT_HOURS:.2f} for one container"
+    )
+    print(
+        "expected 30-60 min, dominated by CuTe DSL JIT compiles rather than "
+        f"by the kernels: about ${rate * 0.5:.2f} to ${rate * 1.0:.2f}. "
+        "This is an ESTIMATE, not a measurement."
+    )
+    print(f"HARD CAP ${BUDGET_USD:.0f} total, enforced by the same spend ledger")
+    print(
+        "rates read from modal.com/pricing on 2026-07-24. VERIFY before "
+        "spend, prices move. Modal may also apply a per-GPU resource floor "
+        "above the requested cpu/memory, which would raise the real rate."
+    )
+    print(
+        "no model Volume is mounted: every harness builds random tensors and "
+        "calls the kernels directly, so the 552GB checkpoint is not needed."
+    )
 
 
 def _print_cost_banner(where: str, runs: int, n_configs: int, n_builds: int) -> None:
@@ -612,14 +731,72 @@ def _make_stock_backup(vllm_root: str, tml_pkg: str) -> None:
     stock = Path(STOCK_TML_DIR)
     if stock.exists():
         print(f"stock backup already present: {stock}")
+    else:
+        stock.mkdir(parents=True, exist_ok=True)
+        n = 0
+        for p in sorted(Path(tml_pkg).glob("*.py")):
+            shutil.copy2(p, stock / p.name)
+            n += 1
+        shutil.copy2(Path(vllm_root) / ROUTE_REL, STOCK_ROUTE)
+        print(f"stock backup created: {stock} ({n} files) + {STOCK_ROUTE}")
+    # Outside the branch above on purpose. These are two independent backups,
+    # and a container warm from a build that predates the nvidia backup would
+    # otherwise skip it and then fail the restore.
+    _make_stock_ops_backup(vllm_root)
+
+
+def _make_stock_ops_backup(vllm_root: str) -> None:
+    """Pristine copy of vllm/models/inkling/nvidia, taken BEFORE any patch runs.
+
+    u3_fp8_kv.py and u2_shear_fusion.py both rewrite files in here. u2 rewrites
+    the signature u3 anchors on, so re-patching an already-patched tree aborts.
+    Restoring tml_fa4 alone is not enough; these files have to come back too.
+    Recursive, because the patch targets straddle two directory levels.
+    """
+    src = Path(vllm_root) / INK_NVIDIA_REL
+    dst = Path(STOCK_OPS_DIR)
+    if dst.exists():
+        print(f"stock nvidia backup already present: {dst}")
         return
-    stock.mkdir(parents=True, exist_ok=True)
+    if not src.is_dir():
+        raise RuntimeError(f"inkling nvidia dir not found: {src}")
+    # Refuse to snapshot an already-patched tree as "stock". If this is ever
+    # reached on a warm container whose backup was lost, the honest outcome is
+    # a loud failure, not a backup that quietly bakes our patches into the
+    # baseline and makes every later restore a no-op.
+    qkvr = src / "ops/qkvr_prep.py"
+    if qkvr.exists():
+        text = qkvr.read_text(errors="replace")
+        dirty = [m for m in ("RelShearSpec", "quantize_kv") if m in text]
+        if dirty:
+            raise RuntimeError(
+                f"refusing to back up a patched tree as stock: {qkvr} already "
+                f"contains {dirty}. Restart on a cold container."
+            )
     n = 0
-    for p in sorted(Path(tml_pkg).glob("*.py")):
-        shutil.copy2(p, stock / p.name)
+    for p in sorted(src.rglob("*.py")):
+        rel = p.relative_to(src)
+        out = dst / rel
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(p, out)
         n += 1
-    shutil.copy2(Path(vllm_root) / ROUTE_REL, STOCK_ROUTE)
-    print(f"stock backup created: {stock} ({n} files) + {STOCK_ROUTE}")
+    print(f"stock nvidia backup created: {dst} ({n} files)")
+
+
+def _restore_stock_ops(vllm_root: str) -> int:
+    """Put vllm/models/inkling/nvidia back exactly as the image shipped it."""
+    src = Path(STOCK_OPS_DIR)
+    dst = Path(vllm_root) / INK_NVIDIA_REL
+    if not src.is_dir():
+        raise RuntimeError(f"no stock nvidia backup at {src}")
+    n = 0
+    for p in sorted(src.rglob("*.py")):
+        out = dst / p.relative_to(src)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(p, out)
+        n += 1
+    print(f"RESTORE_STOCK_OPS {n} files -> {dst}")
+    return n
 
 
 def _deploy_build(build: str, vllm_root: str, tml_pkg: str) -> None:
@@ -977,6 +1154,11 @@ def run_bench(
     _write_committed(json.dumps(manifest, indent=2), Path(RESULTS_ROOT) / "manifest.json")
 
     completed, skipped, failed, aborted = 0, 0, 0, False
+    # aborted  = the matrix is incomplete, so say so in the summary.
+    # hard_stop = out of budget or time for real, so stop the whole matrix.
+    # Yielding at the end of one build's allowance sets the first, not the
+    # second, so the next build still gets its turn.
+    hard_stop = False
     scratch = Path("/tmp/bench_run")
     scratch.mkdir(parents=True, exist_ok=True)
     # Conservative reserve until a run has actually been timed.
@@ -995,7 +1177,65 @@ def run_bench(
 
     burn("start")
 
-    for build in wanted:
+    def _book_and_summarise(note: str) -> dict:
+        """Always book the spend and write the verdict, including on a crash.
+
+        Without this, a _wait_healthy failure after a 90 minute model load, or
+        a Modal hard kill, left the last burn() at ~$0 while real money had
+        been spent. _prior_spend then read the understated total and the next
+        container computed its budget from money that was already gone, so the
+        $200 cap silently stopped being a cap.
+        """
+        elapsed_h = (time.time() - t0) / 3600.0
+        total = _ledger_upsert(
+            "run_bench", elapsed_h, rate_hr * elapsed_h, note
+        )
+        summary = {
+            "completed_runs": completed,
+            "skipped_existing": skipped,
+            "failed_runs": failed,
+            "aborted_early": aborted,
+            "outcome": note,
+            "elapsed_hours": round(elapsed_h, 3),
+            "spend_usd_est": round(rate_hr * elapsed_h, 2),
+            "ledger_total_usd_est": total,
+            "budget_usd": budget_usd,
+            "results_root": RESULTS_ROOT,
+        }
+        _write_committed(
+            json.dumps(summary, indent=2), Path(RESULTS_ROOT) / "summary.json"
+        )
+        return summary
+
+    # Book the spend even if we never reach the normal tail. atexit covers an
+    # unhandled exception and a normal-ish exit; the SIGTERM handler covers
+    # Modal's container kill, which is what a hung run leads to. Neither can
+    # help against SIGKILL, so the run timeout above is the primary defence and
+    # this is the backstop.
+    _booked = {"done": False}
+
+    def _emergency_book(note: str) -> None:
+        if _booked["done"]:
+            return
+        _booked["done"] = True
+        try:
+            print(f"BOOKING SPEND from the backstop path: {note}")
+            print(json.dumps(_book_and_summarise(note), indent=2))
+        except Exception as exc:  # noqa: BLE001
+            print(f"backstop booking failed: {exc!r}")
+
+    atexit.register(lambda: _emergency_book("exited without a final write"))
+
+    def _on_sigterm(signum, _frame):
+        _emergency_book(f"killed by signal {signum}")
+        raise SystemExit(143)
+
+    try:
+        signal.signal(signal.SIGTERM, _on_sigterm)
+    except (ValueError, OSError) as exc:
+        print(f"could not install SIGTERM handler: {exc!r}")
+
+    for build_idx, build in enumerate(wanted):
         pending = []
         for mix, conc, ilen, olen, npr in configs:
             for n in range(1, runs + 1):
@@ -1010,7 +1250,24 @@ def run_bench(
         if time.time() + run_reserve_s + server_wait_s > deadline:
             print(f"=== STOP before build {build}: not enough budget/time left ===")
             aborted = True
+            hard_stop = True
             break
+
+        # Build is the OUTER loop, so a global deadline lets the first build eat
+        # the container and the second never start. That is not a partial
+        # result, it is no A/B at all, and it already happened once on Lambda in
+        # session 28: stock finished, ours never ran. Each remaining build gets
+        # an equal share of the time left, minus its own server startup.
+        builds_left = max(1, len(wanted) - build_idx)
+        share = (deadline - time.time()) / builds_left
+        build_deadline = min(deadline, time.time() + share)
+        if builds_left > 1:
+            print(
+                f"=== BUILD {build}: allowance "
+                f"{(build_deadline - time.time()) / 60:.0f} min of the "
+                f"{(deadline - time.time()) / 60:.0f} min left, so the "
+                f"{builds_left - 1} build(s) after it still get a turn ==="
+            )
 
         print(f"=== BUILD {build}: {len(pending)} runs pending ===")
         _deploy_build(build, vllm_root, tml_pkg)
@@ -1024,13 +1281,29 @@ def run_bench(
             burn(f"{build} server ready")
 
             for mix, conc, ilen, olen, npr, n, out in pending:
-                if time.time() + run_reserve_s > deadline:
+                # build_deadline, not deadline: yielding here leaves matched
+                # partial curves for both builds instead of one complete build
+                # and one empty one.
+                if time.time() + run_reserve_s > build_deadline:
+                    out_of_budget = time.time() + run_reserve_s > deadline
                     print(
                         f"=== STOP mid-build {build}: "
-                        f"{(deadline - time.time()) / 60:.0f} min left, "
-                        f"reserve {run_reserve_s / 60:.0f} min ==="
+                        f"{(build_deadline - time.time()) / 60:.0f} min left of "
+                        f"this build's allowance, reserve "
+                        f"{run_reserve_s / 60:.0f} min. "
+                        + (
+                            "Out of budget entirely."
+                            if out_of_budget
+                            else "Yielding so the next build gets its turn."
+                        )
+                        + " ==="
                     )
                     aborted = True
+                    # Only a genuine budget/time exhaustion should end the
+                    # matrix. Hitting this build's own share must fall through
+                    # to the next build, or the allowance would just be a
+                    # slower way of producing one complete build and one empty.
+                    hard_stop = out_of_budget
                     break
 
                 tag = f"{build}/{mix}/conc{conc}/run{n}"
@@ -1080,7 +1353,26 @@ def run_bench(
                     local_json.name,
                 ]
                 r0 = time.time()
-                rc = subprocess.run(cmd, env=_server_env(), check=False).returncode
+                # The deadline is otherwise only checked BETWEEN runs, so one
+                # stalled request hangs the client until Modal hard-kills the
+                # container, losing the whole remaining matrix. That is a live
+                # risk here: --ignore-eos forces every request to full length
+                # while the KV pool holds far fewer sequences than the offered
+                # concurrency, so preemption thrash is expected.
+                run_timeout_s = max(120.0, deadline - time.time())
+                try:
+                    rc = subprocess.run(
+                        cmd,
+                        env=_server_env(),
+                        check=False,
+                        timeout=run_timeout_s,
+                    ).returncode
+                except subprocess.TimeoutExpired:
+                    rc = -9
+                    print(
+                        f"RUN TIMEOUT after {run_timeout_s:.0f}s: {tag}. "
+                        "Killed rather than allowed to burn to the container cap."
+                    )
                 dur = time.time() - r0
 
                 if rc == 0 and local_json.exists():
@@ -1120,23 +1412,11 @@ def run_bench(
             _persist_log_tail(log_path, Path(LOGS_ROOT) / f"serve_{build}.log")
             _stop_server(proc)
 
-        if aborted:
+        if hard_stop:
             break
 
-    elapsed_h = (time.time() - t0) / 3600.0
-    total = _ledger_upsert("run_bench", elapsed_h, rate_hr * elapsed_h, "final")
-    summary = {
-        "completed_runs": completed,
-        "skipped_existing": skipped,
-        "failed_runs": failed,
-        "aborted_early": aborted,
-        "elapsed_hours": round(elapsed_h, 3),
-        "spend_usd_est": round(rate_hr * elapsed_h, 2),
-        "ledger_total_usd_est": total,
-        "budget_usd": budget_usd,
-        "results_root": RESULTS_ROOT,
-    }
-    _write_committed(json.dumps(summary, indent=2), Path(RESULTS_ROOT) / "summary.json")
+    _booked["done"] = True
+    summary = _book_and_summarise("final")
     print("=== BENCH DONE ===")
     print(json.dumps(summary, indent=2))
     if aborted:
@@ -1146,6 +1426,1254 @@ def run_bench(
             "run JSONs are skipped and the ledger keeps enforcing the cap. "
             "If the remaining budget is tight, trim with RUNS=3."
         )
+    return summary
+
+
+# --------------------------------------------------------------------------
+# Validate step: parity gates + microbenches on ONE H100. No model.
+# --------------------------------------------------------------------------
+
+_ENV_PROBE_SRC = """
+import json
+
+import torch
+
+try:
+    from importlib.metadata import version
+except ImportError:  # pragma: no cover
+    version = None
+
+
+def _v(name):
+    if version is None:
+        return None
+    try:
+        return version(name)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+props = torch.cuda.get_device_properties(0)
+print(json.dumps({
+    "torch": torch.__version__,
+    "torch_cuda": torch.version.cuda,
+    "device_name": torch.cuda.get_device_name(0),
+    "capability": list(torch.cuda.get_device_capability(0)),
+    "sm_count": props.multi_processor_count,
+    "total_memory_gb": round(props.total_memory / 1e9, 1),
+    "device_count": torch.cuda.device_count(),
+    "vllm": _v("vllm"),
+    "nvidia_cutlass_dsl": _v("nvidia-cutlass-dsl"),
+}, indent=2))
+"""
+
+
+# The one thing the existing harnesses cannot express. Written into the
+# staging directory at run time; it is NOT a repo file, and it adds no new
+# kernel interface: section A uses the `bias=` argument that
+# kernels/patches/u2_shear_fusion.py adds to flash_attn_varlen_func, section B
+# uses the `num_splits=` argument that has always been there
+# (kernels/tml_fa4_modified/interface.py:1543).
+EXTRA_MICROBENCH_SRC = r'''#!/usr/bin/env python3
+"""Generated by scripts/modal_e2e_bench.py --step validate. Not a repo file.
+
+WHY THIS EXISTS. INKLING_TURBO_FUSED_SHEAR=1 does NOT change what
+microbench_attn_day0.py measures. That harness calls tml-fa4's
+flash_attn_varlen_func directly with rel_bias=<natural layout>, so the
+ShearingBias pre-kernel still runs inside the timed region. The env var is
+read only by vllm/models/inkling/nvidia/ops/fa4_rel_attention.py::
+use_fused_shear (kernels/patches/u2_shear_fusion.py, FA4_HELPER_NEW), which
+only the vLLM serving path calls, and which additionally requires
+_use_sheared_bias() to be true. kernels/patches/u2_shear_fusion_notes.md step
+4 states the same thing about parity_fa4_rel.py. What actually activates the
+fusion at the kernel boundary is passing the ALREADY-SHEARED buffer as
+`bias=` with rel_bias=None (IFACE_NORMALIZE / IFACE_BLOCK edits).
+
+A. presheared_*  times the attention call with the shear already done. The
+   sheared buffer is built OUT OF BAND by the stock ShearingBias kernel, via
+   harness/parity_shear_fusion.py::run_shearing_bias, so no layout arithmetic
+   is invented here. Each case is parity-checked against the rel_bias= path
+   before its timing is reported; a case that fails parity reports a null
+   timing. The matching __rel_bias_natural case is timed in the SAME process
+   on the SAME tensors, so the difference between the two is the cost the
+   fusion removes, measured rather than subtracted from another session.
+
+   These numbers are the SAVING only. The cost is section B.
+
+B. writer_*  the other half of the same equation, and the number
+   u2_shear_fusion_notes.md calls "the measurement that does not exist yet".
+   Times (natural writer + ShearingBias) against (fused sheared writer) on the
+   same inputs in the same process. The fusion is a net win on a shape only if
+
+       writer_*.writer_delta_us_per_iter  <  presheared_*.saved_us_per_iter
+
+   Read the two sections together or not at all. Either one alone overstates.
+
+C. splitkv_*  decode with num_splits > 1 on sm_90. Never run on Hopper before.
+   Every split count is compared against num_splits=1 output.
+"""
+
+from __future__ import annotations
+
+import json
+import traceback
+from pathlib import Path
+
+import torch
+
+import microbench_attn_day0 as mb
+import parity_shear_fusion as psf
+
+RESULTS: dict = {}
+D = 128
+DEV = "cuda"
+OUT = Path(__file__).with_suffix(".json")
+
+
+def save() -> None:
+    """Write after every case: a crash must not cost the earlier ones."""
+    OUT.write_text(json.dumps(RESULTS, indent=2))
+
+
+def record(name: str, timed_key: str, extra: dict) -> None:
+    rec = dict(mb.RESULTS.get(timed_key, {}))
+    rec.update(extra)
+    RESULTS[name] = rec
+
+
+def presheared_case(name, T_q, T_k, Hq, Hkv, ext, is_local):
+    from vllm.third_party.tml_fa4 import flash_attn_varlen_func
+
+    torch.manual_seed(11)
+    q = torch.randn(T_q, Hq, D, dtype=torch.bfloat16, device=DEV) / D**0.25
+    k = torch.randn(T_k, Hkv, D, dtype=torch.bfloat16, device=DEV) / D**0.25
+    v = torch.randn(T_k, Hkv, D, dtype=torch.bfloat16, device=DEV)
+    rel = torch.randn(T_q, Hq, ext, dtype=torch.bfloat16, device=DEV) * 0.3
+    cu_q = torch.tensor([0, T_q], dtype=torch.int32, device=DEV)
+    cu_k = torch.tensor([0, T_k], dtype=torch.int32, device=DEV)
+    seqused_k = torch.tensor([T_k], dtype=torch.int32, device=DEV)
+
+    # Same convention as harness/parity_shear_fusion.py::case_rel_proj.
+    window_left = ext - 1 if is_local else None
+    window_right = 0 if is_local else None
+
+    # run_shearing_bias reads psf.HQ only to shape its output buffer; the
+    # harness pins it at 8 for its own cases and the microbench uses 64.
+    psf.HQ = Hq
+    sheared = psf.run_shearing_bias(
+        rel,
+        ext=ext,
+        is_local=is_local,
+        window_left=window_left,
+        window_right=window_right,
+        cu_seqlens_q=cu_q,
+        seq_lens=seqused_k,
+        max_seqlen_q=T_q,
+        max_seqlen_k=T_k,
+    )
+
+    kw = dict(
+        q=q, k=k, v=v,
+        cu_seqlens_q=cu_q, cu_seqlens_k=cu_k,
+        max_seqlen_q=T_q, max_seqlen_k=T_k,
+        softmax_scale=1.0 / D,
+        causal=True,
+        window_size=(window_left, 0) if is_local else (None, None),
+        # The bias path forces this off on sm_90 anyway (journal/upstream/04);
+        # pinned so the two timed calls cannot differ in packing.
+        pack_gqa=False,
+    )
+
+    def run(**bias_kw):
+        out = flash_attn_varlen_func(**kw, **bias_kw)
+        return out[0] if isinstance(out, tuple) else out
+
+    # This kernel is not run-to-run deterministic, so the reference is run
+    # twice to measure its own noise and the fused-vs-reference difference has
+    # to sit inside it. Same discipline as parity_shear_fusion.py.
+    ref = run(rel_bias=rel).float()
+    ref2 = run(rel_bias=rel).float()
+    got = run(bias=sheared).float()
+    noise = (ref - ref2).abs()
+    noise_mx, noise_mean = float(noise.max()), float(noise.mean())
+    diff = (ref - got).abs()
+    mx, mean = float(diff.max()), float(diff.mean())
+    tol_mx, tol_mean = max(4.0 * noise_mx, 1e-2), max(4.0 * noise_mean, 1e-4)
+    parity_ok = bool(mx <= tol_mx and mean <= tol_mean)
+    parity = {
+        "parity_ok": parity_ok,
+        "max_abs_diff": mx,
+        "mean_abs_diff": mean,
+        "ref_vs_ref_noise_max": noise_mx,
+        "ref_vs_ref_noise_mean": noise_mean,
+        "tol_max": tol_mx,
+        "tol_mean": tol_mean,
+    }
+    print(f"[{name}] presheared parity {'OK' if parity_ok else 'FAIL'}: "
+          f"max={mx:.4e} tol={tol_mx:.4e}")
+
+    nat = name + "__rel_bias_natural"
+    mb.profile_case(nat, lambda: run(rel_bias=rel))
+    record(nat, nat, {"path": "rel_bias natural, ShearingBias inside the timing"})
+
+    if parity_ok:
+        mb.profile_case(name, lambda: run(bias=sheared))
+        record(name, name, {
+            "path": "bias= pre-sheared, ShearingBias NOT in the timing",
+            "parity_vs_rel_bias": parity,
+        })
+        nat_total = RESULTS[nat].get("total_us_per_iter")
+        cur_total = RESULTS[name].get("total_us_per_iter")
+        if nat_total and cur_total:
+            RESULTS[name]["saved_us_per_iter_vs_natural"] = round(
+                nat_total - cur_total, 1)
+    else:
+        RESULTS[name] = {
+            "total_us_per_iter": None,
+            "path": "bias= pre-sheared",
+            "parity_vs_rel_bias": parity,
+            "note": "parity failed, timing withheld on purpose",
+        }
+
+
+def set_geometry(Hq, Hkv):
+    """Point parity_shear_fusion's input builder at production head counts.
+
+    make_inputs() and run_shearing_bias() read these as module globals, and
+    WIDTH is DERIVED from them at import time, so setting HQ alone silently
+    builds a qkvr tensor of the wrong width. All five move together.
+    """
+    psf.HQ, psf.HKV = Hq, Hkv
+    psf.QW, psf.KVW = Hq * psf.D, Hkv * psf.D
+    psf.R_OFFSET = psf.QW + 2 * psf.KVW
+    psf.WIDTH = psf.R_OFFSET + Hq * psf.D_REL
+
+
+def writer_case(name, seq_lens_q, ctx_lens, ext, Hq, Hkv, is_local):
+    """The COST side of the fusion, which nothing has measured until now.
+
+    presheared_* above measures what attention SAVES when the bias arrives
+    pre-sheared. It does not measure what producing it costs. The fused writer
+    emits rel_extent + 256 columns into a (T + 128, H, ext + 256) buffer
+    instead of rel_extent columns into (T, H, ext), so it is strictly more
+    work than the natural writer. The fusion is a net win only if
+
+        (natural writer + ShearingBias) - (fused writer)
+
+    is positive, and no number on either side of that existed before this run.
+    Both paths are timed here in ONE process on THE SAME inputs, so the delta
+    is measured rather than subtracted across sessions.
+
+    The fused output is checked against the stock ShearingBias result before
+    any timing is reported. A writer that is fast because it is wrong is not a
+    result, so a parity failure withholds the numbers instead of printing them.
+    """
+    from vllm.models.inkling.nvidia.ops.qkvr_prep import (
+        RelShearSpec,
+        qkvr_rel_proj,
+    )
+
+    set_geometry(Hq, Hkv)
+    inp = psf.make_inputs(seq_lens_q, ctx_lens, ext, seed=17)
+    tokens = inp["tokens"]
+    dev = inp["qkvr"].device
+    common = dict(
+        num_q_heads=Hq, num_kv_heads=Hkv, head_dim=psf.D, d_rel=psf.D_REL
+    )
+    window_left = ext - 1 if is_local else None
+    window_right = 0 if is_local else None
+
+    rel_nat = torch.empty(tokens, Hq, ext, dtype=torch.bfloat16, device=dev)
+    sheared_out = torch.empty(
+        (tokens + psf.SHEAR_ROW_PAD, Hq, ext + psf.SHEAR_PAD),
+        dtype=torch.bfloat16, device=dev,
+    )
+    spec = RelShearSpec(
+        cu_seqlens_q=inp["cu_seqlens_q"],
+        seq_lens=inp["seq_lens"],
+        seq_idx=inp["seq_idx"],
+        num_tokens=tokens,
+        window_left=window_left,
+        window_right=0,
+    )
+
+    def natural_plus_shear():
+        qkvr_rel_proj(inp["qkvr"], inp["rel_proj"], rel_nat, None, **common)
+        psf.run_shearing_bias(
+            rel_nat,
+            ext=ext,
+            is_local=is_local,
+            window_left=window_left,
+            window_right=window_right,
+            cu_seqlens_q=inp["cu_seqlens_q"],
+            seq_lens=inp["seq_lens"],
+            max_seqlen_q=max(seq_lens_q),
+            max_seqlen_k=int(inp["seq_lens"].max()),
+        )
+
+    def fused():
+        qkvr_rel_proj(
+            inp["qkvr"], inp["rel_proj"], sheared_out, None,
+            shear=spec, **common,
+        )
+
+    # Correctness first. ShearingBias does no arithmetic, so this is exact.
+    qkvr_rel_proj(inp["qkvr"], inp["rel_proj"], rel_nat, None, **common)
+    torch.cuda.synchronize()
+    ref = psf.run_shearing_bias(
+        rel_nat,
+        ext=ext,
+        is_local=is_local,
+        window_left=window_left,
+        window_right=window_right,
+        cu_seqlens_q=inp["cu_seqlens_q"],
+        seq_lens=inp["seq_lens"],
+        max_seqlen_q=max(seq_lens_q),
+        max_seqlen_k=int(inp["seq_lens"].max()),
+    )
+    sheared_out.fill_(float("nan"))
+    fused()
+    torch.cuda.synchronize()
+    # ShearingBias does no arithmetic, so the whole buffer must match bit for
+    # bit. torch.equal stays on the GPU and is false on any NaN, which is
+    # exactly the unwritten-column case. psf.compare() is the diagnostic path
+    # only: it moves both buffers to CPU as float32, which at these production
+    # shapes is several GB, so it runs on a slice and only after a failure.
+    exact = bool(torch.equal(ref[:tokens], sheared_out[:tokens]))
+    if exact:
+        errs = []
+    else:
+        probe = min(tokens, 2048)
+        errs = psf.compare(ref, sheared_out, probe, ext, name) or [
+            f"{name}: buffers differ, but the first {probe} tokens match. "
+            "The defect is further in; rerun parity_shear_fusion.py."
+        ]
+    parity_ok = not errs
+    print(f"[{name}] fused writer parity {'OK' if parity_ok else 'FAIL'}")
+    for line in errs[:4]:
+        print(f"    {line}")
+
+    nat = name + "__natural_writer_plus_shearingbias"
+    mb.profile_case(nat, natural_plus_shear, iters=20, warmup=5)
+    record(nat, nat, {
+        "path": "qkvr_rel_proj natural layout, then the ShearingBias kernel",
+        "shape": {"tokens": tokens, "Hq": Hq, "Hkv": Hkv, "ext": ext,
+                  "is_local": is_local},
+    })
+
+    if not parity_ok:
+        RESULTS[name] = {
+            "total_us_per_iter": None,
+            "path": "qkvr_rel_proj writing the sheared buffer directly",
+            "parity_ok": False,
+            "parity_errors": errs[:8],
+            "note": "parity failed, timing withheld on purpose",
+        }
+        return
+
+    mb.profile_case(name, fused, iters=20, warmup=5)
+    record(name, name, {
+        "path": "qkvr_rel_proj writing the sheared buffer directly",
+        "parity_ok": True,
+        "shape": {"tokens": tokens, "Hq": Hq, "Hkv": Hkv, "ext": ext,
+                  "is_local": is_local},
+    })
+    a = RESULTS[nat].get("total_us_per_iter")
+    b = RESULTS[name].get("total_us_per_iter")
+    if a and b:
+        RESULTS[name]["writer_delta_us_per_iter"] = round(b - a, 1)
+        RESULTS[name]["writer_delta_note"] = (
+            "positive means the fused writer costs MORE than the natural "
+            "writer plus ShearingBias combined, which makes the fusion a net "
+            "loss on this shape. Attention consumes an identical buffer in "
+            "both paths, so this delta IS the whole effect of the fusion, not "
+            "half of it."
+        )
+        # run_shearing_bias returns a NaN-initialised buffer so the parity gate
+        # can catch unwritten columns. Production does not: interface.py:725
+        # and :735 allocate the bias with torch.empty. That torch.full shows up
+        # as a vectorized_elementwise kernel inside the natural path and is
+        # harness scaffolding, so charging it to the natural path flatters the
+        # fusion. Record the corrected figure here rather than making whoever
+        # reads the JSON redo the subtraction.
+        fill = 0.0
+        for kname, kus in (RESULTS[nat].get("kernels_us") or {}).items():
+            if "vectorized_elementwise" in kname:
+                fill += float(kus)
+        if fill:
+            RESULTS[name]["harness_nan_prefill_us"] = round(fill, 1)
+            RESULTS[name]["natural_total_excl_harness_prefill_us"] = round(
+                a - fill, 1
+            )
+            RESULTS[name]["writer_delta_excl_harness_prefill_us"] = round(
+                b - (a - fill), 1
+            )
+            RESULTS[name]["harness_nan_prefill_note"] = (
+                "the natural path is timed with run_shearing_bias, which "
+                "torch.full(NaN)s its output every iteration for the parity "
+                "gate. Production uses torch.empty (interface.py:725,735), so "
+                "writer_delta_excl_harness_prefill_us is the production-"
+                "representative number and writer_delta_us_per_iter is a "
+                "conservative bound that favours the fusion."
+            )
+
+
+def splitkv_case(name, B, L, Hq, Hkv, ext, splits):
+    from vllm.third_party.tml_fa4 import flash_attn_varlen_func
+
+    # Same construction as microbench_attn_day0.batched_decode_case: B true
+    # sequences of one query token each, every one with its own KV of length
+    # L, which is what makes the grid heads x batch.
+    torch.manual_seed(23)
+    q = torch.randn(B, Hq, D, dtype=torch.bfloat16, device=DEV) / D**0.25
+    k = torch.randn(B * L, Hkv, D, dtype=torch.bfloat16, device=DEV) / D**0.25
+    v = torch.randn(B * L, Hkv, D, dtype=torch.bfloat16, device=DEV)
+    rel = torch.randn(B, Hq, ext, dtype=torch.bfloat16, device=DEV) * 0.3
+    cu_q = torch.arange(B + 1, dtype=torch.int32, device=DEV)
+    cu_k = torch.arange(B + 1, dtype=torch.int32, device=DEV) * L
+
+    def run(num_splits):
+        out = flash_attn_varlen_func(
+            q=q, k=k, v=v, rel_bias=rel,
+            cu_seqlens_q=cu_q, cu_seqlens_k=cu_k,
+            max_seqlen_q=1, max_seqlen_k=L,
+            softmax_scale=1.0 / D, causal=True, window_size=(None, None),
+            num_splits=num_splits, pack_gqa=False)
+        return out[0] if isinstance(out, tuple) else out
+
+    base = run(1).float()
+    for num_splits in splits:
+        case = f"{name}_splits{num_splits}"
+        try:
+            got = run(num_splits).float()
+            d = (got - base).abs()
+            vs = {
+                "max_abs_diff": float(d.max()),
+                "mean_abs_diff": float(d.mean()),
+            }
+            mb.profile_case(case, lambda ns=num_splits: run(ns))
+            record(case, case, {"num_splits": num_splits,
+                                "vs_num_splits1": vs})
+            print(f"[{case}] vs num_splits=1: max={vs['max_abs_diff']:.4e} "
+                  f"mean={vs['mean_abs_diff']:.4e}")
+        except Exception:  # noqa: BLE001
+            traceback.print_exc()
+            RESULTS[case] = {"num_splits": num_splits,
+                             "error": traceback.format_exc(limit=4)}
+        save()
+
+
+def main() -> None:
+    print(f"device: {torch.cuda.get_device_name(0)}, "
+          f"capability {torch.cuda.get_device_capability(0)}")
+
+    # Shapes identical to microbench_attn_day0.py so the JSONs line up:
+    # global 64q/8kv ext1024, SWA 64q/16kv ext512 win511.
+    presheared = [
+        ("presheared_prefill_global_8k",
+         dict(T_q=8192, T_k=8192, Hq=64, Hkv=8, ext=1024, is_local=False)),
+        ("presheared_prefill_swa_8k",
+         dict(T_q=8192, T_k=8192, Hq=64, Hkv=16, ext=512, is_local=True)),
+        ("presheared_decode_b1_global_kv64k",
+         dict(T_q=1, T_k=65536, Hq=64, Hkv=8, ext=1024, is_local=False)),
+        ("presheared_decode_b32_global_kv64k",
+         dict(T_q=32, T_k=65536, Hq=64, Hkv=8, ext=1024, is_local=False)),
+    ]
+    for name, kwargs in presheared:
+        try:
+            presheared_case(name, **kwargs)
+        except Exception:  # noqa: BLE001
+            print(f"[{name}] FAILED:")
+            traceback.print_exc()
+            RESULTS[name] = {"error": traceback.format_exc(limit=4)}
+        save()
+
+    # AFTER presheared_*, because these mutate parity_shear_fusion's geometry
+    # globals and presheared_case sets psf.HQ for itself.
+    #
+    # The prefill shapes are the ones that matter: session 25 measured
+    # ShearingBias at 827.2 us of the 3308.8 us global prefill and 460.9 us of
+    # the 1223.0 us sliding-window prefill. Those are the costs the fusion
+    # claims to remove; writer_case measures what it charges to remove them.
+    writers = [
+        ("writer_prefill_global_8k",
+         dict(seq_lens_q=[8192], ctx_lens=[0], ext=1024, Hq=64, Hkv=8,
+              is_local=False)),
+        ("writer_prefill_swa_8k",
+         dict(seq_lens_q=[8192], ctx_lens=[0], ext=512, Hq=64, Hkv=16,
+              is_local=True)),
+        ("writer_decode_b32_global_kv64k",
+         dict(seq_lens_q=[1] * 32, ctx_lens=[65535] * 32, ext=1024, Hq=64,
+              Hkv=8, is_local=False)),
+    ]
+    for name, kwargs in writers:
+        try:
+            writer_case(name, **kwargs)
+        except Exception:  # noqa: BLE001
+            print(f"[{name}] FAILED:")
+            traceback.print_exc()
+            RESULTS[name] = {"error": traceback.format_exc(limit=4)}
+        save()
+
+    splitkv = [
+        ("splitkv_decode_1seq_global_kv64k", 1, 65536, [1, 4, 8, 16]),
+        ("splitkv_decode_32seqs_global_kv64k", 32, 65536, [1, 2, 4]),
+    ]
+    for name, B, L, splits in splitkv:
+        try:
+            splitkv_case(name, B, L, 64, 8, 1024, splits)
+        except Exception:  # noqa: BLE001
+            print(f"[{name}] FAILED:")
+            traceback.print_exc()
+            RESULTS[name] = {"error": traceback.format_exc(limit=4)}
+        save()
+
+    save()
+    print(f"\nsaved: {OUT}")
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+
+def _stage_harness() -> str:
+    """Copy the harnesses somewhere writable and drop the generated driver in.
+
+    The harnesses write their JSON next to themselves and
+    parity_kv_fp8.py imports parity_qkvr_prep from its own directory, so they
+    must run from a real directory with the repo's relative layout:
+        <work>/harness/*.py
+        <work>/kernels/relproj_score_mod.py   (parity_fa4_rel backend 3)
+    """
+    work = Path(WORK_ROOT)
+    harness = work / "harness"
+    kernels = work / "kernels"
+    harness.mkdir(parents=True, exist_ok=True)
+    kernels.mkdir(parents=True, exist_ok=True)
+
+    staged = []
+    for p in sorted(Path(HARNESS_SRC_DIR).glob("*.py")):
+        shutil.copy2(p, harness / p.name)
+        staged.append(p.name)
+    if not staged:
+        raise RuntimeError(f"no harness files at {HARNESS_SRC_DIR}")
+    shutil.copy2(RELPROJ_SRC, kernels / "relproj_score_mod.py")
+    (harness / "extra_microbench.py").write_text(
+        EXTRA_MICROBENCH_SRC, encoding="utf-8"
+    )
+    _purge_pycache(str(work))
+    print(f"staged {len(staged)} harness files -> {harness}")
+    print("staged: " + " ".join(staged))
+    return str(harness)
+
+
+def _deploy_validate_build(
+    vllm_root: str, tml_pkg: str, patches: str = "u3+shear"
+) -> dict:
+    """Deploy our kernels plus the selected patch set.
+
+    `patches` selects what goes on top of our kernels:
+
+      "u3+shear"  u3_fp8_kv then u2_shear_fusion. Everything the shear gates
+                  need. THE ORDER IS LOAD-BEARING, and the reason is the
+                  reverse of the obvious one: u3 anchors on STOCK text that
+                  u2_shear_fusion rewrites (the `conv_block_size: /
+                  log_scaling:` signature tail, the `_run_fused_small(` call
+                  tail), so u3 has to land while that stock form still exists.
+                  u2 has no anchor on anything u3 introduces and applies
+                  cleanly on its own. Both apply() calls assert every anchor,
+                  so the wrong order aborts loudly instead of half-patching.
+      "route"     u2_serving_route only. This is EXACTLY what the 8x e2e
+                  bench deploys for its "ours" build (see _deploy_build), so
+                  it is the configuration whose health decides whether the
+                  expensive run is worth starting.
+      "none"      our kernels, no patches.
+
+    Session 26 is why this switch exists. Running "u3+shear" broke every
+    attention call on sm_90 with an unbound `n_block` in flash_fwd_sm90.py,
+    and with only one configuration ever tested there was no way to tell
+    whether the defect was in a patch or in the kernel itself. That
+    distinction decides whether the published sm_90 speedups are still
+    reproducible, so it needs to be answerable for the price of one small
+    container rather than one 8-GPU container.
+    """
+    if patches not in ("u3+shear", "route", "none"):
+        raise ValueError(f"unknown patch set {patches!r}")
+    ours = sorted(Path(OURS_TML_DIR).glob("*.py"))
+    if not ours:
+        raise RuntimeError(f"no kernels in {OURS_TML_DIR}")
+
+    # Restore stock first so a reused warm container starts from the same place
+    # every time, then overlay ours.
+    #
+    # Both halves matter. u3 and u2 are each individually idempotent, but they
+    # are NOT idempotent as a chain: u2's QKVR_FUSED_SIG edit rewrites the
+    # signature line u3 anchors on, destroying both u3's `old` anchor and its
+    # already-applied check, so re-running the chain on a patched tree aborts
+    # with "anchor not found in qkvr_prep.py". Restoring tml_fa4 alone left
+    # that trap armed on any reused warm container.
+    for p in sorted(Path(STOCK_TML_DIR).glob("*.py")):
+        shutil.copy2(p, Path(tml_pkg) / p.name)
+    _restore_stock_ops(vllm_root)
+    for p in ours:
+        shutil.copy2(p, Path(tml_pkg) / p.name)
+
+    checked = []
+    for p in ours:
+        got = Path(tml_pkg) / p.name
+        if _sha8(got) != _sha8(p):
+            raise RuntimeError(f"deploy check: {got.name} does not match {p}")
+        checked.append(f"{p.name}:{_sha8(p)}")
+    print(f"DEPLOY_CHECK pkg={tml_pkg}")
+    print("DEPLOY_CHECK files=" + " ".join(checked))
+
+    # u2_shear_fusion.py edits ROOT/vllm/third_party/tml_fa4/interface.py by
+    # path. If the interpreter imports tml_fa4 from somewhere else, that edit
+    # would land on a file nobody loads, which is a silent no-op. Mirror our
+    # kernels into the path the patch targets, patch, then copy back.
+    src_tml = Path(vllm_root) / "vllm/third_party/tml_fa4"
+    same_tree = src_tml.resolve() == Path(tml_pkg).resolve()
+    print(
+        f"PATCH_TARGET source-tree={src_tml} imported={tml_pkg} "
+        f"same={same_tree}"
+    )
+    if not same_tree:
+        src_tml.mkdir(parents=True, exist_ok=True)
+        for p in ours:
+            shutil.copy2(p, src_tml / p.name)
+
+    qkvr_py = Path(vllm_root) / "vllm/models/inkling/nvidia/ops/qkvr_prep.py"
+    route_py = Path(vllm_root) / ROUTE_REL
+    if patches == "u3+shear":
+        _run([_py(), U3_PATCH, vllm_root])
+        _run([_py(), SHEAR_PATCH, vllm_root])
+        marks = {
+            "u3_quantize_kv": (qkvr_py, "quantize_kv"),
+            "u2_shear_relshearspec": (qkvr_py, "RelShearSpec"),
+            "u2_shear_use_fused_shear": (route_py, "def use_fused_shear"),
+            "u2_shear_presheared_iface": (
+                Path(tml_pkg) / "interface.py",
+                "rel_bias_presheared",
+            ),
+        }
+    elif patches == "route":
+        # Exactly what _deploy_build("ours") does for the 8x e2e bench. On
+        # sm_90 the day-0 router sends Hopper down the score_mod gather, so
+        # without this patch our kernels are never reached and the run
+        # measures nothing.
+        _run([_py(), ROUTE_PATCH, vllm_root])
+        marks = {"u2_serving_route": (route_py, "Inkling-turbo: sm_90")}
+    else:
+        marks = {}
+
+    if not same_tree:
+        for p in ours:
+            shutil.copy2(src_tml / p.name, Path(tml_pkg) / p.name)
+
+    # Markers, so "the patch ran" is never assumed. Each string is introduced
+    # by the patch it is checked for. Also assert the patches NOT selected left
+    # no trace, so a stale warm container cannot quietly widen the config.
+    absent = {
+        "u3+shear": {},
+        "route": {"u3_quantize_kv": (qkvr_py, "quantize_kv"),
+                  "u2_shear_relshearspec": (qkvr_py, "RelShearSpec")},
+        "none": {"u3_quantize_kv": (qkvr_py, "quantize_kv"),
+                 "u2_shear_relshearspec": (qkvr_py, "RelShearSpec"),
+                 "u2_serving_route": (route_py, "Inkling-turbo: sm_90")},
+    }[patches]
+    for key, (path, needle) in absent.items():
+        if path.exists() and needle in path.read_text(errors="replace"):
+            raise RuntimeError(
+                f"patch set {patches!r} must NOT contain {key}, but {needle!r} "
+                f"is present in {path}. The stock restore did not take."
+            )
+        print(f"PATCH_ABSENT {key}=confirmed-absent")
+
+    status = {}
+    for key, (path, needle) in marks.items():
+        present = path.exists() and needle in path.read_text(errors="replace")
+        status[key] = present
+        print(f"PATCH_CHECK {key}={present} ({path})")
+    missing = [k for k, v in status.items() if not v]
+    if missing:
+        raise RuntimeError(f"patch verification failed, missing: {missing}")
+
+    _purge_pycache(
+        tml_pkg,
+        str(Path(vllm_root) / "vllm/models/inkling"),
+        str(src_tml) if not same_tree else tml_pkg,
+    )
+    return {
+        "tml_pkg": tml_pkg,
+        "tml_source_tree_same": same_tree,
+        "deployed": checked,
+        "patch_set": patches,
+        "patch_order": {
+            "u3+shear": ["u3_fp8_kv.py", "u2_shear_fusion.py"],
+            "route": ["u2_serving_route.py"],
+            "none": [],
+        }[patches],
+        "patch_markers": status,
+        "patches_confirmed_absent": sorted(absent),
+    }
+
+
+def _parse_harness_output(text: str) -> dict:
+    """Advisory line counts. rc and the JSON artifact are the real verdict."""
+    counts = {
+        "lines_ok": len(re.findall(r"(?m)\bOK\s*$", text)),
+        "lines_fail": len(re.findall(r"FAIL", text)),
+        "lines_skip": len(re.findall(r"SKIP", text)),
+    }
+    m = re.search(r"(\d+)\s*/\s*(\d+)\s+cases bit-exact", text)
+    if m:
+        counts["cases_bit_exact"] = f"{m.group(1)}/{m.group(2)}"
+    return counts
+
+
+def _microbench_totals(path: Path) -> dict:
+    """Case -> total us/iter, or None where the case errored."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        return {"_unreadable": str(exc)}
+    out: dict = {}
+    for name, rec in data.items():
+        if not isinstance(rec, dict) or "error" in rec:
+            out[name] = None
+            continue
+        v = rec.get("total_us_per_iter")
+        out[name] = round(v, 1) if isinstance(v, (int, float)) else None
+    return out
+
+
+def _run_harness(
+    name: str,
+    argv: list[str],
+    env_extra: dict,
+    artifacts: list[tuple[str, str]],
+    expect: str,
+    workdir: str,
+    deadline: float,
+) -> dict:
+    """Run one harness. NEVER raises: a partial result set beats nothing."""
+    rec = {
+        "step": name,
+        "cmd": " ".join(argv),
+        "env": env_extra,
+        "expect": expect,
+        "verdict": "NOT_RUN",
+    }
+    if time.time() > deadline:
+        rec["reason"] = "skipped: out of time or budget"
+        print(f"=== SKIP {name}: out of time/budget ===")
+        return rec
+
+    work = Path(workdir)
+    # Stale artifacts must never be republished under a new name. This is what
+    # keeps the fusion-off and fusion-on JSONs from being the same file.
+    for local_name, _remote_name in artifacts:
+        stale = work / local_name
+        if stale.exists():
+            stale.unlink()
+
+    env = os.environ.copy()
+    env.update({str(k): str(v) for k, v in env_extra.items()})
+    env["PYTHONUNBUFFERED"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
+
+    log_local = work / f"{name}.log"
+    env_note = " ".join(f"{k}={v}" for k, v in env_extra.items()) or "(none)"
+    # The deadline is otherwise only checked BETWEEN steps, so one hung CuTe
+    # compile would burn to the 2h container cap. Give each harness whatever is
+    # left and no more, so the worst case is the budget, not the timeout.
+    budget_s = max(60.0, deadline - time.time())
+    print(f"\n=== STEP {name} === env: {env_note}")
+    print(f"    cwd={workdir} cmd={' '.join(argv)}")
+    print(f"    timeout={budget_s / 60.0:.1f} min (remaining budget)")
+    t0 = time.time()
+    try:
+        with log_local.open("w", encoding="utf-8") as fh:
+            rc = subprocess.run(
+                argv,
+                cwd=workdir,
+                env=env,
+                stdout=fh,
+                stderr=subprocess.STDOUT,
+                check=False,
+                timeout=budget_s,
+            ).returncode
+    except subprocess.TimeoutExpired:
+        rc = -9
+        rec["timed_out_after_s"] = round(budget_s, 1)
+        with log_local.open("a", encoding="utf-8") as fh:
+            fh.write(f"\nKILLED: exceeded {budget_s:.0f}s remaining budget\n")
+        print(f"TIMEOUT: {name} killed after {budget_s:.0f}s")
+    except (OSError, ValueError) as exc:
+        rc = -1
+        log_local.write_text(f"launch failed: {exc!r}\n", encoding="utf-8")
+    rec["seconds"] = round(time.time() - t0, 1)
+    rec["rc"] = rc
+    rec["verdict"] = "PASS" if rc == 0 else "FAIL"
+
+    text = ""
+    try:
+        text = log_local.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        pass
+    print(text)
+    rec.update(_parse_harness_output(text))
+    _write_committed(text, Path(VALIDATE_LOGS) / f"{name}.log")
+
+    saved = []
+    for local_name, remote_name in artifacts:
+        local = work / local_name
+        if not local.exists():
+            rec["verdict"] = "FAIL"
+            rec.setdefault("missing_artifacts", []).append(local_name)
+            print(f"ARTIFACT MISSING: {local}")
+            continue
+        remote = Path(VALIDATE_ROOT) / remote_name
+        _persist(local, remote, f"{name}:{remote_name}")
+        saved.append(remote_name)
+        if remote_name.endswith(".json"):
+            rec.setdefault("totals_us_per_iter", {})[remote_name] = (
+                _microbench_totals(local)
+            )
+    if saved:
+        rec["artifacts"] = saved
+    print(f"=== STEP {name}: {rec['verdict']} rc={rc} in {rec['seconds']}s ===")
+    return rec
+
+
+@app.function(
+    image=bench_image,
+    gpu=f"H100:{VALIDATE_N_GPU}",
+    # Results Volume only. The model Volume is deliberately NOT mounted: no
+    # part of this step reads the checkpoint, and leaving it unmounted makes
+    # that structurally impossible instead of a promise.
+    volumes={RESULTS_MOUNT: results_vol},
+    timeout=VALIDATE_TIMEOUT_S,
+    cpu=VALIDATE_CPU,
+    memory=VALIDATE_MEMORY_MIB,
+)
+def run_validate(
+    budget_usd: float = BUDGET_USD,
+    tag: str = VALIDATE_TAG,
+    patches: str = "u3+shear",
+) -> dict:
+    """Parity gates + microbenches on one H100. Needs no model."""
+    t0 = time.time()
+    rate_hr = _validate_usd_per_hour()
+    _print_validate_cost_banner("container")
+
+    prior = _prior_spend("run_validate")
+    remaining_usd = budget_usd - prior
+    print(f"LEDGER prior spend estimate: ${prior:.2f}, remaining ${remaining_usd:.2f}")
+    if remaining_usd < MIN_USEFUL_VALIDATE_USD:
+        msg = (
+            f"ABORT: only ${remaining_usd:.2f} left under the ${budget_usd:.0f} "
+            f"cap, less than the ${MIN_USEFUL_VALIDATE_USD:.0f} needed to run "
+            "the gates. Nothing was run."
+        )
+        print(msg)
+        return {"aborted_before_start": True, "reason": msg, "prior_usd": prior}
+
+    hard_deadline = t0 + VALIDATE_TIMEOUT_S - VALIDATE_SHUTDOWN_MARGIN_S
+    budget_deadline = t0 + (remaining_usd / rate_hr) * 3600.0
+    deadline = min(hard_deadline, budget_deadline)
+    print(
+        f"effective deadline: {(deadline - t0) / 3600:.2f}h from now "
+        f"(hard timeout {(hard_deadline - t0) / 3600:.2f}h, "
+        f"budget {(budget_deadline - t0) / 3600:.2f}h)"
+    )
+
+    _set_validate_root(tag)
+    Path(VALIDATE_ROOT).mkdir(parents=True, exist_ok=True)
+    Path(VALIDATE_LOGS).mkdir(parents=True, exist_ok=True)
+    print(f"results root for this run: {VALIDATE_ROOT}")
+
+    records: list[dict] = []
+
+    def burn(note: str) -> float:
+        hours = (time.time() - t0) / 3600.0
+        usd = rate_hr * hours
+        total = _ledger_upsert("run_validate", hours, usd, note)
+        print(
+            f"BURN elapsed {hours:.2f}h | this container ~${usd:.2f} | "
+            f"ledger total ~${total:.2f} of ${budget_usd:.0f} | "
+            f"{(deadline - time.time()) / 60:.0f} min left",
+            flush=True,
+        )
+        return total
+
+    def flush(note: str) -> None:
+        _write_committed(
+            json.dumps(
+                {
+                    "steps": records,
+                    "elapsed_hours": round((time.time() - t0) / 3600, 3),
+                    "spend_usd_est": round(rate_hr * (time.time() - t0) / 3600, 2),
+                    "last": note,
+                },
+                indent=2,
+            ),
+            Path(VALIDATE_ROOT) / "progress.json",
+            quiet=True,
+        )
+
+    burn("start")
+
+    # ---------------------------------------------------------------- 1. env
+    print("\n=== STEP env_proof ===")
+    smi = subprocess.run(
+        [
+            "nvidia-smi",
+            "--query-gpu=name,memory.total,driver_version",
+            "--format=csv,noheader",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    print(smi.stdout.strip() or smi.stderr.strip())
+    probe = subprocess.run(
+        [_py(), "-c", _ENV_PROBE_SRC], capture_output=True, text=True, check=False
+    )
+    print(probe.stdout.strip() or probe.stderr.strip())
+    env_info: dict = {}
+    if probe.returncode == 0:
+        try:
+            env_info = json.loads(probe.stdout)
+        except json.JSONDecodeError as exc:
+            env_info = {"parse_error": str(exc), "raw": probe.stdout[-2000:]}
+    else:
+        env_info = {"probe_rc": probe.returncode, "stderr": probe.stderr[-2000:]}
+
+    cap = tuple(env_info.get("capability") or ())
+    arch_ok = cap == (9, 0)
+    env_record = {
+        "step": "env_proof",
+        "verdict": "PASS" if arch_ok else "FAIL",
+        "expect": "sm_90 (H100)",
+        "capability": list(cap),
+        "sm_90": arch_ok,
+        "nvidia_smi": smi.stdout.strip(),
+        **{k: v for k, v in env_info.items() if k != "capability"},
+    }
+    records.append(env_record)
+    _write_committed(
+        json.dumps(env_record, indent=2), Path(VALIDATE_ROOT) / f"env_{tag}.json"
+    )
+    flush("env_proof")
+
+    if not arch_ok:
+        msg = (
+            f"ABORT: device capability {cap or 'unknown'} is not sm_90. Every "
+            "number this step exists to produce is arch-specific, and "
+            "publishing them under an H100 heading would be wrong. Nothing "
+            "else was run."
+        )
+        print(msg)
+        summary = {
+            "aborted": True,
+            "reason": msg,
+            "steps": records,
+            "elapsed_hours": round((time.time() - t0) / 3600, 3),
+        }
+        _write_committed(
+            json.dumps(summary, indent=2), Path(VALIDATE_ROOT) / "summary.json"
+        )
+        _ledger_upsert(
+            "run_validate",
+            (time.time() - t0) / 3600.0,
+            rate_hr * (time.time() - t0) / 3600.0,
+            "aborted: wrong arch",
+        )
+        return summary
+
+    # -------------------------------------------------------------- 2. setup
+    deploy_info: dict = {}
+    workdir = ""
+    try:
+        vllm_root, tml_pkg = _resolve_paths()
+        print(f"vllm root: {vllm_root}")
+        print(f"resolved tml_fa4 package dir: {tml_pkg}")
+        _make_stock_backup(vllm_root, tml_pkg)
+        deploy_info = _deploy_validate_build(vllm_root, tml_pkg, patches)
+        workdir = _stage_harness()
+        setup_rec = {"step": "setup", "verdict": "PASS", **deploy_info}
+    except Exception as exc:  # noqa: BLE001
+        import traceback as _tb
+
+        setup_rec = {
+            "step": "setup",
+            "verdict": "FAIL",
+            "error": f"{type(exc).__name__}: {exc}",
+            "traceback": _tb.format_exc(limit=6),
+        }
+        print("SETUP FAILED:")
+        print(setup_rec["traceback"])
+    records.append(setup_rec)
+    flush("setup")
+    burn("setup")
+
+    manifest = {
+        "app": APP_NAME,
+        "step": "validate",
+        "tag": tag,
+        "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "gpu": f"H100:{VALIDATE_N_GPU}",
+        "vllm_pin": VLLM_PIN,
+        "vllm_wheel": VLLM_WHEEL,
+        "cuda_image": CUDA_IMAGE,
+        "model": "NONE. Every harness builds random tensors.",
+        "env": env_info,
+        "deploy": deploy_info,
+        "cost": {
+            "usd_per_hour": round(rate_hr, 4),
+            "budget_usd": budget_usd,
+            "prior_spend_usd_est": prior,
+            "hard_timeout_hours": VALIDATE_TIMEOUT_HOURS,
+            "rates_quoted": "modal.com/pricing 2026-07-24",
+        },
+        "caveats": {
+            "fused_shear_env_var": (
+                "INKLING_TURBO_FUSED_SHEAR does NOT change what "
+                "microbench_attn_day0.py measures. That harness calls tml-fa4 "
+                "directly with rel_bias=<natural layout>, so ShearingBias "
+                "still runs inside the timed region. The env var is read only "
+                "by fa4_rel_attention.use_fused_shear, on the vLLM serving "
+                "path, and it additionally requires _use_sheared_bias(), "
+                "which is false on sm_90 unless u2_serving_route.py is "
+                "applied (it is NOT applied here). Expect the fusion_on and "
+                "fusion_off JSONs to agree within noise. The measurement that "
+                "actually isolates the removed pre-kernel is the presheared_* "
+                "section of the generated extra_microbench.py."
+            ),
+            "qkvr_writer_cost": (
+                "MEASURED by the writer_* section of extra_microbench.py. The "
+                "fused writer emits rel_extent + 256 columns instead of "
+                "rel_extent, so it is strictly more work than the natural "
+                "writer and the fusion only pays if that extra cost is "
+                "smaller than the ShearingBias launch it removes. The verdict "
+                "on any shape is writer_*.writer_delta_us_per_iter against "
+                "presheared_*.saved_us_per_iter_vs_natural. Quoting either "
+                "section on its own overstates the fusion."
+            ),
+            "artifact_names": (
+                "microbench_attn_day0_*.json holds OUR numbers, not day-0 "
+                "ones. The harness times whatever tml_fa4 resolves to, which "
+                "here is our build. The actual day-0 baseline is "
+                "microbench_attn_scoremod_*.json. The file name is historical "
+                "and this repo has already published one wrong headline by "
+                "confusing our own code for a baseline."
+            ),
+            "parity_fa4_rel_verdict": (
+                "parity_fa4_rel's PASS/FAIL is rc-based, and the harness "
+                "counts every non-tuple result including SKIP as a failure "
+                "across all 9 case x backend combinations. A red verdict there "
+                "may be the abandoned relproj_v1 prototype rather than the "
+                "real tml_fa4_rel_bias gate. Read logs/parity_fa4_rel.log "
+                "before concluding anything from it."
+            ),
+            "split_kv": (
+                "sm_90 split-KV has never run on Hopper. Any splitkv_* result "
+                "here is its first execution."
+            ),
+        },
+    }
+    _write_committed(
+        json.dumps(manifest, indent=2), Path(VALIDATE_ROOT) / "manifest.json"
+    )
+
+    # -------------------------------------------------------------- 3. steps
+    if setup_rec["verdict"] == "PASS":
+        py = _py()
+        steps = [
+            (
+                "parity_fa4_rel",
+                [py, "parity_fa4_rel.py"],
+                {},
+                [],
+                "3/3 green for tml_fa4_rel_bias on the sm_90 native path "
+                "(the harness also reports score_mod and our abandoned "
+                "relproj prototype; it exits non-zero if any of the 9 "
+                "case x backend checks fails)",
+            ),
+            (
+                "parity_shear_fusion",
+                [py, "parity_shear_fusion.py"],
+                {"INKLING_TURBO_FUSED_SHEAR": "1"},
+                [],
+                "16/16 cases bit-exact. FIRST TIME the shear fusion runs on "
+                "Hopper; previously validated only on an RTX 5090.",
+            ),
+            (
+                "parity_kv_fp8",
+                [py, "parity_kv_fp8.py"],
+                {},
+                [],
+                "2/2 OK",
+            ),
+            (
+                # This run patches qkvr_prep.py twice. The default, unsheared
+                # path has to come out untouched, and nothing else here checks
+                # that: every other gate exercises the sheared path.
+                "parity_qkvr_prep",
+                [py, "parity_qkvr_prep.py"],
+                {},
+                [],
+                "5/5. Regression gate: the DEFAULT qkvr_prep path must behave "
+                "identically after u3 and u2 have both rewritten this file.",
+            ),
+            (
+                "microbench_attn_scoremod",
+                [py, "microbench_attn_scoremod.py"],
+                {},
+                [
+                    (
+                        "microbench_attn_scoremod.json",
+                        f"microbench_attn_scoremod_{tag}.json",
+                    )
+                ],
+                "day-0 baseline. score_mod is the ONLY day-0 path; relproj "
+                "and relprojT in this JSON are OUR abandoned prototypes.",
+            ),
+            (
+                # Named "ours", not "day0", on purpose. microbench_attn_day0.py
+                # times whatever tml_fa4 resolves to, which is our build. The
+                # day-0 baseline is the scoremod file above. This repo has
+                # already published one wrong headline by mistaking our own
+                # code for a baseline; the file name will not invite a second.
+                "microbench_ours_attn_shearfusion_OFF",
+                [py, "microbench_attn_day0.py"],
+                {"INKLING_TURBO_FUSED_SHEAR": "0"},
+                [
+                    (
+                        "microbench_attn_day0.json",
+                        f"microbench_ours_attn_shearfusion_OFF_{tag}.json",
+                    )
+                ],
+                "reproduces session 25 (decode b1 64K 852.6, b32 64K 854.8, "
+                "b32 8K 124.1, prefill global 3308.8, prefill SWA 1223.0 "
+                "us/iter on one H100 SXM5)",
+            ),
+            (
+                "microbench_ours_attn_shearfusion_ON",
+                [py, "microbench_attn_day0.py"],
+                {"INKLING_TURBO_FUSED_SHEAR": "1"},
+                [
+                    (
+                        "microbench_attn_day0.json",
+                        f"microbench_ours_attn_shearfusion_ON_{tag}.json",
+                    )
+                ],
+                "run exactly as asked. READ manifest.json caveats first: this "
+                "harness passes rel_bias=<natural> straight to tml-fa4, so "
+                "the env var cannot reach it and this SHOULD equal the OFF "
+                "run within noise. If it does not, something else moved.",
+            ),
+            (
+                "microbench_presheared_and_splitkv",
+                [py, "extra_microbench.py"],
+                {},
+                [
+                    (
+                        "extra_microbench.json",
+                        f"microbench_presheared_splitkv_{tag}.json",
+                    )
+                ],
+                "presheared_*: attention timed with the ShearingBias "
+                "pre-kernel already done, via the bias= argument, "
+                "parity-checked before any timing is reported. splitkv_*: "
+                "num_splits > 1 on sm_90, compared against num_splits=1.",
+            ),
+        ]
+
+        # The shear gates read RelShearSpec out of a patched qkvr_prep, and
+        # parity_kv_fp8 exercises u3's quantize_kv. Under any other patch set
+        # they would fail on an ImportError that says nothing, so they are
+        # dropped rather than run and reported red.
+        NEEDS_SHEAR = {
+            "parity_shear_fusion",
+            "parity_kv_fp8",
+            "microbench_presheared_and_splitkv",
+            "microbench_ours_attn_shearfusion_ON",
+        }
+        if patches != "u3+shear":
+            dropped = [s[0] for s in steps if s[0] in NEEDS_SHEAR]
+            steps = [s for s in steps if s[0] not in NEEDS_SHEAR]
+            print(
+                f"patch set {patches!r}: dropping "
+                f"{len(dropped)} shear/u3-dependent steps: {dropped}"
+            )
+
+        for name, argv, env_extra, artifacts, expect in steps:
+            rec = _run_harness(
+                name, argv, env_extra, artifacts, expect, workdir, deadline
+            )
+            records.append(rec)
+            flush(name)
+            burn(f"after {name}")
+    else:
+        print("setup failed, no harness was run")
+
+    # ------------------------------------------------------------ 4. summary
+    elapsed_h = (time.time() - t0) / 3600.0
+    total = _ledger_upsert("run_validate", elapsed_h, rate_hr * elapsed_h, "final")
+    ran = [r for r in records if r.get("verdict") != "NOT_RUN"]
+    summary = {
+        "tag": tag,
+        "steps": records,
+        "passed": [r["step"] for r in ran if r.get("verdict") == "PASS"],
+        "failed": [r["step"] for r in ran if r.get("verdict") == "FAIL"],
+        "not_run": [r["step"] for r in records if r.get("verdict") == "NOT_RUN"],
+        "elapsed_hours": round(elapsed_h, 3),
+        "spend_usd_est": round(rate_hr * elapsed_h, 2),
+        "ledger_total_usd_est": total,
+        "budget_usd": budget_usd,
+        "results_root": VALIDATE_ROOT,
+        "caveats": manifest["caveats"],
+    }
+    _write_committed(
+        json.dumps(summary, indent=2), Path(VALIDATE_ROOT) / "summary.json"
+    )
+
+    print("\n=== VALIDATE SUMMARY ===")
+    print(f"{'step':46s} {'verdict':8s} {'rc':>4s} {'secs':>8s}  detail")
+    for r in records:
+        detail = []
+        if "cases_bit_exact" in r:
+            detail.append(r["cases_bit_exact"] + " bit-exact")
+        if "lines_ok" in r:
+            detail.append(
+                f"ok={r['lines_ok']} fail={r['lines_fail']} skip={r['lines_skip']}"
+            )
+        if r.get("missing_artifacts"):
+            detail.append("MISSING " + ",".join(r["missing_artifacts"]))
+        if r.get("reason"):
+            detail.append(r["reason"])
+        if r.get("error"):
+            detail.append(r["error"])
+        print(
+            f"{r['step']:46s} {str(r.get('verdict')):8s} "
+            f"{str(r.get('rc', '-')):>4s} {str(r.get('seconds', '-')):>8s}  "
+            + "; ".join(detail)
+        )
+    print("\nmeasured totals (us/iter), per artifact:")
+    for r in records:
+        for artifact, totals in (r.get("totals_us_per_iter") or {}).items():
+            print(f"  {artifact}")
+            for case, value in totals.items():
+                print(f"    {case:44s} {value}")
+    print("\ncaveats:")
+    for key, text in summary["caveats"].items():
+        print(f"  [{key}] {text}")
+    print(f"\nspend this container ~${summary['spend_usd_est']:.2f}, "
+          f"ledger total ~${total:.2f} of ${budget_usd:.0f}")
+    print(f"artifacts: {VALIDATE_ROOT} (committed after every step)")
     return summary
 
 
@@ -1163,11 +2691,51 @@ def main(
     concurrencies: str = os.environ.get("CONCURRENCIES", DEFAULT_CONCURRENCIES),
     mixes: str = os.environ.get("MIXES", DEFAULT_MIXES),
     budget_usd: float = float(os.environ.get("BUDGET_USD", BUDGET_USD)),
+    patches: str = os.environ.get("VALIDATE_PATCHES", "u3+shear"),
     force_download: int = 0,
 ) -> None:
     """modal run --detach scripts/modal_e2e_bench.py --step all"""
-    if step not in ("all", "download", "bench"):
-        raise SystemExit(f"unknown step {step!r}; use all|download|bench")
+    if step not in ("all", "download", "bench", "validate"):
+        raise SystemExit(
+            f"unknown step {step!r}; use all|download|bench|validate"
+        )
+    if patches not in ("u3+shear", "route", "none"):
+        raise SystemExit(
+            f"unknown --patches {patches!r}; use u3+shear|route|none"
+        )
+
+    # validate is independent of the matrix and of the model, so it returns
+    # before any of the bench-matrix parsing. It is deliberately NOT part of
+    # step=all: it is a separate, cheap decision.
+    if step == "validate":
+        _print_validate_cost_banner("local")
+        print(f"budget cap in effect: ${budget_usd:.2f} (ledger-enforced)")
+        print(
+            "artifacts are committed to the inkling-bench-results Volume "
+            "after EVERY step; a killed container costs at most one harness."
+        )
+        print()
+        print(f">>> step: validate (1x H100, no model), patches={patches!r}")
+        if patches == "route":
+            print(
+                "    'route' is EXACTLY what the 8x e2e bench deploys for its "
+                "'ours' build, so this run is the cheap health check that says "
+                "whether the expensive one is worth starting."
+            )
+        tag = VALIDATE_TAG if patches == "u3+shear" else (
+            f"{VALIDATE_TAG}_{patches.replace('+', '')}"
+        )
+        out = run_validate.remote(
+            budget_usd=budget_usd, tag=tag, patches=patches
+        )
+        print(json.dumps(out, indent=2))
+        print()
+        print("fetch results:")
+        print(
+            "  modal volume get inkling-bench-results /validate "
+            "./validate_results"
+        )
+        return
 
     mix_list = _parse_mixes(mixes)
     conc_list = _parse_concurrencies(concurrencies)

@@ -28,10 +28,59 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 BUILDS = ["stock", "ours"]
-MIXES = {
-    "prefill": "prefill-heavy (random, 8192 in / 128 out)",
-    "decode": "decode-heavy (random, 512 in / 1024 out)",
-}
+
+# Deliberately NOT a hardcoded table. It used to read
+#   "prefill": "prefill-heavy (random, 8192 in / 128 out)"
+# which was the old Lambda script's shape. scripts/modal_e2e_bench.py runs
+# 2048 in, and 8192 is impossible there because _parse_mixes rejects any mix
+# over MAX_MODEL_LEN = 3072. So the summarizer this repo tells you to run would
+# have published an 8192-in label over 2048-in measurements. Labels now come
+# from the run's own manifest.json, and if that is missing the length is left
+# unstated rather than guessed.
+MIX_KINDS = {"prefill": "prefill-heavy", "decode": "decode-heavy"}
+
+
+def mix_labels(root: Path) -> dict:
+    """Build mix labels from the run's manifest, never from a constant."""
+    labels = {k: f"{v} (shape not recorded)" for k, v in MIX_KINDS.items()}
+    manifest = root / "manifest.json"
+    if not manifest.exists():
+        print(
+            f"WARNING: no manifest.json under {root}. Input and output lengths "
+            "will be left unstated rather than assumed.",
+            file=sys.stderr,
+        )
+        return labels
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"WARNING: unreadable manifest.json: {exc}", file=sys.stderr)
+        return labels
+    # modal_e2e_bench writes {"matrix": {"mixes": [{"name","input_len",
+    # "output_len"}, ...]}}. Accept a bare list too, so an older manifest still
+    # resolves instead of silently falling back to "shape not recorded".
+    matrix = data.get("matrix")
+    mixes = matrix.get("mixes") if isinstance(matrix, dict) else matrix
+    if mixes is None:
+        mixes = data.get("mixes")
+    found = 0
+    for m in mixes or []:
+        if not isinstance(m, dict):
+            continue
+        name = m.get("name") or m.get("mix")
+        ilen, olen = m.get("input_len"), m.get("output_len")
+        if name in labels and ilen and olen:
+            labels[name] = (
+                f"{MIX_KINDS[name]} (random, {ilen} in / {olen} out)"
+            )
+            found += 1
+    if not found:
+        print(
+            f"WARNING: manifest.json at {manifest} carried no mix shapes; "
+            "lengths left unstated.",
+            file=sys.stderr,
+        )
+    return labels
 
 # (json_key, label, unit, better) -- better: "high" or "low"
 METRICS = [
