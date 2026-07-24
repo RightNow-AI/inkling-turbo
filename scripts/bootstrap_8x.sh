@@ -46,7 +46,15 @@ source .venv/bin/activate
 echo "=== installing (precompiled) ==="
 # VLLM_USE_PRECOMPILED verified in the pinned tree: setup.py lines 50-53;
 # install command per the pinned tree's AGENTS.md "Installing dependencies"
-VLLM_USE_PRECOMPILED=1 uv pip install -e . --torch-backend=auto 2>&1 | tail -2
+# ENVIRONMENT TIME-CAPSULE (2026-07-23, drift #5) - mirrors bootstrap_b200.sh:
+export VLLM_PRECOMPILED_WHEEL_LOCATION="https://wheels.vllm.ai/850295881041754184717804104fcaadd2b2129e/vllm-0.23.1rc1.dev1237%2Bg850295881-cp38-abi3-manylinux_2_28_x86_64.whl"
+VLLM_USE_PRECOMPILED=1 uv pip install -e . --torch-backend=cu130 2>&1 | tail -2
+uv pip install "torch==2.11.0" torchvision --torch-backend=cu130 2>&1 | tail -1
+if [ ! -d /usr/local/cuda-13.0/compat ]; then
+  curl -sO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-compat-13-0_580.173.02-1ubuntu1_amd64.deb
+  sudo dpkg -i cuda-compat-13-0_580.173.02-1ubuntu1_amd64.deb >/dev/null
+fi
+export LD_LIBRARY_PATH="/usr/local/cuda-13.0/compat:$PWD/.venv/lib/python3.12/site-packages/nvidia/cu13/lib:${LD_LIBRARY_PATH:-}"
 
 python - <<'EOF'
 import torch
