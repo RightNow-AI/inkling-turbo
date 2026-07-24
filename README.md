@@ -48,7 +48,7 @@ Sources: [session 25](journal/remote/microbench_attn_day0_session25_h100.json) w
 
 **Our kernel is the reproducible half of this comparison.** Across those two runs it moves by at most 1.9%, and on three of five cases by 0.1% or less. The `score_mod` baseline moves by up to 9.8%, which is the entire reason the sliding-window loss is quoted as a range rather than a figure: our number went 1223 to 1221, the baseline went 957 to 863. Treat any of these ratios as good to about one decimal place, not two, and treat the day-0 side as the noisy one.
 
-Our prefill totals include the ShearingBias pre-kernel, which the `score_mod` path does not need: 827 us of the 3309, and 461 us of the 1223. That pre-kernel is why the sliding-window case loses, and removing it is the first item in [What comes next](#what-comes-next).
+Our prefill totals include the ShearingBias pre-kernel, which the `score_mod` path does not need: 827 us of the 3309, and 461 us of the 1223. That pre-kernel is why the sliding-window case loses. The obvious fix, folding it into the writer that produces the bias one step earlier, is implemented, and we measured it: **it makes things worse, not better.** See [Removing the pre-kernel](#removing-the-pre-kernel). Closing this case needs a cheaper way to produce the sheared layout, not the removal of the launch.
 
 The `scoremod` JSON also contains two much slower paths, `relproj` at 7195 us and `relprojT` at 5155 us on the batch-1 decode case. **Those are ours, not vLLM's.** They are the register-resident designs we tried and abandoned, kept in `kernels/relproj_score_mod.py` and measured in the same runs so the dead ends stay on the record. Dividing our shipped kernel by our own failed prototype would produce a larger number and would not mean anything. That mistake was made once here and corrected publicly.
 
@@ -304,7 +304,7 @@ Nsight Compute reports are not in the repo. A single `.ncu-rep` is several megab
 
 ## What comes next
 
-1. Fold the ShearingBias pre-kernel into the attention kernel, or into `qkvr_prep` upstream of it. It is 25% to 38% of our prefill total and it is the whole reason the sliding-window prefill case loses.
+1. Kill the ShearingBias cost, which is 25% to 38% of our prefill total and the whole reason the sliding-window case loses. Folding it upstream into `qkvr_prep` is **done and refuted**: the sheared writer costs more than the launch it removes, measured, see [Removing the pre-kernel](#removing-the-pre-kernel). What is left is to build the sheared tile inside the attention kernel, in shared memory, per tile, and never materialize the padded buffer at all. That is a real kernel change rather than a re-plumbing, and it is the honest next attempt.
 2. Split-KV decode for `sm_90`. Batch-1 decode is parallelism-bound, not bandwidth-bound: 64 CTAs on 132 SMs, DRAM at 7%, occupancy at 14%. Splitting the KV range is the fix.
 3. Re-enable `intra_wg_overlap` and `pack_gqa`, both forced off to get the bias path correct. Both cost prefill throughput today. Packed-bias addressing on `sm_90` is exactly the problem the `sm_100` path already solves.
 4. Blackwell validation when hardware is available.
@@ -312,7 +312,7 @@ Nsight Compute reports are not in the repo. A single `.ncu-rep` is several megab
 6. Re-run the serving sweep, pulling artifacts after every config so a dead box costs one config instead of everything.
 7. File the upstream reports, after running the duplicate check against `vllm-project/flash-attention` that has not been run.
 8. Commit a CSV export of the ncu section summaries, so the roofline numbers are checkable rather than transcribed.
-9. Speed-measure shear fusion on an H100, and validate it on Hopper at all. Today it is correct on `sm_120` and unmeasured everywhere.
+9. Re-run the shear-fusion gate on `sm_90`. It scored 14/16 there because both attention cases hit the `n_block` defect that is now fixed; the writer half is already 14/14 bit-exact on Hopper. The speed question is answered and the answer is no.
 
 Longer-term units (MoE grouped GEMM, router fusion, QKVR fusion, CUDA graphs, batch-aware dispatch) are tracked in [LEDGER.md](LEDGER.md).
 
