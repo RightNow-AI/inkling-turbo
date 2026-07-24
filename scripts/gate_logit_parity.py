@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gate: logit parity, stock day-0 build vs inkling-turbo tml_fa4 kernels.
+"""Gate: logit parity, stock day-0 build vs Inkling-turbo tml_fa4 kernels.
 
 Runs ON the 8x H100 Lambda box (after scripts/bootstrap_8x.sh). Serves
 thinkingmachines/Inkling (NVFP4 checkpoint -> W4A16 dequant path on Hopper,

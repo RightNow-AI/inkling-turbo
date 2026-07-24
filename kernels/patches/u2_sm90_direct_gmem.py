@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """U2 sm_90 v2: replace buggy smem-staged bias with direct-gmem per-fragment
-read. Root cause of sessions 6-10 parity FAIL: the bias cp.async tiled-copy
+read.
+
+SUPERSEDED, DO NOT APPLY. This fixed the smem corruption but still failed
+parity, because it computed fragment coordinates by hand and wgmma accumulator
+fragments do not index that way. The real cause turned out to be pack_gqa
+(session 24). Kept because the journal walks through it. The shipping sm_90
+kernel is in kernels/tml_fa4_modified/flash_fwd_sm90.py. Root cause of sessions 6-10 parity FAIL: the bias cp.async tiled-copy
 was built (in Base._setup_attributes) for num_producer_threads (32) but
 issued from the consumer MMA threads (128-256) sliced by tidx%num_mma_threads
 -> partition mismatch corrupted most of sBias (fingerprint: row 0 exact,

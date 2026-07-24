@@ -104,7 +104,7 @@ def main() -> int:
         return 2
 
     lines = [
-        "# Gate summary: stock day-0 vs inkling-turbo kernels",
+        "# Gate summary: stock day-0 vs Inkling-turbo kernels",
         "",
         f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}",
         f"Results root: `{args.root}`",

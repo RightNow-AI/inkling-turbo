@@ -93,7 +93,7 @@ Code: `vllm/vllm/models/inkling/` (`common/`, `nvidia/`, `configs.py`, `nvfp4.py
 
 ## Addendum (same day): tml-fa4 sheared-bias internals + SGLang cross-ref
 
-### tml-fa4 (@13374f0c, forward-only CuTeDSL FA4; sm90/sm100/sm120 + combine)
+### tml-fa4 (@13374f0c, forward-only CuTeDSL FA4; sm_90/sm_100/sm_120 + combine)
 
 - `ShearingBias` (`shearing_bias.py`) is a SEPARATE pre-kernel launch, not part of the
   attention kernel: reads PreBias (T,H,rel_extent) [= rel_logits from qkvr_prep]

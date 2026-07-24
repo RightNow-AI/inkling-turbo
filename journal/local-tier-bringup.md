@@ -22,15 +22,15 @@ Blackwell GeForce/workstation). Chain of three independent failures:
 2. **`vllm_flash_attn/cute/flash_fwd.py`:** kernel body line ~840 reads
    `mDynamicCausal`, but the tensor is only a parameter of the launcher, never
    threaded through the `@cute.kernel` signature nor passed at `.launch()`.
-   DSL staging error. Only the GENERIC forward is affected; sm90/sm100 have
+   DSL staging error. Only the GENERIC forward is affected; sm_90/sm_100 have
    their own kernel files → CI on H100/B200 never exercises this line.
 3. **`vllm_flash_attn/cute/flash_fwd_sm120.py`:** `FlashAttentionForwardSm120`
    (subclass of the SM80-family class) never sets `self.is_split_kv`, which the
    shared `epilogue` in flash_fwd.py reads. AttributeError at first call.
 
-All three are upstream-reportable with minimal repros. TODO: file issues
-(vllm-project/tml-fa4 for 1, vllm-project/flash-attention or vllm for 2-3)
-after checking their trackers for duplicates (AGENTS.md duplicate-work rule).
+All three are upstream-reportable with minimal repros. Targets: vllm-project/tml-fa4
+for 1, vllm-project/flash-attention or vllm for 2-3. Written up and dup-checked in
+[journal/upstream/](upstream/); not yet filed.
 
 ## Parity gate 1, GREEN (harness/parity_fa4_rel.py)
 
@@ -52,7 +52,8 @@ the reference is now trusted as the parity oracle for U2/U3 kernel work.
 - Local U2/U3 kernel dev on sm_120 must target/extend the sm_120 path (SM80-style
   mma.sync pipeline, 99KB smem), deployment kernels (sm_100 tcgen05) validated
   remotely on B200. Two-arch reality documented; per-arch instruction verification
-  mandatory (BLOCKERS B3).
+  is mandatory, since `sm_120` and `sm_100` share a version prefix and not an
+  instruction set.
 - The sheared-bias tml-fa4 kernel only accepts tile_n==128, an sm_120-compatible
   variant is prerequisite for LOCAL U2 iteration (or U2 iterates score_mod-side
   locally + sheared-side remotely).

@@ -449,6 +449,9 @@ column map re-derived: sBias[r,c] = bias(global row m*128+r, kv n*128+c)).
 
 ## sm_90 native: STATUS as of 2026-07-20 (17 H100 sessions, ~$17)
 
+SUPERSEDED by SESSION 24 below. The paradox recorded here was pack_gqa; the
+native sm_90 kernel is parity 3/3 green and shipped. Entry kept as written.
+
 VALIDATED on H100 via isolation probes (all green):
 - apply_rel_bias_sm90 EXECUTES (sentinel probe: obliterating acc -> NaN output).
   Root cause of 11 dead flights: mma() call site never passed mBias/sBias ->

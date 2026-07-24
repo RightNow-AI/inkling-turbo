@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Hunt an 8x box, run the Inkling-turbo integration gates, terminate.
 
+SPENDS MONEY, AND 8-GPU NODES ARE THE EXPENSIVE ONES. An 8x B200 is roughly
+$53/hr. The script prints the price and refuses instance types outside its
+allowlist, but it will not second-guess a rate you agreed to. Set
+--max-session-hours.
+
 Stage plan (all scripted, artifacts pulled back after each stage):
   1. bootstrap_8x.sh   -- clone/install/drift-fix/deploy + 592GB model dl
   2. parity_fa4_rel.py -- arch-local per-op parity (on 8x B200 this is the

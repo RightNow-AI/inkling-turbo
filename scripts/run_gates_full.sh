@@ -1,6 +1,8 @@
 #!/bin/bash
-# Fully autonomous ON-BOX gate run: survives the orchestrator's laptop being
-# off. Launch with:  nohup bash ~/run_gates_full.sh > ~/gates_run.log 2>&1 &
+# Fully autonomous ON-BOX gate run: keeps going after the machine that
+# launched it disconnects. Runs on a rented node, so it is burning money for
+# its whole duration; the watchdog below is what bounds that.
+# Launch with:  nohup bash ~/run_gates_full.sh > ~/gates_run.log 2>&1 &
 #
 # Stages: bootstrap (install + model download) -> per-op parity ->
 # 32-prompt logit gate (stock vs ours) -> e2e serving bench -> summary.

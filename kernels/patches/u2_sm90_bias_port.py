@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """U2 sm_90 port: sheared-bias smem tile machinery in flash_fwd_sm90.py.
 
+SUPERSEDED, DO NOT APPLY. This is the sessions 6-10 attempt. It failed parity:
+the bias tiled-copy was built for the 32 producer threads and issued from the
+consumer MMA threads, which corrupted most of sBias. Kept because the journal
+walks through it. The shipping sm_90 kernel is in
+kernels/tml_fa4_modified/flash_fwd_sm90.py and uses partition_C instead.
+
 Rides the score_mod_fn slot (invoked identically at all 3 mainloop sites:
 score_mod_fn(acc_S, n_block=n_block, seqlen=seqlen)). Consumer-side
 cp.async load -> named barrier 7 (free slot; enum uses 1-6) across MMA

@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Book the first available Lambda 8x NODE for the founder and hold it.
+"""Book the first available Lambda 8x node and hold it for interactive use.
 
-Priority: 8x H100 > 8x A100-80GB > 8x A100-40GB. (8x B200 is deliberately
-left to grab_8x_gates.py, which runs the release gates first and then parks
-the box, serving both purposes.) The booked node is named inkling-user-node,
-is NEVER auto-terminated, and its SSH details are printed on success.
+SPENDS MONEY, AND KEEPS SPENDING IT. This is the one script here with no
+auto-terminate. The node is named inkling-user-node, is NEVER killed by this
+code, and bills by the hour from the moment it boots until you terminate it
+yourself. Prices are printed before launch. Nothing will stop the meter for you.
 
-The founder pays per hour from booking (prices printed). Terminate manually
-or ask the orchestrator when done.
+Priority: 8x H100 > 8x A100-80GB > 8x A100-40GB. 8x B200 is deliberately left
+to grab_8x_gates.py, which runs the gates first and then parks the box, serving
+both purposes. SSH details are printed on success.
 
 Usage: py scripts/book_user_node.py [--interval 30] [--max-hours 96]
 """
@@ -69,7 +70,7 @@ def main() -> int:
                     continue
                 print(f"[{stamp()}] USER NODE BOOKED: {iid} ({t} in {region} "
                       f"@ ${price}/hr, billing from now)", flush=True)
-                # wait for IP so the founder gets a ready SSH line
+                # wait for IP so the caller gets a ready SSH line
                 for _ in range(90):
                     inst = next(i for i in gb.api("GET", "/instances")["data"]
                                 if i["id"] == iid)

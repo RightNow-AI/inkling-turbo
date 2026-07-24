@@ -1,10 +1,23 @@
 #!/usr/bin/env python3
-"""Honest sm_90 attention baseline: score_mod path (vLLM's Hopper route) at
-real Inkling shapes, per-kernel breakdown via torch.profiler.
+"""Callback-path attention timings at real Inkling shapes, per-kernel breakdown
+via torch.profiler.
 
-Unlike microbench_attn_day0.py (rel_bias path, numerically wrong on sm_90,
-journal/remote/h100-session1.md session 3), this measures the path vLLM
-actually serves with on Hopper, parity-proven to 7.8e-3.
+Measures on identical inputs:
+  score_mod  -- the route vLLM actually serves on Hopper. THE ONLY DAY-0
+                BASELINE HERE; parity-proven to 7.8e-3, and num_splits=1 is
+                production behaviour on sm_90, not a handicap we imposed.
+  plain      -- attention with no bias at all. A floor, not a baseline: a bias
+                feature can approach it and cannot beat it.
+  relproj    -- register-resident r-projection bias as a score_mod. OURS, our
+                V1, measured and abandoned. Not a day-0 path.
+  relprojT   -- the same with proj transposed. OURS, our V1.5, also abandoned.
+
+Do not quote a speedup of our shipped kernel over relproj or relprojT. Those are
+our own dead ends, kept in the run so they stay on the record.
+
+Case names and shapes match microbench_attn_day0.py exactly, so the two JSON
+files can be read side by side. Run both on the same box in the same session;
+comparing across boxes or toolchains is not a controlled comparison.
 
 Output: printed tables + microbench_attn_scoremod.json next to this script.
 """

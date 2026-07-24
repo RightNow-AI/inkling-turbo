@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Wait until no inkling-turbo instances exist, then run grab_b200.py with
-the given args. Serializes session launches against terminating instances."""
+the given args. Serializes session launches against terminating instances.
+
+SPENDS MONEY: this hands off to grab_b200.py, which rents a GPU. The same
+cost warnings apply. It exists because two launchers once raced and both won.
+"""
 
 import base64
 import json

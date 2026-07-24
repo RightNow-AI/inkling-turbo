@@ -1,9 +1,20 @@
 #!/usr/bin/env python3
-"""Day-0 FA4 rel-attention microbench at real Inkling shapes (single GPU).
+"""FA4 rel-attention microbench at real Inkling shapes (single GPU).
 
 Measures per-CUDA-kernel time via torch.profiler so the ShearingBias /
 forward / combine split is visible, the U2 evidence (bias share of
 attention time). Sections are independent; one failure doesn't kill the rest.
+
+WHAT THIS MEASURES DEPENDS ON WHAT IS INSTALLED. It calls whatever
+vllm.third_party.tml_fa4 resolves to at runtime:
+  - stock checkout on sm_90: the rel_bias argument is silently DROPPED and you
+    are timing plain attention (upstream finding 01). Not a valid bias timing.
+  - kernels/tml_fa4_modified/ deployed: our kernel, parity-gated.
+The filename does not record which one ran. Record it in the artifact name and
+in the journal entry, and check the parity run from the same session.
+
+Baselines for the same shapes come from microbench_attn_scoremod.py, which must
+be run on the same box in the same session to be comparable.
 
 Output: printed tables + JSON next to this script (microbench_attn_day0.json).
 """

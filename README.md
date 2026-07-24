@@ -4,18 +4,36 @@ Faster attention kernels for serving TML's Inkling model on vLLM.
 
 Inkling's attention is unusual. There is no RoPE. Instead the model adds a learned relative-position term to every pre-softmax score, and it alternates global and sliding-window layers. vLLM's day-0 support handles this with a per-score callback. That callback is slow.
 
-This project replaces it with a tile-level sheared-bias kernel. On an H100 it runs 2.7x to 8.4x faster than every day-0 path we could measure, and it produces the same tokens as the stock build on the real 975B model. On an A100 it is the only thing that runs at all, because the day-0 path raises `NotImplementedError` there.
+This project replaces it with a tile-level sheared-bias kernel. On an H100 it runs 2.7x faster at 64K decode than the path vLLM ships, and it produces the same tokens as the stock build on the real 975B model. On an A100 it is the only thing that runs at all, because the day-0 path raises `NotImplementedError` there.
+
+The win is not uniform. Decode is where it lands. At 8K global prefill the margin narrows to 1.45x, and on sliding-window prefill our path is currently 1.28x slower than day-0. All four cases are in the table below, including the one we lose.
 
 The checkpoint is untouched. No quantization, no retraining, no changes to the attention math. Only the kernel and the code that dispatches to it.
 
-![Attention kernel latency on H100](docs/figures/fig1_latency.png)
+![Attention kernel latency against the path vLLM ships](docs/figures/fig1_latency.png)
 
 ## What is measured
 
+Attention kernel latency, microseconds per iteration, one H100 SXM5. Lower is better.
+
+There is exactly one day-0 baseline on Hopper: `score_mod`, the per-score callback vLLM actually serves with. Everything is measured against that. Plain attention carries no bias at all and is the floor this feature can approach but never beat, not a baseline we are entitled to claim a win over.
+
+| Case | Ours | day-0 `score_mod` | plain, no bias | Result |
+|---|---|---|---|---|
+| decode, batch 1, 64K KV | 853 | 2327 | 736 | **2.7x faster** |
+| decode, batch 32, 64K KV | 855 | 2391 | 727 | **2.8x faster** |
+| prefill 8K, global | 3309 | 4799 | | **1.45x faster** |
+| prefill 8K, sliding window | 1223 | 957 | | **1.28x slower** |
+
+Source: [`microbench_attn_day0_session25_h100.json`](journal/remote/microbench_attn_day0_session25_h100.json) and [`microbench_attn_scoremod_session25_h100.json`](journal/remote/microbench_attn_scoremod_session25_h100.json). Same box, same session, identical shapes in both harnesses.
+
+Our prefill totals include the ShearingBias pre-kernel, which the `score_mod` path does not need: 827 us of the 3309, and 461 us of the 1223. That pre-kernel is why the sliding-window case loses, and removing it is the first item in [What comes next](#what-comes-next).
+
+The `scoremod` JSON also contains two much slower paths, `relproj` at 7195 us and `relprojT` at 5155 us on the batch-1 decode case. **Those are ours, not vLLM's.** They are the register-resident designs we tried and abandoned, kept in `kernels/relproj_score_mod.py` and measured in the same runs so the dead ends stay on the record. Dividing our shipped kernel by our own failed prototype would produce a larger number and would not mean anything.
+
 | Result | Numbers | Where it was run |
 |---|---|---|
-| Faster than every day-0 path on Hopper | 853 us versus 2327 to 7195 us at batch-1 decode with 64K KV. 3309 us versus 10552 to 15255 us at 8K prefill. | One H100 SXM5 |
-| Reproduces on a second machine and a different software stack | Parity green again on torch 2.11/cu130 after the first run used cu129. The gap widened rather than shrank. | A second H100 SXM5 |
+| Reproduces on a second machine and a different software stack | Parity green again on torch 2.11/cu130 after the first run used cu129. The decode gap widened rather than shrank. | A second H100 SXM5 |
 | Same tokens as stock on the real model | 32 of 32 prompts produced identical greedy tokens. 2369 tokens compared. | 8x H100, TP8, full NVFP4 checkpoint |
 | The only working option on Ampere | Parity green on A100. Every day-0 path fails to run. | A100 SXM4 40GB |
 | Tuned tile sizes for Ampere | 10% to 18.7% faster on decode shapes than the upstream default, which shipped with a "should tune" comment. | A100 SXM4 40GB |
@@ -30,7 +48,9 @@ Every timing has a passing parity run behind it. A fast kernel that returns the 
 Read this section before quoting any number above.
 
 - **No end-to-end serving speedup is claimed.** The throughput rows in [LEDGER.md](LEDGER.md) are `null`. We ran the sweep on 8x H100 and lost the results when a safety watchdog killed the box mid-run. That was our own bug and it is [written up](journal/u2-hopper-design.md#session-28-postscript-e2e-curves-lost-to-a-watchdog-race-orchestrator-error) instead of quietly retried.
-- Attention is only part of serving time. The MoE layers and the big GEMMs dominate. Do not assume a 8x kernel speedup becomes an 8x serving speedup. It will not.
+- **We lose on sliding-window prefill.** 1223 us against 957 us for the shipped path, measured on the same box in the same run. The ShearingBias pre-kernel costs 461 us there and the attention kernel alone does not make it back. 55 of Inkling's 66 layers are sliding-window, so this case matters. It is not fixed and we are not hiding it.
+- Attention is only part of serving time. The MoE layers and the big GEMMs dominate. Do not assume a 2.7x kernel speedup becomes a 2.7x serving speedup. It will not.
+- The decode numbers come from a microbenchmark that packs its query rows into one sequence. True multi-sequence decode was measured separately and is slower per sequence: 432 us per sequence at 32 sequences by 64K KV. Neither number is a serving result.
 - **Blackwell is untested.** The code dispatches to `sm_100`, but no B200 was available while this was built. No number here comes from Blackwell hardware.
 - The full-model gate compared tokens and logprobs between two builds. It is a correctness check, not a quality benchmark. We ran no downstream evals.
 - RTX 5090 numbers are relative only. That machine is power-capped and on WDDM.
@@ -43,9 +63,9 @@ Read this section before quoting any number above.
 
 | GPU | State | Detail |
 |---|---|---|
-| H100 (`sm_90`) | Working, per-op and full-model | Native wgmma kernel. Parity green, 2.7x to 8.4x faster than day-0, token-identical to stock on the real model. |
+| H100 (`sm_90`) | Working, per-op and full-model | Native wgmma kernel. Parity green, 2.7x faster than the shipped path at decode, slower on sliding-window prefill, token-identical to stock on the real model. |
 | A100 (`sm_80`) | Working, and the only option | Parity green, tile sizes tuned. Day-0 cannot run here at all. |
-| RTX 5090 (`sm_120`) | Working, per-op | Parity green, faster than day-0 locally. Timings relative only. |
+| RTX 5090 (`sm_120`) | Working, per-op | Parity green, 2% to 10% faster than day-0 on that machine. The local headroom is structurally smaller than Hopper's. Timings relative only. |
 | B200 (`sm_100`, `sm_110`) | Untested | Dispatch exists. No hardware was available. |
 
 ## How it works
@@ -79,7 +99,9 @@ python3 kernels/patches/u3_fp8_kv.py /path/to/vllm         # optional, FP8 KV wr
 python3 kernels/patches/u2_serving_route.py /path/to/vllm  # send sm_90 and sm_120 serving here
 ```
 
-The first script fixes incompatibilities between the vendored attention code and the pinned CuTe DSL. Full kernel sources are in `kernels/tml_fa4_modified/`.
+The first script fixes incompatibilities between the vendored attention code and the pinned CuTe DSL. Full kernel sources are in `kernels/tml_fa4_modified/`. On `sm_90`, deploy those sources rather than patching: the native Hopper kernel is in `flash_fwd_sm90.py` there.
+
+`kernels/patches/u2_sm90_bias_port.py` and `u2_sm90_direct_gmem.py` are not in the list above on purpose. They are the smem-staged and direct-gmem bias attempts, both superseded by the `partition_C` approach that actually works. They are kept because the journal refers to them, not because you should apply them.
 
 ### Run the gates
 
@@ -88,7 +110,7 @@ python harness/parity_fa4_rel.py           # main attention gate, global and SWA
 python harness/parity_kv_fp8.py            # FP8 KV writes
 python harness/parity_shear_writer.py      # shear layout contract
 python harness/microbench_attn_day0.py     # our kernel, real shapes
-python harness/microbench_attn_scoremod.py # day-0 baselines
+python harness/microbench_attn_scoremod.py # the day-0 baseline, same shapes
 python harness/tune_sm80.py                # tile sweep, parity-gated
 ```
 
@@ -123,13 +145,17 @@ kernels/patches/            idempotent patch scripts against a clean checkout
 harness/                    parity oracles, microbenchmarks, the tile tuner
 scripts/                    cloud provisioning, bootstrap, full-model gates
 journal/                    the working record, including every dead end
-journal/remote/             raw measurement artifacts as JSON
-journal/ncu/                Nsight Compute profiles
+journal/remote/             raw measurement artifacts as JSON, plus session logs
 journal/upstream/           bug reports written against upstream
 docs/METHODOLOGY.md         the evidence rules
 docs/figures/               figures used in this README
 LEDGER.md                   every number, measured or null
+CONTRIBUTING.md             the gates a change has to pass
 ```
+
+Start at [journal/README.md](journal/README.md). It says what each file is and which session produced which number. [journal/remote/README.md](journal/remote/README.md) maps every artifact to the claim it backs.
+
+Nsight Compute reports are not in the repo. A single `.ncu-rep` is several megabytes and they were left out of git deliberately. The numbers read off them are quoted in [journal/u2-hopper-design.md](journal/u2-hopper-design.md), and the commands that regenerate them are in `scripts/bootstrap_8x.sh`.
 
 ## Upstream bugs found
 
@@ -143,11 +169,13 @@ Five reports covering ten distinct defects, in [journal/upstream/](journal/upstr
 
 ## What comes next
 
-1. Split-KV decode for `sm_90`. Batch-1 decode is parallelism-bound, not bandwidth-bound: 64 CTAs on 132 SMs, DRAM at 7%, occupancy at 14%. Splitting the KV range is the fix.
-2. Blackwell validation when hardware is available.
-3. U3 read path, so attention consumes the FP8 cache directly.
-4. Re-run the serving sweep, pulling artifacts after every config so a dead box costs one config instead of everything.
-5. File the upstream reports.
+1. Fold the ShearingBias pre-kernel into the attention kernel, or into `qkvr_prep` upstream of it. It is 25% to 38% of our prefill total and it is the whole reason the sliding-window prefill case loses.
+2. Split-KV decode for `sm_90`. Batch-1 decode is parallelism-bound, not bandwidth-bound: 64 CTAs on 132 SMs, DRAM at 7%, occupancy at 14%. Splitting the KV range is the fix.
+3. Re-enable `intra_wg_overlap` and `pack_gqa`, both forced off to get the bias path correct. Both cost prefill throughput today.
+4. Blackwell validation when hardware is available.
+5. U3 read path, so attention consumes the FP8 cache directly.
+6. Re-run the serving sweep, pulling artifacts after every config so a dead box costs one config instead of everything.
+7. File the upstream reports.
 
 Longer-term units (MoE grouped GEMM, router fusion, QKVR fusion, CUDA graphs, batch-aware dispatch) are tracked in [LEDGER.md](LEDGER.md).
 

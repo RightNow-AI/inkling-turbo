@@ -7,7 +7,7 @@ Date: 2026-07-17. All values pulled from primary sources, zero guessed shapes.
 - S1: `huggingface.co/thinkingmachines/Inkling/resolve/main/config.json` (fetched 2026-07-17)
 - S2: vLLM day-0 blog: https://vllm.ai/blog/2026-07-15-inkling (fetched 2026-07-17)
 - S3: vLLM day-0 PR: https://github.com/vllm-project/vllm/pull/48768 (WoosukKwon)
-- S4: SGLang day-0 blog: https://www.lmsys.org/blog/2026-07-15-inkling-day0-support (not yet read, TODO)
+- S4: SGLang day-0 blog: https://www.lmsys.org/blog/2026-07-15-inkling-day0-support (read; cross-reference in journal/day0-implementation.md)
 
 ## Model config (S1, verbatim from text_config)
 
@@ -66,8 +66,10 @@ Local (SWA) layers: 55 → all except `{5, 11, 17, 23, 29, 35, 41, 47, 53, 59, 6
 - Consequences: (a) sm_120, the tcgen05 block-scaled-FP4-MMA trap applies, verify every PTX instruction per-arch; (b) 24GB VRAM bounds microbench shapes, single-layer at real dims fits (6144 hidden, 256×3072 experts ≈ 2.4GB BF16 per expert-stack slice, use per-unit slices); (c) WDDM + 115W cap → local timings are RELATIVE only, never quoted as serving numbers.
 - WSL2 Ubuntu present (stopped), all builds happen there; Windows-native vLLM build is not supported.
 
-### Remote tier, BLOCKED on capacity
-Lambda account instance-type enumeration (API, 2026-07-17):
+### Remote tier, capacity as of 2026-07-17
+Lambda account instance-type enumeration (API, 2026-07-17). This snapshot is why
+the project ran on Hopper and Ampere rather than Blackwell. B200 capacity never
+appeared during the project, so no result here comes from Blackwell silicon.
 - **No B300 instance type exists on Lambda.** (Spec's TP4 W4A4 target impossible there today.)
 - **No H200 instance type exists on Lambda.** (Earlier positive was a substring bug matching GH200.)
 - B200: 1x/2x/8x listed, **zero capacity in all regions right now**. 8x B200 = $53.52/hr.
@@ -80,4 +82,13 @@ Lambda account instance-type enumeration (API, 2026-07-17):
 
 ## Phase 0b status
 
-NOT STARTED, blocked on remote capacity. No optimization work may claim victory before the profile exists. Local-tier prep (build, parity fixtures, day-0 code study) proceeds in parallel.
+Written 2026-07-17: not started, blocked on remote capacity. No optimization work
+may claim victory before the profile exists.
+
+Outcome, appended 2026-07-24: the full multi-batch nsys sweep on a Blackwell node
+never happened, because B200 capacity never appeared. What replaced it was
+per-kernel profiling at real shapes on H100 and A100, done session by session.
+That is a narrower baseline than the plan called for. It was enough to reorder
+the work onto U2, and it is not enough to claim anything about end-to-end serving,
+which is why every serving row in LEDGER.md is still `null`. The session record
+starts at [journal/remote/h100-session1.md](remote/h100-session1.md).

@@ -1,49 +1,146 @@
 # Upstream findings index (Inkling-turbo)
 
-8 findings across the vLLM day-0 Inkling stack, discovered while building
-open-source replacement kernels. Dup-check each tracker before filing
-(vLLM AGENTS.md contribution policy).
+10 defects across the vLLM day-0 Inkling stack, found while building
+open-source replacement kernels. They are packaged as 5 filing-ready issues.
+Every technical claim traces to a journal entry or to a file and line in the
+pinned trees.
 
-| # | File | Target repo | Severity |
-|---|------|-------------|----------|
-| 1 | 01-rel-bias-silently-ignored-non-blackwell.md | tml-fa4 | HIGH, silent wrong output |
-| 2 | 02-cutlass-4.6.0-api-drift-cluster.md (4 findings) | tml-fa4 | HIGH, nothing runs vs own pin |
-| 3 | 03-vllm-flash-attn-generic-path-bugs.md (3 findings) | vllm-flash-attn (+tml-fa4) | MED, sm_120 users broken |
+Status: FINALIZED, NOT FILED. A human files these under their own name after
+re-running the duplicate check below.
 
-Evidence chain: journal/local-tier-bringup.md, journal/remote/h100-session1.md
-journal/u2-hopper-design.md. Fix artifacts: scripts/apply_local_sm120_fixes.sh
-scripts/bootstrap_b200.sh (drift section), kernels/tml_fa4_modified/.
+## The five issues
 
-Status: DRAFTED. To file: dup-check trackers -> post -> link back here.
+| # | File | Target tracker | Defects | Severity |
+|---|---|---|---|---|
+| 01 | [01-rel-bias-silently-ignored-non-blackwell.md](01-rel-bias-silently-ignored-non-blackwell.md) | vllm-project/tml-fa4 | 1 | HIGH, silent wrong output |
+| 02 | [02-cutlass-4.6.0-api-drift-cluster.md](02-cutlass-4.6.0-api-drift-cluster.md) | vllm-project/tml-fa4 | 4 | HIGH, nothing runs against the pinned DSL |
+| 03 | [03-vllm-flash-attn-generic-path-bugs.md](03-vllm-flash-attn-generic-path-bugs.md) | vllm-project/flash-attention, one item in vllm-project/tml-fa4 | 3 | MED, sm_120 users broken |
+| 04 | [04-pack-gqa-row-semantics.md](04-pack-gqa-row-semantics.md) | vllm-project/tml-fa4 | 1 | MED, contract hazard |
+| 05 | [05-no-sm8x-attention-path.md](05-no-sm8x-attention-path.md) | vllm-project/vllm | 1 | MED, no attention path on SM8x |
 
-## Duplicate-check record (2026-07-21, per vllm AGENTS.md)
+## Verified pins used across all five
 
-Queries run via `gh search issues` / `gh issue list` (account jaberjaber23):
-- vllm-project/vllm: "inkling rel_bias", "tml-fa4", "inkling attention"
-  "rel_bias ignored", "cutlass 4.6 make_fragment", "sheared bias" -> ALL EMPTY
-- vllm-project/tml-fa4: full issue list (state all) -> ZERO issues; open PRs -> none
+| Component | Pin | Source of truth |
+|---|---|---|
+| vllm-project/tml-fa4 | `13374f0c855acc1add1bf30444bd67aebbc24a8e` | `vllm/cmake/external_projects/tml_fa4.cmake:17` |
+| vllm-project/flash-attention | `caaa4eb59845388a20b1f435ecaafb4bd9517ad8` | `vllm/cmake/external_projects/vllm_flash_attn.cmake:42` |
+| vllm-project/vllm | fork base `850295881` | our build base |
+| nvidia-cutlass-dsl | `4.6.0` | `vllm/requirements/cuda.txt:28` |
 
-No existing issue or PR covers any indexed finding. Trackers are clear to
-file after release. Re-run the sweep immediately before actually filing.
+No other pin appears in any of the five files. Do not add one without a source.
 
-## Finding 04 (new, 2026-07-21): pack_gqa x row-semantics interaction
+## Recommended filing order
 
-tml-fa4's pack_gqa packs qhead_per_kvhead q-heads into score-tile rows.
-Nothing in the sm_90/sm_80 kernel API surfaces this to row-indexed features;
-the sheared-bias contract (128-row blocks) and any head-sliced per-row
-tensor silently break. Evidence: session 24 stride print (81920 = Hq*padded
-= +1 seq row where +8 tile rows expected), then parity 3/3 after forcing
-pack_gqa=False. sm_100 handles it via group_tile_bias in the shear writer;
-the generic path never packs (finding 03 context). Filing shape: doc/API
-note + the working native sm_90 sheared-bias port as the reference fix.
+1. **01, rel_bias silently ignored.** Highest severity in the series. It is the
+   only defect that returns wrong numbers with no error, so it goes first
+   regardless of anything else.
+2. **02, CuTe DSL 4.6.0 drift.** File immediately after 01. It is the
+   prerequisite for reproducing 01 and 04. A maintainer who tries 01's
+   reproducer against the pinned DSL hits 02's import error before reaching the
+   bug. Filing 02 second means the answer is already in the tracker.
+3. **04, pack_gqa row semantics.** Same repo, same bias subsystem, reads as the
+   follow-up to 01. It also explains why a naive fix for 01 on sm_90 does not
+   work, which is context a maintainer will want while 01 is still open.
+4. **03, generic sm_120 path.** Different repo and different arch, independent
+   of 01, 02 and 04. Two of its three defects belong to
+   vllm-project/flash-attention. The third belongs to vllm-project/tml-fa4 and
+   is labeled in the file. Decide at filing time whether to cross-post that
+   item as a separate tml-fa4 issue or to link it from the main one.
+5. **05, no SM8x attention path.** Files last. Its second fix option depends on
+   01 being fixed, so it should be able to link to the already-open 01.
 
-## Finding 05 (2026-07-23): no Inkling rel-attention path exists on SM8x
+## Duplicate check, MANDATORY, re-run immediately before filing
 
-vllm_flash_attn cute interface.py:722 raises NotImplementedError for any
-score_mod on SM8x, and the Inkling serving router's only non-Blackwell path
-IS score_mod, so day-0 Inkling attention cannot execute on A100-class GPUs
-at all. Evidence: session 26, parity harness on A100-SXM4-40GB: our sheared
-generic kernel 3/3 green on the same cases where every day-0 path raises.
-Filing shape: gap report + our generic sheared-bias kernel as the working
-sm_80 reference. Dup-check: covered by the 2026-07-21 sweep (trackers had
-zero issues); re-run before filing.
+The vLLM contribution policy in `vllm/AGENTS.md` requires a duplicate-work
+check before proposing work. Run every command below and paste the results into
+the filing notes. An empty result set is the thing being recorded, so record it.
+
+### Full listings, both trackers, both states
+
+```bash
+gh issue list --repo vllm-project/tml-fa4 --state all --limit 200
+gh pr   list --repo vllm-project/tml-fa4 --state all --limit 200
+gh issue list --repo vllm-project/flash-attention --state all --limit 200
+gh pr   list --repo vllm-project/flash-attention --state all --limit 200
+```
+
+### Per-issue keyword searches
+
+```bash
+# 01, rel_bias silently ignored
+gh search issues --repo vllm-project/tml-fa4 --state all "rel_bias"
+gh search issues --repo vllm-project/tml-fa4 --state all "sheared bias"
+gh search issues --repo vllm-project/vllm --state all "rel_bias ignored"
+gh search issues --repo vllm-project/vllm --state all "ShearingBias"
+gh search prs    --repo vllm-project/tml-fa4 --state all "rel_bias"
+
+# 02, CuTe DSL 4.6.0 drift
+gh search issues --repo vllm-project/tml-fa4 --state all "make_fragment"
+gh search issues --repo vllm-project/tml-fa4 --state all "ThrMma"
+gh search issues --repo vllm-project/tml-fa4 --state all "cutlass-dsl 4.6"
+gh search issues --repo vllm-project/vllm --state all "nvidia-cutlass-dsl 4.6.0 tml-fa4"
+gh search prs    --repo vllm-project/tml-fa4 --state all "make_rmem_tensor"
+
+# 03, generic sm_120 path
+gh search issues --repo vllm-project/flash-attention --state all "mDynamicCausal"
+gh search issues --repo vllm-project/flash-attention --state all "sm120 cute"
+gh search issues --repo vllm-project/flash-attention --state all "is_split_kv"
+gh search issues --repo vllm-project/tml-fa4 --state all "use_tma_O"
+gh search issues --repo vllm-project/vllm --state all "sm_120 flash attention cute"
+gh search prs    --repo vllm-project/flash-attention --state all "sm120"
+
+# 04, pack_gqa row semantics
+gh search issues --repo vllm-project/tml-fa4 --state all "pack_gqa"
+gh search issues --repo vllm-project/tml-fa4 --state all "pack_gqa bias"
+gh search prs    --repo vllm-project/tml-fa4 --state all "pack_gqa"
+
+# 05, no SM8x attention path
+gh search issues --repo vllm-project/vllm --state all "inkling attention"
+gh search issues --repo vllm-project/vllm --state all "score_mod SM8x"
+gh search issues --repo vllm-project/vllm --state all "inkling A100"
+gh search prs    --repo vllm-project/vllm --state open --search "inkling attention sm80"
+```
+
+### Extra checks the vLLM policy names explicitly, for issue 05
+
+```bash
+gh issue view <issue_number> --repo vllm-project/vllm --comments
+gh pr list --repo vllm-project/vllm --state open --search "<issue_number> in:body"
+gh pr list --repo vllm-project/vllm --state open --search "inkling rel attention"
+```
+
+If any command returns a match, do not file. Read the match, decide whether our
+report is materially different, and if it is, say how in the new report. If it
+is not, add our evidence as a comment on the existing issue instead.
+
+## Prior duplicate-check record, 2026-07-21
+
+Queries run via `gh search issues` and `gh issue list`, account jaberjaber23:
+
+- vllm-project/vllm: "inkling rel_bias", "tml-fa4", "inkling attention",
+  "rel_bias ignored", "cutlass 4.6 make_fragment", "sheared bias". All empty.
+- vllm-project/tml-fa4: full issue list, state all. Zero issues. Open PRs: none.
+
+No existing issue or PR covered any indexed finding on that date. That sweep is
+stale now and does not substitute for the commands above.
+
+## Evidence chain
+
+- `journal/local-tier-bringup.md`, sm_120 bring-up and the first three defects.
+- `journal/remote/h100-session1.md`, sessions 1 to 4, the DSL drift cluster and
+  the sm_90 rel_bias measurements.
+- `journal/u2-hopper-design.md`, THE KEY INSIGHT, sessions 23 to 27, the
+  pack_gqa root cause and the sm_80 support gap.
+- `journal/remote/tune_sm80_a100.json`, the parity-gated sm_80 tile sweep.
+
+Fix artifacts: `scripts/apply_local_sm120_fixes.sh`, `scripts/bootstrap_b200.sh`
+(drift section), `kernels/patches/`, `kernels/tml_fa4_modified/`.
+
+## Filing rules
+
+- Do not file from an agent. A human submits, under their own name, and must be
+  able to defend every claim.
+- Every file already carries the AI-assistance disclosure the vLLM policy
+  requires. Do not remove it.
+- Do not bundle. Each file is one issue.
+- After filing, add the issue URL to the table above.

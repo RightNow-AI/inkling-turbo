@@ -2,8 +2,12 @@
 """Grab a 1x B200 on Lambda the moment capacity appears, run the scripted
 first-contact unit (bootstrap + FA4 parity on sm_100), then TERMINATE.
 
+SPENDS MONEY. This rents a GPU billed by the hour and can sit polling for
+capacity for days before it fires. Set --max-hours and know the rate first.
+
 Guaranteed-kill design: the instance is terminated in a finally block on any
 outcome (success, error, Ctrl-C). Evidence lands in journal/remote/.
+Passing --park disables that termination and leaves the box billing.
 
 Usage: py scripts/grab_b200.py [--type gpu_1x_b200_sxm6] [--interval 120]
        [--max-hours 72] [--park]  (--park skips termination; NOT default)

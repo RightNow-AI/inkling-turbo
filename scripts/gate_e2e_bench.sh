@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Gate: e2e serving benchmark, stock day-0 build vs inkling-turbo kernels.
+# Gate: e2e serving benchmark, stock day-0 build vs Inkling-turbo kernels.
 # Runs ON the 8x H100 Lambda box (after scripts/bootstrap_8x.sh).
 #
 # Benchmark entrypoint, verified against the pinned fork @850295881

@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Launch an AWS 8-GPU P-family node and run the Inkling-turbo gates.
 
+SPENDS MONEY, AND 8-GPU NODES ARE THE EXPENSIVE ONES. On-demand P-family
+instances bill by the second with no cap of their own. Set
+--max-session-hours and check the rate for the type you are requesting.
+
 Mirrors grab_8x_gates.py staging (bootstrap -> parity -> logit gate -> park
 with hard cap -> guaranteed terminate) but sources capacity from the AWS
 on-demand quota (192 vCPUs, us-east-1) instead of Lambda stock.
