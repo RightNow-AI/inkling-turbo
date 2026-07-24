@@ -706,3 +706,24 @@ LOGIT GATE (32 prompts, echo logprobs, stock vs ours, n=2369 tokens):
     warmup of inkling_fa4 (28 compile units).
 Evidence: journal/remote/gate_logit_parity_8xh100.json
 E2e serving bench (stock vs ours, 2 mixes, median-of-5) running.
+
+## SESSION 28 POSTSCRIPT: e2e curves lost to a watchdog race (orchestrator error)
+
+The on-box watchdog shortens its hard cap to a 6h retrieval window as soon as
+~/GATES_DONE or ~/GATES_FAILED appears. Pipeline attempt 7 completed at
+12:09 UTC and touched GATES_DONE. The standalone e2e benchmark was relaunched
+at 12:20 WITHOUT clearing that marker or re-arming the watchdog, so the box
+self-terminated at ~18:09 with the benchmark mid-run (stock ~26-30 of 30 runs
+done, ours not started). Nothing was retrieved from bench_results/.
+
+Lesson baked in for any rerun: the completion marker and the watchdog deadline
+must be owned by whatever process is CURRENTLY authoritative. Either (a) clear
+GATES_DONE and restart the watchdog when relaunching a stage standalone, or
+(b) pull artifacts incrementally (scp after each config) so a termination can
+never cost more than one config. Prefer (b) - retrieval should not depend on
+the box outliving the run.
+
+Everything else from this box was pulled and committed before termination:
+gate_logit_parity_8xh100.json (the 32/32 token-match result) and the serving
+memory recipe. The e2e serving table remains null/pending in LEDGER.md, per
+measured-or-null.

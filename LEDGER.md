@@ -41,7 +41,8 @@ Baseline reference (external claim, NOT ours): vLLM day-0 blog reports 380 tok/s
 | 2026-07-21 | Lambda 8x B200 (australia-east-1) | 0.34 h | $18.17 | CAPACITY FOUND + launched + bootstrapped, then the LAUNCHER crashed: Windows cp1252 could not decode a byte in the remote bootstrap stream, killing the subprocess reader thread (stdout=None -> TypeError). finally-block terminated correctly. NO gate evidence obtained. Fix: all subprocess pipes forced to utf-8/errors=replace + None-safe run_stage, regression test scripts/test_pipe_decode.py. |
 | 2026-07-23 | Lambda 1x H100 (sessions 25, parked ~4.5h) | ~4.5 h | ~$19.3 | Drift #5 (wheel bucket regenerated) diagnosed + fixed live; env time-capsule baked into bootstrap. INDEPENDENT REPRODUCTION on torch 2.11/cu130: parity 3/3, U3 2/2, race now 2.7-8.4x, first true 32-seq batched-decode numbers. Box HELD as dev box (founder-authorized booking rule). |
 | 2026-07-23 | Lambda 8x A100 (founder node, sessions 26-27, ~4h) | ~4 h | ~$63.7 | sm_80 sweep: OUR kernel parity 3/3 GREEN; day-0 path CANNOT RUN on SM8x (NotImplementedError, finding 05) => Inkling-turbo is the only working rel-attention on Ampere. U3 2/2 (3rd arch). Absolute timings banked. |
-| | | | **~$126.3 total** | |
+| 2026-07-24 | Lambda 8x H100 (session 28, gates) | ~7.9 h | ~$252 | DELIVERED + BANKED: first-ever full-model Inkling serving on 8x H100 (complete memory recipe measured over 7 failure layers: util 0.94 / ctx 3072 / enforce-eager / expandable_segments), first full-model run of our kernels, and the 32-prompt logit gate (32/32 greedy-token match vs stock; logprob tolerances shown tighter than the platform noise floor). LOST: e2e serving curves - the watchdog's 6h retrieval clock (started by an earlier GATES_DONE marker) terminated the box mid-benchmark because the standalone e2e relaunch did not re-arm the deadline. Orchestrator error, recorded. |
+| | | | **~$378.3 total** | |
 
 ## last_error
 
