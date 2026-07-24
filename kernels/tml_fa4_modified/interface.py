@@ -348,19 +348,19 @@ def _flash_attn_fwd(
         total_k = k.shape[-3]
         assert k.shape == (total_k, num_head_kv, head_dim)
         assert v.shape == (total_k, num_head_kv, head_dim_v)
-        assert cu_seqlens_k.shape == (batch_size + 1), (
-            "cu_seqlens_k must have shape (batch_size + 1)"
+        assert cu_seqlens_k.shape == (batch_size + 1,), (
+            "cu_seqlens_k must have shape (batch_size + 1,)"
         )
 
     if cu_seqlens_q is not None:
-        assert cu_seqlens_q.shape == (batch_size + 1), (
-            "cu_seqlens_q must have shape (batch_size + 1)"
+        assert cu_seqlens_q.shape == (batch_size + 1,), (
+            "cu_seqlens_q must have shape (batch_size + 1,)"
         )
-    assert seqused_q is None or seqused_q.shape == (batch_size), (
-        "seqused_q must have shape (batch_size)"
+    assert seqused_q is None or seqused_q.shape == (batch_size,), (
+        "seqused_q must have shape (batch_size,)"
     )
-    assert seqused_k is None or seqused_k.shape == (batch_size), (
-        "seqused_k must have shape (batch_size)"
+    assert seqused_k is None or seqused_k.shape == (batch_size,), (
+        "seqused_k must have shape (batch_size,)"
     )
     blockscaled = sfq is not None
     v_blockscaled = sfv is not None
@@ -396,7 +396,7 @@ def _flash_attn_fwd(
                 "cu_seqlens_q, cu_seqlens_k, seqused_q, seqused_k must be contiguous"
             )
     if learnable_sink is not None:
-        assert learnable_sink.shape == (num_head)
+        assert learnable_sink.shape == (num_head,)
         assert learnable_sink.dtype == torch.bfloat16, "learnable_sink must be bfloat16"
 
     if not is_fake_mode():
@@ -426,7 +426,7 @@ def _flash_attn_fwd(
 
     out_torch_dtype = torch.bfloat16 if v_blockscaled else (v.dtype if blockscaled else q.dtype)
     device = q.device
-    q_batch_seqlen_shape = (batch_size, seqlen_q) if cu_seqlens_q is None else (total_q)
+    q_batch_seqlen_shape = (batch_size, seqlen_q) if cu_seqlens_q is None else (total_q,)
     lse_shape = (batch_size, num_head, seqlen_q) if cu_seqlens_q is None else (num_head, total_q)
     requires_grad = False
 
@@ -1628,12 +1628,12 @@ def _compile_fwd_combine(
     batch_for_1d = batch if not has_cu_seqlens else sym()
     batchp1 = sym()
     semaphore_num = sym()
-    mCuSeqlens = fake_tensor(Int32, (batchp1), divisibility=1) if has_cu_seqlens else None
-    mSeqused = fake_tensor(Int32, (batch_for_1d), divisibility=1) if has_seqused else None
-    mNumSplitsDynamic = fake_tensor(Int32, (batch_for_1d), divisibility=1) if has_num_splits_dynamic else None
-    mVarlenBatchIdx = fake_tensor(Int32, (batch_for_1d), divisibility=1) if has_varlen_batch_idx else None
-    mSemaphore = fake_tensor(Int32, (semaphore_num), divisibility=1) if has_semaphore_to_reset else None
-    mCombineSemaphore = fake_tensor(Int32, (semaphore_num), divisibility=1) if has_combine_semaphore else None
+    mCuSeqlens = fake_tensor(Int32, (batchp1,), divisibility=1) if has_cu_seqlens else None
+    mSeqused = fake_tensor(Int32, (batch_for_1d,), divisibility=1) if has_seqused else None
+    mNumSplitsDynamic = fake_tensor(Int32, (batch_for_1d,), divisibility=1) if has_num_splits_dynamic else None
+    mVarlenBatchIdx = fake_tensor(Int32, (batch_for_1d,), divisibility=1) if has_varlen_batch_idx else None
+    mSemaphore = fake_tensor(Int32, (semaphore_num,), divisibility=1) if has_semaphore_to_reset else None
+    mCombineSemaphore = fake_tensor(Int32, (semaphore_num,), divisibility=1) if has_combine_semaphore else None
 
     return cute.compile(
         fa_combine,
@@ -1802,7 +1802,7 @@ def flash_attn_combine(
         cu_seqlens: Cumulative sequence lengths for variable length sequences
         seqused: Used sequence lengths for each batch
         varlen_batch_idx: Optional mapping from virtual batch index to real batch index
-            (int32 tensor of shape (batch_size)). Used by persistent tile schedulers
+            (int32 tensor of shape (batch_size,)). Used by persistent tile schedulers
             that reorder batch processing for load balancing.
         return_lse: Whether to return the combined LSE tensor. Default is True.
         max_seqlen_q: Maximum seqlen_q for any batch, used if there's cu_seqlens.
