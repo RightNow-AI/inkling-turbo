@@ -81,6 +81,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 import shutil
 import signal
 import subprocess
@@ -341,6 +343,9 @@ bench_image = (
     .env(
         {
             "HF_HUB_ENABLE_HF_TRANSFER": "1",
+            # hf_transfer is deprecated in current huggingface_hub; Xet is the
+            # fast path now. Without it the 552GB pull runs about 4x slower.
+            "HF_XET_HIGH_PERFORMANCE": "1",
             "HF_HOME": f"{MODEL_MOUNT}/hf_home",
             "PYTORCH_CUDA_ALLOC_CONF": ALLOC_CONF,
             "VLLM_USE_PRECOMPILED": "1",
