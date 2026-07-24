@@ -127,8 +127,7 @@ journal/remote/             raw measurement artifacts as JSON
 journal/ncu/                Nsight Compute profiles
 journal/upstream/           bug reports written against upstream
 docs/METHODOLOGY.md         the evidence rules
-docs/figures/               figures: LaTeX source, build script, rendered PNG
-                            overleaf_all_figures.tex builds all three as one file
+docs/figures/               figures used in this README
 LEDGER.md                   every number, measured or null
 ```
 

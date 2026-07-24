@@ -26,8 +26,6 @@ scripts/.*instance.json
 .mcp.json
 .claude/
 AGENTS-GOALs/
-docs/figures/*.aux
-docs/figures/*.log
 # credentials, defense in depth (audit 2026-07-24)
 .env
 .env.*
@@ -42,5 +40,3 @@ secrets*
 lambda_api_key
 .aws/
 
-# figure build artifacts, regenerate with docs/figures/build.sh
-docs/figures/*.pdf
