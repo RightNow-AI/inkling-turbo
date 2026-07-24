@@ -2,6 +2,22 @@
 
 Inkling-turbo treats correctness, performance, and deployment scope as separate gates. A result can pass one and fail another. Public claims include the artifact that establishes each gate and the hardware context in which it was measured.
 
+## Claim classes
+
+Not every contribution in this repository is a speed number, and the classes are not interchangeable. Each one has a different thing that has to exist before it can be stated.
+
+| Claim class | Example | What establishes it | What it may not be turned into |
+|---|---|---|---|
+| Correctness | The kernel matches the float32 oracle on all three semantic cases | A parity run with recorded max and mean error, on the target architecture | Evidence that the kernel is fast |
+| Capability | Inkling attention runs on `sm_80` | A green parity run on that hardware, plus a recorded failure of every day-0 route on the same box | A speedup, when no baseline executes |
+| Defect | `rel_bias` is accepted and dropped on non-Blackwell arches | A reproducer, the file and line in a pinned tree, and an observation that separates the defect from a plausible alternative explanation | A claim about severity in production without a production observation |
+| Deployment | This configuration serves the full checkpoint | A serving run that produced real tokens, plus the recorded failure of each rejected configuration | A performance result |
+| Performance | 2.7x against the day-0 path at 64K decode | A timing artifact, a green parity run for the same build, and the baseline that the real integration actually selects | An end-to-end serving claim |
+
+A capability claim is the strongest available statement on an architecture where no baseline runs, and it is also the weakest thing to overstate, because the temptation is to divide by something. On `sm_80` there is nothing to divide by. The correct statement is support, and the absolute timings are published with no ratio attached.
+
+A defect claim carries an extra burden that a performance claim does not: it accuses someone else's code. Each of the five upstream findings therefore names the pinned commit, quotes the code, gives a runnable reproduction, and states what was observed rather than what was inferred. Where the evidence is static analysis only, the report says so. Finding 01 records that the measured silent-wrong-output evidence is `sm_90` only, and that the same static defect on `sm_80` and `sm_120` surfaces as a loud assertion failure first.
+
 ## Parity-oracle discipline
 
 The parity oracle is an explicit PyTorch implementation of Inkling relative attention. It computes scaled QK scores, applies the learned relative-position value only when the causal distance is inside the configured extent, applies the global or sliding-window mask, then computes softmax and the value projection. The semantics were derived from the day-0 vLLM path and the sheared-bias writer, and are recorded in [the implementation study](../journal/day0-implementation.md#attention-path-nvidiaattentionpy-opsfa4_rel_attentionpy-u2u3u5-baseline).
@@ -112,6 +128,20 @@ The A100 record is in [session 26 and session 27](../journal/u2-hopper-design.md
 
 No Blackwell hardware was available while this was built. The dispatch code exists and is untested. Every Blackwell performance field is `null` and stays that way until someone runs it on that silicon.
 
+## Failure records
+
+A failure is an artifact. It is written down at the same weight as a result, in the same file, at the time it happened, and it is not removed once a later session succeeds.
+
+This rule is load-bearing rather than decorative. Three of the things this repository knows are only knowable because a failure was kept:
+
+- The `pack_gqa` row contract is visible only through the sequence of bias addressing schemes that were correct on one architecture and wrong on another. A journal that recorded only the working `partition_C` approach would not explain why the obvious approaches do not work, which is the part a future contributor needs.
+- The memory recipe for the full checkpoint is six rejected configurations and one that works. Publishing only the working line would present a narrow window as an arbitrary choice, and would lose the measured sensitivity that tells a reader what to change on different hardware.
+- The full-model logprob gate failed as specified, and its same-build control failed too. The control failure is what turns a tolerance failure into information about the platform rather than information about the kernel. Waiving the control would have produced a pass that meant nothing.
+
+Two further categories are kept for the same reason and are not quietly retried: capacity lost to defects in our own tooling, and results lost to an orchestration error. The end-to-end serving sweep was lost to a watchdog race caused by our own launcher, and that is recorded as the reason the serving fields are `null`, rather than the fields being filled from a partial run.
+
+A published overstatement is corrected in place and the correction is left visible. A comparison against one of our own abandoned prototypes was published once as though it were a comparison against the shipped baseline. It was corrected publicly, and the abandoned prototypes stay in the measurement artifacts so the distinction is checkable rather than asserted.
+
 ## Claim checklist
 
 Before adding a number to the README or ledger, verify all of the following:
@@ -120,10 +150,25 @@ Before adding a number to the README or ledger, verify all of the following:
 - the hardware, architecture, workload, batch, context, and units are stated;
 - the corresponding correctness gate is green;
 - the baseline is the path used by the real integration, not a convenient substitute;
+- the baseline is not one of our own superseded prototypes;
 - local relative numbers are labeled relative-only;
 - single-GPU kernel measurements are labeled microbenchmarks;
 - end-to-end wording is reserved for matched serving runs;
 - limitations and unmeasured fields remain visible;
 - a reader can follow the link from the claim to its evidence.
+
+For a capability claim, additionally verify:
+
+- the parity run that establishes it ran on the architecture being claimed;
+- the failure of every day-0 route on the same hardware is recorded, not assumed;
+- no ratio is attached where no baseline executes.
+
+For a defect claim, additionally verify:
+
+- the pinned commit and the file and line are named in a tree a reader can check out;
+- a reproduction exists that does not depend on this repository's kernels;
+- observed behavior is separated from inferred behavior;
+- the duplicate check against the upstream tracker has been run and its result recorded, including an empty result;
+- the AI-assistance disclosure required by the upstream contribution policy is present.
 
 When any item is missing, the result stays `null` or is described as an unresolved experiment.

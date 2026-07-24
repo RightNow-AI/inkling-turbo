@@ -589,13 +589,35 @@ def _flash_attn_fwd(
             num_splits = 1
 
     is_split_kv = num_splits > 1
+    # sm_90 SplitKV (U2): partials are stored in the KERNEL's element type, not
+    # fp32. The sm_90 epilogue stages O through a dtype-typed smem tile that
+    # aliases sQ, so fp32 partials would need a second, doubled O buffer and a
+    # forked epilogue. The combine kernel is dtype-generic (fp16/bf16/fp32 are
+    # all legal for out_partial), so this is a precision tradeoff, not a
+    # correctness one: each partial O is already row-normalized, so the extra
+    # error is one bf16 rounding on top of the bf16 rounding the non-split path
+    # already pays. Documented in kernels/patches/u2_splitkv_notes.md.
+    partial_dtype = out_torch_dtype if arch // 10 == 9 else torch.float32
+    if is_split_kv and arch // 10 == 9:
+        assert learnable_sink is None, (
+            "sm_90 SplitKV does not support learnable_sink: an empty split resets "
+            "row_max to -inf, and the sink term would then make lse = +inf."
+        )
+        assert not return_logits_max, (
+            "sm_90 SplitKV does not support return_logits_max: the sm_90 kernel "
+            "never writes a row-max tensor, so logits_max_partial would be garbage."
+        )
+        # The sm_90 kernel does not read num_splits_dynamic_ptr. Dynamic per-batch
+        # splits would make the forward kernel and the combine kernel disagree on
+        # how many splits are live, so pin the static-num_splits path.
+        disable_scheduler_metadata = True
     if is_split_kv:
         out_partial = torch.empty(
             num_splits,
             *q_batch_seqlen_shape,
             num_head,
             head_dim_v,
-            dtype=torch.float32,
+            dtype=partial_dtype,
             device=device)
         lse_partial = torch.empty(num_splits, *lse_shape, dtype=torch.float32, device=device)
         logits_max_partial = torch.empty(num_splits, *lse_shape, dtype=torch.float32, device=device) if return_logits_max else None
@@ -1141,7 +1163,6 @@ def _flash_attn_fwd(
                 has_aux_tensors=aux_tensors is not None,
                 has_bias=bias is not None)
         elif arch // 10 == 9:
-            assert not is_split_kv, "SplitKV not supported on SM 9.0"
             fa_fwd = FlashAttentionForwardSm90(
                 dtype,
                 head_dim,
@@ -1163,6 +1184,7 @@ def _flash_attn_fwd(
                 has_aux_tensors=aux_tensors is not None,
                 q_subtile_factor=q_subtile_factor,
                 paged_kv_non_tma=paged_kv_non_tma,
+                is_split_kv=is_split_kv,
                 has_bias=bias is not None)
         elif arch // 10 in [10, 11]:
             if qv is not None:
@@ -1401,8 +1423,8 @@ def _flash_attn_fwd(
                 q.detach(),
                 k.detach(),
                 v.detach(),
-                out.detach(),
-                lse,
+                out.detach() if not is_split_kv else out_partial,
+                lse_partial if is_split_kv else lse,
                 softmax_scale,
                 cu_seqlens_q,
                 cu_seqlens_k,
