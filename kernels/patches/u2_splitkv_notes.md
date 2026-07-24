@@ -78,7 +78,7 @@ split, and the emitted `lse` is in natural log units in every split.
 Minimal port of the sm_100 mechanism. No new combine kernel; the existing
 `FlashAttentionForwardCombine` is reused unchanged.
 
-1. **`FlashAttentionForwardSm90(is_split_kv=...)`** — new ctor flag.
+1. **`FlashAttentionForwardSm90(is_split_kv=...)`**, a new ctor flag.
 
 2. **Layout trick that avoids forking the epilogue.** The partial tensors carry
    a *leading* split mode. `__call__` transposes it to the *trailing* mode:
@@ -158,11 +158,11 @@ the fp32-partial epilogue, not the split logic.
 ## Deliberately blocked on sm_90 + split
 
 Asserted in `interface.py` rather than silently allowed:
-- `learnable_sink` — an empty split resets `row_max` to `-inf`, and the sink
+- `learnable_sink`: an empty split resets `row_max` to `-inf`, and the sink
   term would then evaluate `exp2(sink*log2e - (-inf))` = `+inf`.
-- `return_logits_max` — the sm_90 kernel never writes a row-max tensor, so
+- `return_logits_max`: the sm_90 kernel never writes a row-max tensor, so
   `logits_max_partial` would be uninitialized garbage fed to the combine.
-- dynamic per-batch splits — `disable_scheduler_metadata` is forced on, because
+- dynamic per-batch splits: `disable_scheduler_metadata` is forced on, because
   the sm_90 kernel ignores `num_splits_dynamic_ptr`; leaving it live would let
   the forward kernel and the combine kernel disagree on how many splits exist.
 

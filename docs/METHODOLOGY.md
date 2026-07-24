@@ -55,7 +55,25 @@ Each measurement record must identify:
 - raw log, JSON, profiler output, or journal session;
 - whether the result is local relative performance, a remote microbenchmark, or end-to-end serving.
 
-Evidence classes are not interchangeable:
+Two strengths of record are allowed, and they are not the same thing. The strong
+form is an artifact under `journal/remote/` that a reader can re-parse: JSON, a
+raw log, a profiler export. The weak form is a number transcribed into a journal
+session with no machine-readable record behind it. Both are permitted, because
+refusing the weak form would have meant deleting true measurements. Mixing them
+without saying which is which is not permitted, because it lets a reader assume
+every number is checkable when some are not.
+
+The weak-form numbers in this repository are the Nsight Compute
+percentages, the 18.7% post-deploy A100 re-run, the `sm_120` relative timings,
+the 8x H100 memory recipe with its 0.77GB-per-0.01 sensitivity, and the
+`max 1.56e-2` per-op parity figure in the ledger. The canonical list lives in
+[journal/remote/README.md](../journal/remote/README.md); no count is repeated
+across documents, because every document that carried one drifted. They are
+listed there and labelled
+at each point of use. Moving one of them into the strong form, by committing a
+CSV export or a JSON, is preferred over restating it.
+
+Evidence classes by hardware are also not interchangeable:
 
 | Evidence class | Allowed claim |
 |---|---|

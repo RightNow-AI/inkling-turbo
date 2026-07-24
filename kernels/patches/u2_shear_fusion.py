@@ -43,7 +43,9 @@ so the 256-column pad is exactly the room the shear needs.  Both closed forms
 were re-derived from the writer arithmetic and checked over 6906 row
 configurations (rel_extent 128/512/1024, prefill / decode / chunked, causal
 and sliding-window) and against the journal contract, before this patch was
-written.  They are STILL UNVALIDATED ON SILICON: no GPU was available.
+written.  They have since been checked ON SILICON, on sm_120 only: 16/16
+cases of harness/parity_shear_fusion.py on an RTX 5090.  No sm_90 or sm_100
+run exists.
 
 VALUE / PAD REGIONS, per row (this is the whole output row, nothing else
 writes it once ShearingBias is gone):
@@ -71,8 +73,10 @@ CONSTRAINTS
     interface's existing rel-bias assertion.
 
 Enabled per call: attention.py builds a RelShearSpec only when
-INKLING_TURBO_FUSED_SHEAR=1.  Default off, because none of this has run on a
-GPU yet.
+INKLING_TURBO_FUSED_SHEAR=1.  Default stays off.  The correctness gate
+(harness/parity_shear_fusion.py) passed 16/16 on sm_120 (RTX 5090); it has NOT
+run on sm_90 or sm_100, and no performance benefit has been measured on any
+hardware.
 
 Targets (all under the vLLM tree; interface.py is the deployed copy of
 kernels/tml_fa4_modified/interface.py, re-apply after every bootstrap):
@@ -1318,7 +1322,9 @@ def main() -> None:
     else:
         print(
             "u2 shear fusion applied. Enable per run with "
-            "INKLING_TURBO_FUSED_SHEAR=1 (default off: UNVALIDATED on GPU)."
+            "INKLING_TURBO_FUSED_SHEAR=1. Default stays off: the gate passed "
+            "16/16 on sm_120 (RTX 5090) only, it has not run on sm_90 or "
+            "sm_100, and no speedup has been measured on any hardware."
         )
 
 

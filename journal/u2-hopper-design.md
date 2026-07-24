@@ -607,6 +607,19 @@ per-element gmem bias reads (vectorize/stage), (4) ShearingBias pre-kernel
 per the rules. The RELEASE claim rests on parity + the measured 2.5-6.9x
 over the day-0 production paths, not on roofline saturation.
 
+APPENDED 2026-07-25 (release audit), correcting the parenthetical above:
+"reports in journal/ncu/" is true on the machine that ran the session and false
+for anyone who clones this repository. `journal/ncu/*.ncu-rep` is gitignored
+(.gitignore:5), so the three reports never shipped. What a reader gets is the
+transcription in this entry and nothing else. Two further corrections:
+(1) the profiling was done by hand, not from a script, and no committed script
+regenerates it; README and journal/remote/README.md both claimed
+`scripts/bootstrap_8x.sh` regenerates them, which was wrong, that file contains
+no `ncu` invocation, and both claims are now corrected in place.
+(2) The fix is a committed CSV export of the section summaries, small enough
+for git and re-parseable. Until that exists these four percentages are the
+weakest evidence in the repository and are labelled as such in the README.
+
 ## SESSION 25 (2026-07-23, parked 1x H100): reproducibility + true batched decode
 
 Environment drift #5 hit first: upstream regenerated wheels.vllm.ai (bucket
@@ -721,3 +734,54 @@ Everything else from this box was pulled and committed before termination:
 gate_logit_parity_8xh100.json (the 32/32 token-match result) and the serving
 memory recipe. The e2e serving table remains null/pending in LEDGER.md, per
 measured-or-null.
+
+## SHEAR FUSION: gate 16/16 on sm_120 (RTX 5090), local, artifact missing
+
+The u2 shear fusion gate ran on the local RTX 5090 Laptop (sm_120), not on
+rented hardware, which is why it has no session number in the remote series.
+
+What was run: `kernels/patches/u2_shear_fusion.py` applied to the local vLLM
+tree, then `harness/parity_shear_fusion.py`. Result `16/16 cases bit-exact`,
+exit 0. One recorded run; the only record is commit `7375849`, which wrote no
+artifact. The 14 writer cases are bit-equal against the stock
+`ShearingBias` output over global and sliding-window, varlen and batched,
+prefill, chunked and decode. The 2 `attention_consumes_*` cases ran the FA4
+kernel on the fused buffer and landed inside that kernel's own measured
+run-to-run noise.
+
+What that does NOT establish:
+
+- **Nothing on sm_90 or sm_100.** This is the arch the fusion exists to speed
+  up and it has not run there. sm_120 is not Blackwell and does not stand in
+  for sm_100.
+- **No performance result, anywhere.** The gate is a correctness gate and was
+  not timed. The "461us of ShearingBias disappears" figure in the README and
+  in the notes is arithmetic on session-25 numbers, labelled projected at each
+  point of use. There is no fused-shear timing on any hardware, sm_120
+  included.
+
+The honesty defect, recorded because it is the point of this entry: at the time
+of the run `harness/parity_shear_fusion.py` imported no `json` and wrote no
+file. It only printed `N/16 cases bit-exact`. The gate was therefore
+STRUCTURALLY incapable of producing an artifact, so the README asserted a GPU
+validation with nothing under `journal/remote/` behind it, and no ledger row
+and no journal entry existed at all. That is the same class of error as
+publishing a number with no artifact.
+
+Fixed by making the gate write `parity_shear_fusion_sm<cc>.json` next to
+itself: device name, torch version, CUDA version, compute capability, every
+case with its pass state and error strings, and the N/16 total. The compute
+capability is in the filename so an sm_90 run will not overwrite the sm_120
+one. Exit code behaviour, tested cases and tolerance discipline are unchanged.
+
+**The artifact for the RTX 5090 run does not exist yet.** The run predates the
+change and the JSON has not been fabricated. The operator re-runs the gate on
+the 5090 and drops the file in. Until then the 16/16 is weak-class evidence,
+labelled journal-only in LEDGER.md, in the README, and in
+`kernels/patches/u2_shear_fusion_notes.md`.
+
+Also corrected in the same pass: `u2_shear_fusion.py` still said "none of this
+has run on a GPU yet" and printed "UNVALIDATED on GPU" on success, and
+`u2_shear_fusion_notes.md` presented the 16/16 as a prediction ("Expect:
+16/16"). All three now record the sm_120 result as a result and the sm_90 and
+sm_100 steps as still unrun. The feature stays off by default.

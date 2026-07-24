@@ -29,9 +29,15 @@ configuration's own parity run was green.
 
 **Numbers are measured or `null`.** No estimates, no roofline arithmetic standing
 in for a measurement, no vendor figure quoted as if we ran it. If the gate has
-not run, the cell stays `null`. Every number in `LEDGER.md` and `README.md`
-traces to an artifact under `journal/remote/`. If you add a number, add its
-artifact and link it.
+not run, the cell stays `null`.
+
+**Every number names its evidence, and its evidence class.** The strong class is
+an artifact under `journal/remote/` that a reader can re-parse. The weak class is
+a number transcribed into a journal session with no machine-readable record.
+The weak-class numbers are enumerated in `journal/remote/README.md`, which is the
+canonical list; do not restate the count here, because every document that did
+drifted. Both classes are allowed; silently mixing them is not. If you add a number, add its artifact and link it. If you cannot, say which
+journal session it came from and that no artifact exists.
 
 **Hardware claims need that hardware.** An `sm_90` result requires an H100. An
 `sm_80` result requires an A100. `sm_120` is not Blackwell and does not stand in

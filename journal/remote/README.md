@@ -3,9 +3,33 @@
 Raw output from GPU sessions. Nothing here is edited after the fact. If a run
 failed, its artifact records the failure.
 
-Every number in [README.md](../../README.md) and [LEDGER.md](../../LEDGER.md)
-should be traceable to a file in this directory. If you find one that is not,
-that is a bug and worth an issue.
+Most numbers in [README.md](../../README.md) and [LEDGER.md](../../LEDGER.md)
+trace to a file in this directory. Five do not, and it is better to name them
+than to state a rule that is false:
+
+- the Nsight Compute percentages, because the `.ncu-rep` files are gitignored;
+- the 18.7% post-deploy A100 re-run, journal session 27, no separate JSON;
+- the `sm_120` relative timings, which were local and never packaged;
+- the 8x H100 memory recipe and its 0.77GB-per-0.01 sensitivity, session 28
+  prose;
+- the `max 1.56e-2` per-op parity figure in LEDGER.md, journal session 25.
+  `harness/parity_fa4_rel.py` prints its max error and writes no artifact, so
+  there is nothing here to re-parse.
+
+Those are journal-only: a number read off a tool and written down, with no
+machine-readable record to re-parse. Everything else is here.
+
+This list is the canonical one. No other document restates how many there are,
+because every time one did, the count drifted. The **journal-only** label at the
+point of use is the authority; `grep -rn "journal-only" LEDGER.md README.md` finds
+them. If you find a number that is neither here nor labelled, that is a bug and
+worth an issue.
+
+Also journal-only, and not in the list above because it is a gate result rather
+than a published number: the `sm_120` 16/16 run of
+`harness/parity_shear_fusion.py`. Its only record is commit `7375849`; that run
+predates the harness writing a file. The **sm_90** run of the same gate is strong
+form, in `validate_s26_h100x1/`, and it scores 14/16 rather than 16/16.
 
 ## Naming, and one trap
 
@@ -68,5 +92,13 @@ eliminated, then read session 24 in the journal for what actually caused it.
 
 Nsight Compute reports (`.ncu-rep`) are gitignored. They are several megabytes
 each. The metrics read off them are quoted in the session 24 ncu entry of
-[u2-hopper-design.md](../u2-hopper-design.md), and `scripts/bootstrap_8x.sh`
-regenerates them.
+[u2-hopper-design.md](../u2-hopper-design.md), and that transcription is the
+only form the evidence ships in.
+
+**No script in this repository regenerates them.** The profiling was done by
+hand on the session-24 box, against `harness/microbench_attn_day0.py`, and the
+invocation was never committed. An earlier version of this file and of the
+README claimed `scripts/bootstrap_8x.sh` regenerates them. It does not; that
+script contains no `ncu` invocation. The claim was wrong and is corrected here
+rather than deleted. Committing a CSV export of the section summaries is the
+open item.

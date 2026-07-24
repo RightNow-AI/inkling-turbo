@@ -136,9 +136,10 @@ first.
    uses `thr_mma_qk.partition_C(gBias_tile)` to partition the sheared tile with
    the same partitioner that produced `acc_S`, so element `i` of the
    accumulator pairs with element `i` of the bias by construction. It is at
-   `kernels/tml_fa4_modified/flash_fwd_sm90.py` and
-   `kernels/patches/u2_sm90_bias_port.py` at
-   <https://github.com/RightNow-AI/inkling-turbo>.
+   `kernels/tml_fa4_modified/flash_fwd_sm90.py` at
+   <https://github.com/RightNow-AI/inkling-turbo>. Read that file, not
+   `kernels/patches/u2_sm90_bias_port.py`, which is a superseded smem-staged
+   attempt kept only because the journal refers to it.
 
 Our interface currently takes the conservative route: `pack_gqa = False` for
 `arch // 10 == 9` with `rel_bias`, in

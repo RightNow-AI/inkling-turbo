@@ -1,7 +1,14 @@
 # U2 shear fusion: folding ShearingBias into qkvr_prep
 
-Status: written, compiles, index math verified by simulation. **Never run on a
-GPU.** Every performance number below is projected and labelled as such.
+Status: written, compiles, index math verified by simulation, and
+**correctness-gated on `sm_120` only**: `harness/parity_shear_fusion.py`
+returned 16/16 cases on an RTX 5090. It has **never run on `sm_90` or
+`sm_100`**, and **no performance number below has been measured on any
+hardware**. Every performance number below is projected and labelled as such.
+
+The gate now writes `harness/parity_shear_fusion_sm<cc>.json`. The RTX 5090 run
+predates that change, so the JSON artifact for it is being regenerated and is
+not in the repository yet.
 
 ## Verdict
 
@@ -221,23 +228,32 @@ Verified (no GPU needed, all re-runnable arithmetic):
   mutated by +-1 and +-128 column shifts, an unwritten column, and a masking
   error: each is reported as its own distinct failure class.
 
-Not verified, and the reason each matters:
+Verified on silicon, `sm_120` (RTX 5090), 16/16 cases of
+`harness/parity_shear_fusion.py`. One recorded run; the only record is commit
+`7375849`, which wrote no artifact. On `sm_90` the same gate scores **14/16**,
+see "What sm_90 says" below:
 
 * **Triton codegen.** The device functions, the `tl.where` broadcasts, the
   `tl.broadcast_to` in the pad store, and the negative-index guard on the
-  reversed projection load have never been compiled by Triton. First run may
-  need shape or type fixes. This is the most likely source of a first-session
-  failure, and it is a cheap one.
-* **The real ShearingBias vs my simulation of it.** The simulation follows the
-  source line by line, but the source is CuTe DSL and I executed Python. The
-  harness closes this by comparing against the real kernel.
-* **Bit-equality.** The candidate keeps the reference's rounding sequence and
-  reverses only which projection column a lane reads, so the `tl.dot` operands
-  per output column are identical and the result should be bit-identical. If
-  the real run shows small ULP differences, that is a finding about Triton's
-  dot lowering under a reversed operand layout, not a licence to add a
-  tolerance. Record it.
-* **Every performance number below.**
+  reversed projection load compile and run. No shape or type fixes were needed.
+* **The real ShearingBias vs the simulation of it.** The 14 writer cases
+  compare against the real CuTe kernel's output, not against the simulation, on
+  global, sliding-window, varlen, batched, prefill, chunked and decode shapes.
+* **Bit-equality.** The 14 writer cases are bit-exact, so the reversed operand
+  layout did not change Triton's dot lowering. No tolerance was added.
+* **Plumbing.** The two `attention_consumes_*` cases ran the FA4 kernel on the
+  fused buffer inside the kernel's own measured noise floor, so the buffer
+  reaches the kernel and `has_bias` stays on.
+
+Still not verified, and the reason each matters:
+
+* **`sm_90` and `sm_100`.** The gate has run on one arch. `sm_120` is not
+  Blackwell and does not stand in for `sm_100`, and the Hopper path is the one
+  this patch exists to speed up. Nothing here is validated for the arch we
+  serve on.
+* **Every performance number below.** No fused-shear timing exists on any
+  hardware, `sm_120` included. The `sm_120` run was a correctness gate and was
+  not timed.
 
 ## Projected performance
 
@@ -275,17 +291,32 @@ somewhat more expensive", not a number.
 
 ## Validation sequence on an H100
 
-Run in this order and stop at the first red step.
+Run in this order and stop at the first red step. Steps 1 and 2 have been run
+on `sm_120`; **no step in this list has been run on an H100**, which is what
+this section is for.
 
 1. Deploy `kernels/tml_fa4_modified`, then
    `python kernels/patches/u2_serving_route.py $VLLM`,
    `python kernels/patches/u3_fp8_kv.py $VLLM`,
    `python kernels/patches/u2_shear_fusion.py $VLLM`.
-   Expect: `15 / 3 / 6 / 4 applied`. Re-run to confirm `0 applied`.
-   Order matters: u3 anchors on text this patch extends.
+   Expect: `15 / 3 / 6 / 4 applied`. A second run of this patch reports
+   `already applied, nothing to do` and exits 0.
+   RESULT: both observed, on copies of the tree.
+   Order matters only if you want u3 as well: u3 anchors on the stock form of
+   text this patch rewrites, so u3 goes first. u3 is not a prerequisite.
+   Applying `u2_shear_fusion.py` alone to a clean tree also gives `15 / 3 / 6 /
+   4`, compiles, and introduces no u3 symbols.
 
 2. `python harness/parity_shear_fusion.py`
    Expect: `16/16 cases bit-exact`, exit 0.
+   RESULT on `sm_120` (RTX 5090): `16/16`, one recorded run, no artifact.
+   RESULT on `sm_90` (H100, session 26): **`14/16`**. The 14 writer cases are
+   bit-exact. Both `attention_consumes_*` cases fail with
+   `NameError: cannot access local variable 'n_block'` inside
+   `flash_fwd_sm90.py`, so on Hopper the pre-sheared `bias=` path does not
+   execute at all. Artifact: `journal/remote/validate_s26_h100x1/`.
+   The gate now writes `harness/parity_shear_fusion_sm<cc>.json`; the RTX 5090
+   run predates that.
    This is the gate. If a case fails, read the diagnosis line first:
    * "PURE COLUMN SHIFT ... +-1" -> `base()` off by one, look at
      `n_idx_right` (the `+1` and the `window_right` term).

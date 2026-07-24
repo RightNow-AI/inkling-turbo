@@ -120,9 +120,24 @@ Queries run via `gh search issues` and `gh issue list`, account jaberjaber23:
 - vllm-project/vllm: "inkling rel_bias", "tml-fa4", "inkling attention",
   "rel_bias ignored", "cutlass 4.6 make_fragment", "sheared bias". All empty.
 - vllm-project/tml-fa4: full issue list, state all. Zero issues. Open PRs: none.
+- vllm-project/flash-attention: **NOT CHECKED.** No query was run against this
+  tracker on that date or since.
 
-No existing issue or PR covered any indexed finding on that date. That sweep is
-stale now and does not substitute for the commands above.
+No existing issue or PR covered any indexed finding on the two trackers that
+were checked. That sweep is stale now and does not substitute for the commands
+above.
+
+### Known gap, must close before filing
+
+Report 03 targets vllm-project/flash-attention for two of its three defects, and
+no duplicate check has ever been run there. The vLLM contribution policy
+requires one, and `docs/METHODOLOGY.md` makes it a condition of a defect claim.
+Run the six flash-attention commands in the sections above and record the
+result, including an empty result, before 03 is filed. There are six, not four:
+the two full listings (`gh issue list` and `gh pr list`) in "Full listings",
+plus the four in the "03, generic sm_120 path" block of the keyword searches.
+Do not file 03 on the strength of the 2026-07-21 sweep; that sweep did not
+cover it.
 
 ## Evidence chain
 

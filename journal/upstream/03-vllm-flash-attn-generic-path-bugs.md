@@ -200,6 +200,14 @@ staging errors and would be caught without any GPU of that class.
 ## Disclosure
 
 This report was prepared with AI assistance. Per the vLLM contribution policy
-in `AGENTS.md`, this is stated up front. The duplicate-work check was run
-against both trackers before filing. A human submitter reviewed the report and
-will review and defend every line of any follow-up PR.
+in `AGENTS.md`, this is stated up front. A human submitter reviewed the report
+and will review and defend every line of any follow-up PR.
+
+**Duplicate-work check: not complete for this report.** The 2026-07-21 sweep
+covered vllm-project/vllm and vllm-project/tml-fa4 and found nothing. It did
+**not** cover vllm-project/flash-attention, which is the tracker defects 1 and
+2 belong to, and no query has been run there on that date or since. The check
+required by the contribution policy must be run against
+vllm-project/flash-attention and its result recorded, including an empty
+result, before this report is filed. The commands are in
+`journal/upstream/00-INDEX.md`.

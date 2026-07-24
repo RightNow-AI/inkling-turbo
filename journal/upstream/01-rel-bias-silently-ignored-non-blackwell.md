@@ -44,9 +44,22 @@ Bias is threaded to exactly one kernel family. In `flash_attn/cute/interface.py`
 - The shared `else` compile and exec branches (`interface.py:1320-1341` and
   `interface.py:1397-1417`) contain no bias argument at all.
 
-The kernels themselves have no bias code to call. A case-insensitive grep for
-`bias` returns **zero** matches in `flash_fwd_sm90.py`, `flash_fwd.py` and
-`flash_fwd_sm120.py`, against 236 matches in `flash_fwd_sm100.py`.
+The kernels themselves have no bias code to call. `grep -ci bias` returns
+**zero** in `flash_fwd_sm90.py`, `flash_fwd.py` and `flash_fwd_sm120.py`,
+against 236 in `flash_fwd_sm100.py`:
+
+```bash
+cd flash_attn/cute
+grep -ci bias flash_fwd_sm90.py flash_fwd.py flash_fwd_sm120.py flash_fwd_sm100.py
+# flash_fwd_sm90.py:0
+# flash_fwd.py:0
+# flash_fwd_sm120.py:0
+# flash_fwd_sm100.py:236
+```
+
+`-c` counts matching **lines**. The equivalent count of raw occurrences,
+`grep -oi bias flash_fwd_sm100.py | wc -l`, is 346. The three zeros are zero
+under either flag, which is the claim being made here.
 
 There is no guard anywhere that rejects `rel_bias` on these arches.
 
@@ -137,9 +150,10 @@ Better: implement bias consumption on these arches. We have working
 implementations and are happy to upstream them.
 
 - Native sm_90 wgmma path, parity 3/3 on H100:
-  `kernels/tml_fa4_modified/flash_fwd_sm90.py` and
-  `kernels/patches/u2_sm90_bias_port.py` at
-  <https://github.com/RightNow-AI/inkling-turbo>
+  `kernels/tml_fa4_modified/flash_fwd_sm90.py` at
+  <https://github.com/RightNow-AI/inkling-turbo>. That file is the shipped
+  implementation. `kernels/patches/u2_sm90_bias_port.py` in the same repo is a
+  superseded attempt, kept for the journal, and is not the thing to read.
 - Generic SM80-family path, used for sm_80 and sm_120, parity 3/3:
   `kernels/tml_fa4_modified/flash_fwd.py` and
   `kernels/patches/u2_v0_generic_bias.py`
