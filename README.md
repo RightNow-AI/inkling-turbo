@@ -128,6 +128,7 @@ journal/ncu/                Nsight Compute profiles
 journal/upstream/           bug reports written against upstream
 docs/METHODOLOGY.md         the evidence rules
 docs/figures/               figures: LaTeX source, build script, rendered PNG
+                            overleaf_all_figures.tex builds all three as one file
 LEDGER.md                   every number, measured or null
 ```
 
