@@ -20,7 +20,7 @@ Five things. The speed number is deliberately last, because attention is a slice
 
 **5. Token-level equivalence on the real 975B model.** 32 of 32 prompts produced identical greedy tokens against the stock build, same checkpoint, TP8, 2369 tokens compared. That is a stronger statement than it looks, because the platform itself is not batch-deterministic at TP8 across 66 bf16 layers: the same-build control, batched against single, produced mismatched tokens for both stock and ours. We preserve the model's behavior exactly where the platform preserves it. The logprob half of that gate is recorded as a failure, honestly, and is explained in [What is not measured](#what-is-not-measured). [Artifact](journal/remote/gate_logit_parity_8xh100.json).
 
-**And it is faster.** On an H100 the attention kernel runs 2.7x faster than the path vLLM actually serves with at 64K decode, and 1.45x faster at 8K global prefill. On sliding-window prefill it is currently 1.28x slower, and 55 of Inkling's 66 layers are sliding-window. All cases, including the one we lose, are in the table below.
+**And it is faster.** On an H100 the attention kernel runs 2.7x to 2.8x faster than the path vLLM actually serves with at 64K decode, and about 1.45x faster at 8K global prefill, reproduced on two machines. On sliding-window prefill it is 1.28x to 1.41x **slower**, and 55 of Inkling's 66 layers are sliding-window. All cases, including the one we lose, are in the table below with both runs shown.
 
 Read that paragraph as written. It is a kernel microbenchmark on one GPU, not a serving result. **No end-to-end serving speedup is claimed anywhere in this repository**, every throughput row in [LEDGER.md](LEDGER.md) is `null`, and attention is a slice of serving time that the MoE layers and the big GEMMs dominate. If you are about to quote "2.7x" without the word *attention* in the same sentence, the number does not support it.
 
@@ -36,13 +36,17 @@ There is exactly one day-0 baseline on Hopper: `score_mod`, the per-score callba
 
 | Case | Ours | day-0 `score_mod` | plain, no bias | Result |
 |---|---|---|---|---|
-| decode, batch 1, 64K KV | 853 | 2327 | 736 | **2.7x faster** |
-| decode, batch 32, 64K KV | 855 | 2391 | 727 | **2.8x faster** |
-| decode, batch 32, 8K KV | 124 | 304 | | **2.5x faster** |
-| prefill 8K, global | 3309 | 4799 | | **1.45x faster** |
-| prefill 8K, sliding window | 1223 | 957 | | **1.28x slower** |
+| decode, batch 1, 64K KV | 853 / 860 | 2327 / 2412 | 736 | **2.7x to 2.8x faster** |
+| decode, batch 32, 64K KV | 855 / 866 | 2391 / 2383 | 727 | **2.8x faster** |
+| decode, batch 32, 8K KV | 124 / 124 | 304 / 304 | | **2.5x faster** |
+| prefill 8K, global | 3309 / 3307 | 4799 / 4841 | | **1.45x to 1.46x faster** |
+| prefill 8K, sliding window | 1223 / 1221 | 957 / 863 | | **1.28x to 1.41x slower** |
 
-Source: [`microbench_attn_day0_session25_h100.json`](journal/remote/microbench_attn_day0_session25_h100.json) and [`microbench_attn_scoremod_session25_h100.json`](journal/remote/microbench_attn_scoremod_session25_h100.json). Same box, same session, identical shapes in both harnesses.
+Two independent runs, on two different H100 SXM5 machines: session 25 and session 26b. Both figures are given wherever they differ, because a single number here would be a choice about which run to quote.
+
+Sources: [session 25](journal/remote/microbench_attn_day0_session25_h100.json) with its [baseline](journal/remote/microbench_attn_scoremod_session25_h100.json), and [session 26b](journal/remote/validate_s26b_h100x1_route/), where ours and the baseline were timed in the **same container** minutes apart.
+
+**Our kernel is the reproducible half of this comparison.** Across those two runs it moves by at most 1.9%, and on three of five cases by 0.1% or less. The `score_mod` baseline moves by up to 9.8%, which is the entire reason the sliding-window loss is quoted as a range rather than a figure: our number went 1223 to 1221, the baseline went 957 to 863. Treat any of these ratios as good to about one decimal place, not two, and treat the day-0 side as the noisy one.
 
 Our prefill totals include the ShearingBias pre-kernel, which the `score_mod` path does not need: 827 us of the 3309, and 461 us of the 1223. That pre-kernel is why the sliding-window case loses, and removing it is the first item in [What comes next](#what-comes-next).
 
