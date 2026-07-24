@@ -1,173 +1,206 @@
 % Inkling-turbo status figure.
-% Build:  tectonic docs/figures/inkling_turbo_status.tex
-% Render: pdftoppm -png -r 150 inkling_turbo_status.pdf inkling_turbo_status
 %
-% EVERY value below is measured. Nothing is interpolated or estimated.
-% Source: one H100 SXM5 (sm_90), session 25, torch 2.11/cu130.
-%   journal/remote/microbench_attn_day0_session25_h100.json      (our path)
-%   journal/remote/microbench_attn_scoremod_session25_h100.json  (day-0 paths)
-% Where a bar is absent, that pairing was not measured. It is left out
-% rather than filled in.
-\documentclass[border=10pt]{standalone}
+% Build:  tectonic docs/figures/inkling_turbo_status.tex
+% Render: pdftoppm -png -r 300 inkling_turbo_status.pdf status
+%
+% EVERY value is measured. Nothing is interpolated, estimated, or filled in.
+% Source: one H100 SXM5 (sm_90), session 25, torch 2.11 / cu130.
+%   journal/remote/microbench_attn_day0_session25_h100.json      (ours)
+%   journal/remote/microbench_attn_scoremod_session25_h100.json  (day-0)
+% A missing point means that pairing was never run.
+%
+% Design notes:
+%  - A dot plot, not bars. On a log axis a bar's length is not proportional
+%    to its value, so bars would misrepresent the ratios.
+%  - Row guides come from the y grid, values from nodes near coords, row
+%    names from yticklabels. No \foreach inside the axis: pgfplots replays
+%    the axis body at \end{axis} and loop variables do not survive that.
+
+\documentclass[border=12pt]{standalone}
 \usepackage{tikz}
 \usepackage{pgfplots}
-\usepackage{sansmath}
 \pgfplotsset{compat=1.18}
-\usetikzlibrary{calc}
+\usetikzlibrary{calc,plotmarks}
 
-\definecolor{ours}{HTML}{0F766E}
-\definecolor{plainref}{HTML}{94A3B8}
-\definecolor{day0a}{HTML}{DC2626}
-\definecolor{day0b}{HTML}{EA580C}
-\definecolor{day0c}{HTML}{B45309}
-\definecolor{done}{HTML}{15803D}
-\definecolor{partial}{HTML}{CA8A04}
-\definecolor{blocked}{HTML}{9AA6B4}
-\definecolor{ink}{HTML}{0F172A}
+\definecolor{ours}{HTML}{0B6E6A}
+\definecolor{floorc}{HTML}{64748B}
+\definecolor{prod}{HTML}{C2410C}
+\definecolor{altA}{HTML}{9A3412}
+\definecolor{altB}{HTML}{78350F}
+\definecolor{ink}{HTML}{111827}
+\definecolor{guide}{HTML}{DCE0E5}
+\definecolor{okc}{HTML}{15803D}
+\definecolor{partc}{HTML}{B45309}
 
 \begin{document}
-\sansmath
 \sffamily
-\begin{tikzpicture}
+\begin{tikzpicture}[font=\sffamily]
 
-% ----------------------------------------------------------------------
-% Panel A: measured attention latency
-% ----------------------------------------------------------------------
+% =====================================================================
+% Panel A
+% =====================================================================
 \begin{axis}[
-  name=panelA,
-  width=15.5cm, height=9.0cm,
-  xbar,
-  bar width=7.5pt,
-  xmode=log,
-  log basis x=10,
-  xmin=550, xmax=90000,
-  xlabel={kernel latency, microseconds, log scale. lower is better},
-  xlabel style={font=\small, color=ink},
-  ytick=data,
-  symbolic y coords={prefill8k,decodeb32,decodeb1},
+  name=A,
+  width=11.4cm, height=8.6cm,
+  scale only axis,
+  xmode=log, log basis x=10,
+  xmin=620, xmax=30000,
+  xtick={1000,2000,5000,10000,20000},
+  xticklabels={1000,2000,5000,{10\,000},{20\,000}},
+  xlabel={kernel latency per iteration, microseconds (log scale)},
+  xlabel style={font=\footnotesize, color=ink!85, yshift=-1pt},
+  ymin=0.3, ymax=15.7,
+  ytick={1,2,3,5,6,7,8,9,11,12,13,14,15},
   yticklabels={
-    {\small prefill\\\small 8K global},
-    {\small decode b32\\\small 64K KV},
-    {\small decode b1\\\small 64K KV}},
-  yticklabel style={align=right, font=\small, color=ink},
-  enlarge y limits=0.32,
-  grid=major,
-  grid style={dotted, gray!35},
-  tick align=outside,
-  axis line style={color=ink!60},
-  legend style={
-    at={(0.5,1.16)}, anchor=north, legend columns=2,
-    draw=ink!25, font=\small, column sep=10pt,
-    /tikz/every even column/.append style={column sep=5pt}},
+    {day-0 relproj},
+    {day-0 relproj, transposed},
+    {\textbf{Inkling-turbo}},
+    {day-0 relproj},
+    {day-0 relproj, transposed},
+    {day-0 \texttt{score\_mod}},
+    {plain attention, no bias},
+    {\textbf{Inkling-turbo}},
+    {day-0 relproj},
+    {day-0 relproj, transposed},
+    {day-0 \texttt{score\_mod}},
+    {plain attention, no bias},
+    {\textbf{Inkling-turbo}}},
+  yticklabel style={font=\scriptsize, color=ink!85},
+  ymajorgrids, xmajorgrids,
+  grid style={line width=0.45pt, color=guide},
+  axis line style={draw=none},
+  tick style={draw=none},
+  xticklabel style={font=\scriptsize, color=ink!65},
   point meta=explicit symbolic,
   nodes near coords,
-  nodes near coords style={font=\scriptsize, color=ink!85, xshift=2pt},
+  nodes near coords style={font=\scriptsize, color=ink!65, anchor=west,
+                           xshift=4pt},
+  clip=false,
 ]
 
-\addplot[fill=ours, draw=ours!70!black] coordinates {
-  (3308.8,prefill8k) [3309]
-  (854.8,decodeb32)  [855]
-  (852.6,decodeb1)   [853]};
-\addlegendentry{Inkling-turbo}
+\addplot[only marks, mark=*, mark size=3.2pt, color=ours]
+  coordinates {(852.6,15) [853] (854.8,9) [855] (3308.8,3) [3309]};
 
-\addplot[fill=plainref, draw=plainref!70!black] coordinates {
-  (727.2,decodeb32) [727]
-  (736.0,decodeb1)  [736]};
-\addlegendentry{plain attention, no bias: the floor}
+\addplot[only marks, mark=o, mark size=3.0pt, line width=1.0pt, color=floorc]
+  coordinates {(736.0,14) [736] (727.2,8) [727]};
 
-\addplot[fill=day0a, draw=day0a!70!black] coordinates {
-  (2391.2,decodeb32) [2391]
-  (2326.6,decodeb1)  [2327]};
-\addlegendentry{day-0 \texttt{score\_mod}: the production path}
+\addplot[only marks, mark=square*, mark size=2.7pt, color=prod]
+  coordinates {(2326.6,13) [2327] (2391.2,7) [2391]};
 
-\addplot[fill=day0b, draw=day0b!70!black] coordinates {
-  (10551.5,prefill8k) [10552]
-  (5065.1,decodeb32)  [5065]
-  (5154.7,decodeb1)   [5155]};
-\addlegendentry{day-0 relproj, transposed}
+\addplot[only marks, mark=triangle*, mark size=3.5pt, color=altA]
+  coordinates {(5154.7,12) [5155] (5065.1,6) [5065] (10551.5,2) [10552]};
 
-\addplot[fill=day0c, draw=day0c!70!black] coordinates {
-  (15254.6,prefill8k) [15255]
-  (7595.5,decodeb32)  [7596]
-  (7194.5,decodeb1)   [7195]};
-\addlegendentry{day-0 relproj}
+\addplot[only marks, mark=diamond*, mark size=3.5pt, color=altB]
+  coordinates {(7194.5,11) [7195] (7595.5,5) [7596] (15254.6,1) [15255]};
 
 \end{axis}
 
-\node[anchor=north west, font=\bfseries\large, color=ink]
-  at ($(panelA.north west)+(-1.15cm,2.65cm)$)
-  {A\quad Attention kernel latency, one H100 SXM5};
-\node[anchor=north west, font=\small, color=ink!70, text width=15.2cm]
-  at ($(panelA.north west)+(-1.15cm,2.22cm)$)
-  {Same machine, same harness, same shapes. Every timing has a passing parity
-   run behind it. Grey is biasless attention: the floor this feature can
-   approach but never beat.};
+% ---- group headers, placed against the axis frame
+\node[anchor=east, font=\footnotesize\bfseries, color=ink, align=right]
+  at ($(A.north west)+(-3.35cm,-0.30cm)$)
+  {decode, batch 1\\[-2pt]{\scriptsize\mdseries\color{ink!55}64K KV}};
+\node[anchor=east, font=\footnotesize\bfseries, color=ink, align=right]
+  at ($(A.north west)+(-3.35cm,-3.63cm)$)
+  {decode, batch 32\\[-2pt]{\scriptsize\mdseries\color{ink!55}64K KV}};
+\node[anchor=east, font=\footnotesize\bfseries, color=ink, align=right]
+  at ($(A.north west)+(-3.35cm,-6.96cm)$)
+  {prefill, 8K\\[-2pt]{\scriptsize\mdseries\color{ink!55}global}};
 
-\node[anchor=east, font=\small\bfseries, color=ours]
-  at ($(panelA.east)+(-0.25cm,2.05cm)$) {2.7x to 8.4x faster};
-\node[anchor=east, font=\small\bfseries, color=ours]
-  at ($(panelA.east)+(-0.25cm,0.05cm)$) {2.8x to 8.9x faster};
-\node[anchor=east, font=\small\bfseries, color=ours]
-  at ($(panelA.east)+(-0.25cm,-1.95cm)$) {3.2x to 4.6x faster};
+% ---- speedup callouts, quoted against the shipping path
+\node[anchor=west, font=\scriptsize\bfseries, color=ours]
+  at ($(A.north east)+(0.30cm,-1.40cm)$) {2.7x faster};
+\node[anchor=west, font=\scriptsize\bfseries, color=ours]
+  at ($(A.north east)+(0.30cm,-4.73cm)$) {2.8x faster};
+\node[anchor=west, font=\scriptsize\bfseries, color=ours]
+  at ($(A.north east)+(0.30cm,-7.52cm)$) {3.2x faster};
 
-% ----------------------------------------------------------------------
-% Panel B: status grid. Colours and labels are passed directly, because
-% \ifx letter tests do not survive a nested \foreach.
-% ----------------------------------------------------------------------
-\begin{scope}[shift={($(panelA.south west)+(-1.15cm,-2.9cm)$)}]
+\node[anchor=north west, font=\bfseries, color=ink]
+  at ($(A.north west)+(-3.45cm,1.62cm)$)
+  {\large A\quad Attention kernel latency};
+\node[anchor=north west, font=\scriptsize, color=ink!60, text width=16.3cm]
+  at ($(A.north west)+(-3.45cm,1.18cm)$)
+  {One H100 SXM5. Same machine, same harness, same shapes; every point has a
+   passing parity run behind it. The hollow marker is biasless attention, the
+   floor this feature can approach but never beat. Speedups are quoted against
+   \texttt{score\_mod}, the path vLLM actually ships, or against the fastest
+   day-0 path measured where \texttt{score\_mod} was not run.};
 
-\node[anchor=north west, font=\bfseries\large, color=ink]
-  at (0,1.0cm) {B\quad Status by unit and architecture};
-\node[anchor=north west, font=\small, color=ink!70, text width=15.2cm]
-  at (0,0.57cm)
-  {Green means it ran on that silicon and passed. Nothing is marked done on
-   hardware it has never run on.};
+% =====================================================================
+% Panel B
+% =====================================================================
+\begin{scope}[shift={($(A.south west)+(-3.45cm,-2.45cm)$)}]
 
-\def\colw{2.55}
-\def\rowh{0.70}
-\def\colzero{5.25}
+\node[anchor=north west, font=\bfseries, color=ink] at (0,1.0cm)
+  {\large B\quad Validation status};
+\node[anchor=north west, font=\scriptsize, color=ink!60, text width=16.3cm]
+  at (0,0.56cm)
+  {Filled means it ran on that silicon and passed its gate. Nothing is marked
+   done on hardware it has never run on.};
 
-\foreach \c/\lab in {%
-  0/{sm\_120\\RTX 5090},
-  1/{sm\_90\\H100},
-  2/{sm\_80\\A100},
-  3/{sm\_100\\B200}} {
-  \pgfmathsetmacro{\hx}{\colzero+\c*\colw}
-  \node[font=\scriptsize\bfseries, color=ink, align=center]
-    at (\hx cm,-0.22cm) {\lab};
-}
+\def\cz{8.5}\def\cw{2.15}\def\rh{0.60}
 
-% each cell: colour/label pair, given explicitly
-\foreach \r/\name/\ca/\la/\cb/\lb/\cc/\lc/\cd/\ld in {%
-  0/{U2 relative attention}/done/validated/done/validated/done/validated/blocked/{no hardware},
-  1/{U2 full-model token gate}/blocked/{n/a}/done/{32 of 32}/blocked/{n/a}/blocked/{no hardware},
-  2/{U3 FP8 paged KV, writes}/done/validated/done/validated/done/validated/blocked/{no hardware},
-  3/{U3 FP8 paged KV, reads}/blocked/pending/blocked/pending/blocked/pending/blocked/pending,
-  4/{U2 split-KV decode}/blocked/pending/blocked/pending/blocked/pending/blocked/pending,
-  5/{End-to-end serving curves}/blocked/{n/a}/partial/{run lost}/blocked/{n/a}/blocked/pending,
-  6/{U1 MoE grouped GEMM}/blocked/pending/blocked/pending/blocked/pending/blocked/pending%
-} {
-  \pgfmathsetmacro{\ry}{-0.85-\r*\rowh}
-  \node[anchor=east, font=\small, color=ink] at (3.85cm,\ry cm) {\name};
-  \foreach \ci/\cx/\lx in {0/\ca/\la, 1/\cb/\lb, 2/\cc/\lc, 3/\cd/\ld} {
-    \pgfmathsetmacro{\xx}{\colzero+\ci*\colw}
-    \node[draw=ink!15, rounded corners=2pt,
-      minimum width=2.05cm, minimum height=0.46cm,
-      fill=\cx, font=\scriptsize\bfseries, text=white]
-      at (\xx cm,\ry cm) {\lx};
+\node[font=\scriptsize\bfseries, color=ink] at (8.50cm,-0.18cm) {sm\_120};
+\node[font=\tiny, color=ink!50]             at (8.50cm,-0.44cm) {RTX 5090};
+\node[font=\scriptsize\bfseries, color=ink] at (10.65cm,-0.18cm) {sm\_90};
+\node[font=\tiny, color=ink!50]             at (10.65cm,-0.44cm) {H100};
+\node[font=\scriptsize\bfseries, color=ink] at (12.80cm,-0.18cm) {sm\_80};
+\node[font=\tiny, color=ink!50]             at (12.80cm,-0.44cm) {A100};
+\node[font=\scriptsize\bfseries, color=ink] at (14.95cm,-0.18cm) {sm\_100};
+\node[font=\tiny, color=ink!50]             at (14.95cm,-0.44cm) {B200};
+
+\draw[guide, line width=0.6pt] (0.1cm,-0.66cm) -- (15.85cm,-0.66cm);
+
+% state codes: 1 validated, 2 partial, 3 pending, 4 not applicable
+\foreach \r/\name/\a/\b/\c/\d in {%
+  0/{U2 relative attention, global and SWA}/1/1/1/3,
+  1/{U2 full-model token gate, 32 prompts}/4/1/4/3,
+  2/{U3 FP8 paged KV, write path}/1/1/1/3,
+  3/{U3 FP8 paged KV, read path}/3/3/3/3,
+  4/{U2 split-KV decode}/3/3/3/3,
+  5/{End-to-end serving curves}/4/2/4/3,
+  6/{U1 MoE grouped GEMM}/3/3/3/3%
+}{
+  \pgfmathsetmacro{\ry}{-1.10-\r*\rh}
+  \node[anchor=east, font=\scriptsize, color=ink!85] at (7.5cm,\ry cm) {\name};
+  \foreach \ci/\st in {0/\a, 1/\b, 2/\c, 3/\d}{
+    \pgfmathsetmacro{\xx}{\cz+\ci*\cw}
+    \ifnum\st=1
+      \node[circle, fill=okc, minimum size=7.6pt, inner sep=0]
+        at (\xx cm,\ry cm) {};
+    \fi
+    \ifnum\st=2
+      \node[circle, draw=partc, fill=partc!20, line width=1.0pt,
+            minimum size=7.6pt, inner sep=0] at (\xx cm,\ry cm) {};
+    \fi
+    \ifnum\st=3
+      \node[circle, draw=ink!28, line width=0.85pt, minimum size=7.6pt,
+            inner sep=0] at (\xx cm,\ry cm) {};
+    \fi
+    \ifnum\st=4
+      \node[font=\scriptsize, color=ink!25] at (\xx cm,\ry cm) {--};
+    \fi
   }
 }
 
-\begin{scope}[shift={(0cm,-5.95cm)}]
-  \node[draw=ink!15, rounded corners=2pt, minimum width=0.62cm, minimum height=0.34cm, fill=done] at (0.3cm,0) {};
-  \node[anchor=west, font=\scriptsize, color=ink!80] at (0.72cm,0) {validated on that silicon};
-  \node[draw=ink!15, rounded corners=2pt, minimum width=0.62cm, minimum height=0.34cm, fill=partial] at (5.6cm,0) {};
-  \node[anchor=west, font=\scriptsize, color=ink!80] at (6.02cm,0) {ran, results lost};
-  \node[draw=ink!15, rounded corners=2pt, minimum width=0.62cm, minimum height=0.34cm, fill=blocked] at (10.0cm,0) {};
-  \node[anchor=west, font=\scriptsize, color=ink!80] at (10.42cm,0) {not done, or not applicable};
+\draw[guide, line width=0.6pt] (0.1cm,-5.12cm) -- (15.85cm,-5.12cm);
+
+\begin{scope}[shift={(0.15cm,-5.54cm)}]
+  \node[circle, fill=okc, minimum size=7pt, inner sep=0] at (0,0) {};
+  \node[anchor=west, font=\scriptsize, color=ink!65] at (0.24cm,0)
+    {validated on that silicon};
+  \node[circle, draw=partc, fill=partc!20, line width=1.0pt, minimum size=7pt,
+        inner sep=0] at (4.9cm,0) {};
+  \node[anchor=west, font=\scriptsize, color=ink!65] at (5.14cm,0)
+    {ran, results lost};
+  \node[circle, draw=ink!28, line width=0.85pt, minimum size=7pt, inner sep=0]
+    at (8.5cm,0) {};
+  \node[anchor=west, font=\scriptsize, color=ink!65] at (8.74cm,0)
+    {not done yet};
+  \node[font=\scriptsize, color=ink!25] at (11.7cm,0) {--};
+  \node[anchor=west, font=\scriptsize, color=ink!65] at (11.94cm,0)
+    {not applicable};
 \end{scope}
 
 \end{scope}
-
 \end{tikzpicture}
 \end{document}
