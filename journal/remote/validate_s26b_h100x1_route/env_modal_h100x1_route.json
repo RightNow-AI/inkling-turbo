@@ -1,0 +1,19 @@
+{
+  "step": "env_proof",
+  "verdict": "PASS",
+  "expect": "sm_90 (H100)",
+  "capability": [
+    9,
+    0
+  ],
+  "sm_90": true,
+  "nvidia_smi": "NVIDIA H100 80GB HBM3, 81559 MiB, 580.95.05",
+  "torch": "2.11.0+cu130",
+  "torch_cuda": "13.0",
+  "device_name": "NVIDIA H100 80GB HBM3",
+  "sm_count": 132,
+  "total_memory_gb": 85.0,
+  "device_count": 1,
+  "vllm": "0.23.1rc1.dev1237+g850295881.precompiled",
+  "nvidia_cutlass_dsl": "4.6.0"
+}

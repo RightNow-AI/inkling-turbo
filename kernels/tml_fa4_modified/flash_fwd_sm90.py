@@ -838,29 +838,57 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
                     # if cute.arch.thread_idx()[0] == 0:
                     #     cute.printf("m_block = %d, n_block_min: %d, n_block_max: %d", m_block, n_block_min, n_block_max)
                     # A split can own an EMPTY n_block range (num_splits does not
-                    # have to divide the block count). has_work is the Python
-                    # constant True when not split-KV, so `if has_work:` is a
-                    # trace-time no-op there and the emitted code is unchanged.
+                    # have to divide the block count).
                     if const_expr(not self.is_split_kv):
                         has_work = True
                     else:
                         has_work = n_block_min < n_block_max
-                    if has_work:
-                        # Clamp n_block to 0 when n_block_max == 0 (can happen with causal
-                        # + pack_gqa when seqlen_k < tile_n). TMA handles n_block=-1
-                        # gracefully (fills zeros), but cp.async would crash on
-                        # out-of-bounds page table access.
-                        n_block = (
-                            n_block_max - 1
-                            if const_expr(self.use_tma_KV)
-                            else cutlass.max(n_block_max - 1, 0)
+
+                    # n_block and page_idx MUST be bound HERE, outside the
+                    # `if has_work:` bodies below.
+                    #
+                    # `if has_work:` is NOT a const_expr predicate, so the CuTe
+                    # DSL traces each of its bodies as a separate Python scope.
+                    # A name first bound inside one body is invisible to the
+                    # sibling body further down, and because that sibling also
+                    # assigns n_block (the `for i in cutlass.range(...)` loop),
+                    # the name becomes a local of that body, so its earlier read
+                    # in load_V is unbound and the trace dies with
+                    # "cannot access local variable 'n_block'".
+                    #
+                    # This is not defensive initialisation. Both are
+                    # side-effect-free index arithmetic and every memory
+                    # operation stays under `if has_work:`. Binding them here
+                    # restores the structure that measured 3308.8 / 1223.0 /
+                    # 852.6 us on an H100 in session 25.
+                    #
+                    # Clamp n_block to 0 when n_block_max == 0 (can happen with causal
+                    # + pack_gqa when seqlen_k < tile_n). TMA handles n_block=-1
+                    # gracefully (fills zeros), but cp.async would crash on
+                    # out-of-bounds page table access.
+                    n_block = (
+                        n_block_max - 1
+                        if const_expr(self.use_tma_KV)
+                        else cutlass.max(n_block_max - 1, 0)
+                    )
+                    # An empty split can leave n_block at -1, and this read runs
+                    # before has_work is consulted, so clamp the index on the
+                    # split-KV path. The result is discarded there. The
+                    # non-split path keeps the original expression exactly.
+                    if const_expr(self.is_split_kv):
+                        page_idx = (
+                            mPageTable[batch_idx, cutlass.max(n_block, 0)]
+                            if const_expr(mPageTable is not None and self.use_tma_KV)
+                            else None
                         )
+                    else:
                         page_idx = (
                             mPageTable[batch_idx, n_block]
                             if const_expr(mPageTable is not None and self.use_tma_KV)
                             else None
                         )
 
+                    if has_work:
                         # First iteration: load K on pipeline_k, Q on pipeline_q
                         if is_kv_load_warp:
                             pipeline_k.producer_acquire(kv_producer_state)

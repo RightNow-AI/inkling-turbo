@@ -975,15 +975,15 @@ def _flash_attn_fwd(
                 tile_count_semaphore)
         ), "scheduler metadata must be on CUDA device"
         assert all(
-            t is None or t.shape == (batch_size)
+            t is None or t.shape == (batch_size,)
             for t in (
                 num_m_blocks,
                 num_splits_dynamic,
                 varlen_batch_idx,
                 num_nheads_in_l2)
-        ), "these scheduler metadata tensors must have shape (batch_size)"
+        ), "these scheduler metadata tensors must have shape (batch_size,)"
         if tile_count_semaphore is not None:
-            assert tile_count_semaphore.shape == (1), "semaphore has size 1"
+            assert tile_count_semaphore.shape == (1,), "semaphore has size 1"
         # print("In interface: num_splits_dynamic = ", num_splits_dynamic)
     else:
         num_m_blocks = None

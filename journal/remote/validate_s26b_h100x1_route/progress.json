@@ -1,0 +1,134 @@
+{
+  "steps": [
+    {
+      "step": "env_proof",
+      "verdict": "PASS",
+      "expect": "sm_90 (H100)",
+      "capability": [
+        9,
+        0
+      ],
+      "sm_90": true,
+      "nvidia_smi": "NVIDIA H100 80GB HBM3, 81559 MiB, 580.95.05",
+      "torch": "2.11.0+cu130",
+      "torch_cuda": "13.0",
+      "device_name": "NVIDIA H100 80GB HBM3",
+      "sm_count": 132,
+      "total_memory_gb": 85.0,
+      "device_count": 1,
+      "vllm": "0.23.1rc1.dev1237+g850295881.precompiled",
+      "nvidia_cutlass_dsl": "4.6.0"
+    },
+    {
+      "step": "setup",
+      "verdict": "PASS",
+      "tml_pkg": "/opt/vllm/vllm/third_party/tml_fa4",
+      "tml_source_tree_same": true,
+      "deployed": [
+        "flash_fwd.py:df489224",
+        "flash_fwd_sm90.py:f120ff3e",
+        "interface.py:49bb20f3"
+      ],
+      "patch_set": "route",
+      "patch_order": [
+        "u2_serving_route.py"
+      ],
+      "patch_markers": {
+        "u2_serving_route": true
+      },
+      "patches_confirmed_absent": [
+        "u2_shear_relshearspec",
+        "u3_quantize_kv"
+      ]
+    },
+    {
+      "step": "parity_fa4_rel",
+      "cmd": "/usr/local/bin/python3 parity_fa4_rel.py",
+      "env": {},
+      "expect": "3/3 green for tml_fa4_rel_bias on the sm_90 native path (the harness also reports score_mod and our abandoned relproj prototype; it exits non-zero if any of the 9 case x backend checks fails)",
+      "verdict": "PASS",
+      "seconds": 103.5,
+      "rc": 0,
+      "lines_ok": 9,
+      "lines_fail": 0,
+      "lines_skip": 0
+    },
+    {
+      "step": "parity_qkvr_prep",
+      "cmd": "/usr/local/bin/python3 parity_qkvr_prep.py",
+      "env": {},
+      "expect": "5/5. Regression gate: the DEFAULT qkvr_prep path must behave identically after u3 and u2 have both rewritten this file.",
+      "verdict": "PASS",
+      "seconds": 10.4,
+      "rc": 0,
+      "lines_ok": 5,
+      "lines_fail": 0,
+      "lines_skip": 0
+    },
+    {
+      "step": "microbench_attn_scoremod",
+      "cmd": "/usr/local/bin/python3 microbench_attn_scoremod.py",
+      "env": {},
+      "expect": "day-0 baseline. score_mod is the ONLY day-0 path; relproj and relprojT in this JSON are OUR abandoned prototypes.",
+      "verdict": "PASS",
+      "seconds": 72.0,
+      "rc": 0,
+      "lines_ok": 0,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "microbench_attn_scoremod_modal_h100x1_route.json": {
+          "prefill_global_8k": 4841.2,
+          "prefill_swa_8k": 863.2,
+          "decode_b32_global_kv8k": 303.6,
+          "decode_b32_global_kv64k": 2382.5,
+          "decode_b1_global_kv64k": 2412.1,
+          "decode_b1_plain_kv64k": 736.2,
+          "decode_b32_plain_kv64k": 736.6,
+          "relproj_prefill_global_8k": 15358.9,
+          "relproj_decode_b32_kv64k": 7635.6,
+          "relproj_decode_b1_kv64k": 7330.9,
+          "relprojT_decode_b1_kv64k": 5176.1,
+          "relprojT_decode_b32_kv64k": 5085.3,
+          "relprojT_prefill_global_8k": 10571.3
+        }
+      },
+      "artifacts": [
+        "microbench_attn_scoremod_modal_h100x1_route.json"
+      ]
+    },
+    {
+      "step": "microbench_ours_attn_shearfusion_OFF",
+      "cmd": "/usr/local/bin/python3 microbench_attn_day0.py",
+      "env": {
+        "INKLING_TURBO_FUSED_SHEAR": "0"
+      },
+      "expect": "reproduces session 25 (decode b1 64K 852.6, b32 64K 854.8, b32 8K 124.1, prefill global 3308.8, prefill SWA 1223.0 us/iter on one H100 SXM5)",
+      "verdict": "PASS",
+      "seconds": 30.2,
+      "rc": 0,
+      "lines_ok": 0,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "microbench_ours_attn_shearfusion_OFF_modal_h100x1_route.json": {
+          "prefill_global_8k": 3306.9,
+          "prefill_swa_8k": 1221.4,
+          "decode_b32_global_kv8k": 124.1,
+          "decode_b32_global_kv64k": 866.3,
+          "decode_b1_global_kv64k": 859.6,
+          "decode_32seqs_global_kv8k": 1810.5,
+          "decode_32seqs_global_kv64k": 14079.6,
+          "gate_select_T1": 4.0,
+          "gate_select_T4096": 21.9
+        }
+      },
+      "artifacts": [
+        "microbench_ours_attn_shearfusion_OFF_modal_h100x1_route.json"
+      ]
+    }
+  ],
+  "elapsed_hours": 0.072,
+  "spend_usd_est": 0.33,
+  "last": "microbench_ours_attn_shearfusion_OFF"
+}
