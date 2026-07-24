@@ -230,8 +230,13 @@ BUDGET_USD = 200.0
 # so the cap alone allows ~5.8h. 4h is chosen for margin: it leaves room
 # for the download container, for a resume invocation, and for the rate
 # being higher than estimated if Modal applies a per-GPU resource floor.
-# 4h x ~$34.4/hr = ~$138 worst case for one bench container.
-BENCH_TIMEOUT_HOURS = 4.0
+#
+# 3.5h x ~$34.4/hr = ~$120 worst case for one bench container, and the
+# effective deadline is 3.33h after SHUTDOWN_MARGIN_S, so ~$115. Was 4.0, which
+# authorised $138 for a container whose expected work is about $70. The real
+# protection is not this number, it is the per-run timeout and the per-build
+# time allowance, both of which stop a single hang from eating the container.
+BENCH_TIMEOUT_HOURS = 3.5
 BENCH_TIMEOUT_S = int(BENCH_TIMEOUT_HOURS * 3600)
 DOWNLOAD_TIMEOUT_S = 6 * 3600  # CPU only at ~$0.63/hr, so at most ~$4
 # Leave room to stop the server, copy results and commit before Modal kills
@@ -886,6 +891,90 @@ def _wait_healthy(proc: subprocess.Popen, log_path: Path, timeout_s: int) -> Non
     raise RuntimeError(f"server not healthy within {timeout_s}s")
 
 
+def _kv_pool_facts(log_path: Path) -> dict:
+    """Pull the KV pool size and max concurrency out of the server's own log.
+
+    This decides whether the A/B is valid. Both builds do independent memory
+    profiling at util 0.94, and per session 28 the pool lands within about 10%
+    of the bare minimum, so if one server ends up with fewer KV blocks than the
+    other then throughput differs for a reason that has nothing to do with the
+    kernels. vLLM logs both numbers at startup
+    (vllm/v1/core/kv_cache_utils.py); nothing was reading them.
+    """
+    facts: dict = {}
+    try:
+        text = log_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return facts
+    m = re.search(r"GPU KV cache size:\s*([\d,]+)\s*tokens", text)
+    if m:
+        facts["kv_cache_tokens"] = int(m.group(1).replace(",", ""))
+    m = re.search(r"Maximum concurrency for ([\d,]+) tokens per request:\s*([\d.]+)x", text)
+    if m:
+        facts["max_model_len_tokens"] = int(m.group(1).replace(",", ""))
+        facts["max_concurrency_x"] = float(m.group(2))
+    return facts
+
+
+def _assert_kv_pools_match(per_build: dict) -> None:
+    """Refuse to publish a comparison between two different KV budgets."""
+    sizes = {b: f.get("kv_cache_tokens") for b, f in per_build.items()}
+    known = {b: v for b, v in sizes.items() if v}
+    if len(known) < 2:
+        print(f"KV_POOL could not be read for every build: {sizes}")
+        return
+    lo, hi = min(known.values()), max(known.values())
+    drift = (hi - lo) / hi
+    print(f"KV_POOL per build: {known}, drift {drift:.2%}")
+    if drift > 0.02:
+        raise RuntimeError(
+            f"KV pool differs by {drift:.1%} between builds ({known}). "
+            "Throughput would differ for a memory reason rather than a kernel "
+            "reason, so this comparison is not publishable. Re-run cold."
+        )
+
+
+CORRECTNESS_PROMPTS = [
+    "List the first five prime numbers.",
+    "Write one sentence about the ocean.",
+    "What is 17 times 23?",
+    "Name three primary colors.",
+]
+
+
+def _greedy_probe(build: str) -> dict:
+    """Greedy completions from the running server, for a build-vs-build check.
+
+    The benchmark runs with --ignore-eos, which means numerically garbage
+    output is indistinguishable from good output in every metric it collects.
+    Nothing else in this function confirms that the ours server actually took
+    our kernel path and produced sane tokens. Four prompts at temperature 0
+    costs seconds and turns a throughput number into a throughput number you
+    can publish.
+    """
+    out = {"build": build, "completions": []}
+    for prompt in CORRECTNESS_PROMPTS:
+        body = json.dumps({
+            "model": SERVED_NAME,
+            "prompt": prompt,
+            "max_tokens": 32,
+            "temperature": 0.0,
+            "seed": SEED,
+        }).encode()
+        req = urllib.request.Request(
+            f"{BASE_URL}/v1/completions",
+            data=body,
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=180) as r:
+                data = json.loads(r.read())
+            out["completions"].append(data["choices"][0]["text"])
+        except Exception as exc:  # noqa: BLE001
+            out["completions"].append(f"<ERROR {type(exc).__name__}: {exc}>")
+    return out
+
+
 def _start_server(build: str, log_path: Path) -> subprocess.Popen:
     cmd = [
         _vllm_bin(),
@@ -1154,6 +1243,8 @@ def run_bench(
     _write_committed(json.dumps(manifest, indent=2), Path(RESULTS_ROOT) / "manifest.json")
 
     completed, skipped, failed, aborted = 0, 0, 0, False
+    kv_facts: dict = {}
+    probes: dict = {}
     # aborted  = the matrix is incomplete, so say so in the summary.
     # hard_stop = out of budget or time for real, so stop the whole matrix.
     # Yielding at the end of one build's allowance sets the first, not the
@@ -1279,6 +1370,20 @@ def run_bench(
             _wait_healthy(proc, log_path, server_wait_s)
             _persist_log_tail(log_path, Path(LOGS_ROOT) / f"serve_{build}_startup.log")
             burn(f"{build} server ready")
+
+            # Validity evidence, collected before any timing. Both cost seconds
+            # and both are the difference between a number and a publishable
+            # number.
+            kv_facts[build] = _kv_pool_facts(log_path)
+            print(f"KV_POOL {build}: {kv_facts[build]}")
+            probes[build] = _greedy_probe(build)
+            for p, c in zip(CORRECTNESS_PROMPTS, probes[build]["completions"]):
+                print(f"PROBE {build}: {p!r} -> {c[:80]!r}")
+            _write_committed(
+                json.dumps({"kv_pool": kv_facts, "greedy_probe": probes},
+                           indent=2),
+                Path(RESULTS_ROOT) / "validity.json",
+            )
 
             for mix, conc, ilen, olen, npr, n, out in pending:
                 # build_deadline, not deadline: yielding here leaves matched
@@ -1415,8 +1520,44 @@ def run_bench(
         if hard_stop:
             break
 
+    # Validity verdicts, once both builds have been seen. These do not gate the
+    # run (the numbers are already on the Volume) but they decide what may be
+    # published from it, so they are recorded explicitly rather than inferred.
+    validity: dict = {"kv_pool": kv_facts, "greedy_probe": probes}
+    try:
+        _assert_kv_pools_match(kv_facts)
+        validity["kv_pool_match"] = True
+    except RuntimeError as exc:
+        validity["kv_pool_match"] = False
+        validity["kv_pool_error"] = str(exc)
+        print(f"VALIDITY FAILURE: {exc}")
+
+    if len(probes) == 2:
+        a, b = sorted(probes)
+        same = probes[a]["completions"] == probes[b]["completions"]
+        validity["greedy_match"] = same
+        validity["greedy_builds"] = [a, b]
+        print(f"GREEDY_PROBE {a} vs {b}: "
+              + ("identical" if same else "DIFFER, see validity.json"))
+        if not same:
+            validity["greedy_note"] = (
+                "The two builds produced different greedy text on at least one "
+                "prompt. That is not automatically a defect: the platform is "
+                "not batch-deterministic at TP8 across 66 bf16 layers, and the "
+                "32-prompt gate in gate_logit_parity_8xh100.json measured the "
+                "same-build control disagreeing with itself. Read the actual "
+                "completions before drawing a conclusion."
+            )
+    _write_committed(
+        json.dumps(validity, indent=2), Path(RESULTS_ROOT) / "validity.json"
+    )
+
     _booked["done"] = True
     summary = _book_and_summarise("final")
+    summary["validity"] = validity
+    _write_committed(
+        json.dumps(summary, indent=2), Path(RESULTS_ROOT) / "summary.json"
+    )
     print("=== BENCH DONE ===")
     print(json.dumps(summary, indent=2))
     if aborted:
@@ -2692,6 +2833,7 @@ def main(
     mixes: str = os.environ.get("MIXES", DEFAULT_MIXES),
     budget_usd: float = float(os.environ.get("BUDGET_USD", BUDGET_USD)),
     patches: str = os.environ.get("VALIDATE_PATCHES", "u3+shear"),
+    server_wait_s: int = int(os.environ.get("SERVER_WAIT_S", SERVER_WAIT_S)),
     force_download: int = 0,
 ) -> None:
     """modal run --detach scripts/modal_e2e_bench.py --step all"""
@@ -2778,6 +2920,7 @@ def main(
             concurrencies=concurrencies,
             mixes=mixes,
             budget_usd=budget_usd,
+            server_wait_s=server_wait_s,
         )
         print(json.dumps(out, indent=2))
         print()
