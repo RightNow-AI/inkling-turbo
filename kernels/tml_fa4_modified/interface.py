@@ -28,8 +28,7 @@ if os.environ.get("CUTE_DSL_PTXAS_PATH", None) is not None:
 from vllm.third_party.tml_fa4 import utils
 from vllm.third_party.tml_fa4 import fa_logging
 from vllm.third_party.tml_fa4.cute_dsl_utils import (
-    to_cute_tensor, to_cute_aux_tensor, get_aux_tensor_metadata, get_broadcast_dims,
-)
+    to_cute_tensor, to_cute_aux_tensor, get_aux_tensor_metadata, get_broadcast_dims)
 from vllm.third_party.tml_fa4.flash_fwd import FlashAttentionForwardSm80
 from vllm.third_party.tml_fa4.flash_fwd_sm90 import FlashAttentionForwardSm90
 
@@ -52,8 +51,7 @@ from vllm.third_party.tml_fa4.block_sparsity import (
     BlockSparseTensorsTorch,
     get_sparse_q_block_size,
     to_cute_block_sparse_tensors,
-    normalize_block_sparse_config,
-)
+    normalize_block_sparse_config)
 
 from vllm.third_party.tml_fa4.mixed_dtype_gemm import MixedDtypeGemmKernel, EpilogueFunction
 
@@ -218,8 +216,7 @@ def _pack_gqa_heuristic(
     window_size_right=None,
     has_bias=False,
     is_bwd=False,
-    requires_grad=False,
-) -> bool:
+    requires_grad=False) -> bool:
     if tile_m % qhead_per_kvhead != 0:
         return False
 
@@ -241,8 +238,7 @@ def _pack_gqa_swizzle_heuristic(
     causal,
     window_size_left=None,
     window_size_right=None,
-    has_bias=False,
-) -> bool:
+    has_bias=False) -> bool:
     is_swa = window_size_left is not None and window_size_right is not None
     pack_gqa_swizzle = causal or (is_swa and has_bias)  # TODO: tune this
     return pack_gqa_swizzle and pack_gqa
@@ -299,8 +295,7 @@ def _flash_attn_fwd(
     sfk: Optional[torch.Tensor] = None,
     sfv: Optional[torch.Tensor] = None,
     qk_sf_vec_size: Optional[int] = None,
-    v_sf_vec_size: Optional[int] = None,
-) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
+    v_sf_vec_size: Optional[int] = None) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
     """Forward pass for FlashAttention.
 
     Args:
@@ -353,19 +348,19 @@ def _flash_attn_fwd(
         total_k = k.shape[-3]
         assert k.shape == (total_k, num_head_kv, head_dim)
         assert v.shape == (total_k, num_head_kv, head_dim_v)
-        assert cu_seqlens_k.shape == (batch_size + 1,), (
-            "cu_seqlens_k must have shape (batch_size + 1,)"
+        assert cu_seqlens_k.shape == (batch_size + 1), (
+            "cu_seqlens_k must have shape (batch_size + 1)"
         )
 
     if cu_seqlens_q is not None:
-        assert cu_seqlens_q.shape == (batch_size + 1,), (
-            "cu_seqlens_q must have shape (batch_size + 1,)"
+        assert cu_seqlens_q.shape == (batch_size + 1), (
+            "cu_seqlens_q must have shape (batch_size + 1)"
         )
-    assert seqused_q is None or seqused_q.shape == (batch_size,), (
-        "seqused_q must have shape (batch_size,)"
+    assert seqused_q is None or seqused_q.shape == (batch_size), (
+        "seqused_q must have shape (batch_size)"
     )
-    assert seqused_k is None or seqused_k.shape == (batch_size,), (
-        "seqused_k must have shape (batch_size,)"
+    assert seqused_k is None or seqused_k.shape == (batch_size), (
+        "seqused_k must have shape (batch_size)"
     )
     blockscaled = sfq is not None
     v_blockscaled = sfv is not None
@@ -401,7 +396,7 @@ def _flash_attn_fwd(
                 "cu_seqlens_q, cu_seqlens_k, seqused_q, seqused_k must be contiguous"
             )
     if learnable_sink is not None:
-        assert learnable_sink.shape == (num_head,)
+        assert learnable_sink.shape == (num_head)
         assert learnable_sink.dtype == torch.bfloat16, "learnable_sink must be bfloat16"
 
     if not is_fake_mode():
@@ -416,8 +411,7 @@ def _flash_attn_fwd(
                 seqused_q,
                 seqused_k,
                 page_table,
-                learnable_sink,
-            )
+                learnable_sink)
         ), "inputs must be on CUDA device"
     arch = _get_device_arch() if _arch is None else _arch
     assert arch // 10 in [8, 9, 10, 11, 12], "Unsupported compute capability. Supported: 8.x, 9.x, 10.x, 11.x, 12.x"
@@ -432,7 +426,7 @@ def _flash_attn_fwd(
 
     out_torch_dtype = torch.bfloat16 if v_blockscaled else (v.dtype if blockscaled else q.dtype)
     device = q.device
-    q_batch_seqlen_shape = (batch_size, seqlen_q) if cu_seqlens_q is None else (total_q,)
+    q_batch_seqlen_shape = (batch_size, seqlen_q) if cu_seqlens_q is None else (total_q)
     lse_shape = (batch_size, num_head, seqlen_q) if cu_seqlens_q is None else (num_head, total_q)
     requires_grad = False
 
@@ -489,8 +483,7 @@ def _flash_attn_fwd(
             window_size_left=window_size_left,
             window_size_right=window_size_right,
             has_bias=rel_bias is not None,
-            requires_grad=requires_grad,
-        )
+            requires_grad=requires_grad)
     
     if pack_gqa and qv is not None and 128 % qhead_per_kvhead != 0:
         pack_gqa = False
@@ -603,8 +596,7 @@ def _flash_attn_fwd(
             num_head,
             head_dim_v,
             dtype=torch.float32,
-            device=device,
-        )
+            device=device)
         lse_partial = torch.empty(num_splits, *lse_shape, dtype=torch.float32, device=device)
         logits_max_partial = torch.empty(num_splits, *lse_shape, dtype=torch.float32, device=device) if return_logits_max else None
 
@@ -677,16 +669,14 @@ def _flash_attn_fwd(
         (
             normalized_block_sparse_tensors,
             block_sparse_broadcast_pattern,
-            q_subtile_factor,
-        ) = normalize_block_sparse_config(
+            q_subtile_factor) = normalize_block_sparse_config(
             block_sparse_tensors,
             batch_size=batch_size,
             num_head=num_head,
             seqlen_q=seqlen_q,
             seqlen_k=seqlen_k,
             block_size=(tile_m, tile_n),
-            q_stage=q_stage,
-        )
+            q_stage=q_stage)
     if aux_tensors is not None:
         aux_tensor_metadata = get_aux_tensor_metadata(aux_tensors)
     else:
@@ -716,8 +706,7 @@ def _flash_attn_fwd(
                 num_head,
                 rel_extent_padded,
                 dtype=rel_bias.dtype,
-                device=device,
-            )
+                device=device)
         else:
             bias_total_q_padded = total_q + tile_m
             assert rel_bias.shape == (total_q, num_head, rel_extent)
@@ -726,8 +715,7 @@ def _flash_attn_fwd(
                 num_head,
                 rel_extent_padded,
                 dtype=rel_bias.dtype,
-                device=device,
-            )
+                device=device)
 
         rows_per_cta = 4
         group_tile_bias = _group_tile_bias(qhead_per_kvhead_packgqa)
@@ -744,8 +732,7 @@ def _flash_attn_fwd(
 
             compile_key_prepare = (
                 group_tile_bias,
-                qhead_per_kvhead_packgqa,
-            )
+                qhead_per_kvhead_packgqa)
 
             if compile_key_prepare not in _flash_attn_fwd.compile_cache_prepare_shear_bias:
                 (
@@ -758,8 +745,7 @@ def _flash_attn_fwd(
 
                 prepare_shear_bias = CuSeqlensToBlocksKernel(
                     tile=group_tile_bias,
-                    seqlen_multiple=qhead_per_kvhead_packgqa,
-                )
+                    seqlen_multiple=qhead_per_kvhead_packgqa)
 
                 _flash_attn_fwd.compile_cache_prepare_shear_bias[compile_key_prepare] = (
                     cute.compile(
@@ -767,15 +753,13 @@ def _flash_attn_fwd(
                         cu_total_m_blocks_bias_tensor,
                         cu_seqlens_q_tensor,
                         current_stream,
-                        options="--enable-tvm-ffi",
-                    )
+                        options="--enable-tvm-ffi")
                 )
             
             if not is_fake_mode():
                 _flash_attn_fwd.compile_cache_prepare_shear_bias[compile_key_prepare](
                     cu_total_m_blocks_bias,
-                    cu_seqlens_q,
-                )
+                    cu_seqlens_q)
 
         precompute_batch_from_block = use_prepare_bias_kernel
         
@@ -801,15 +785,13 @@ def _flash_attn_fwd(
                         cu_total_m_blocks_bias_tensor,
                         blocks_to_batch_idx_tensor,
                         current_stream,
-                        options="--enable-tvm-ffi",
-                    )
+                        options="--enable-tvm-ffi")
                 )
 
             if not is_fake_mode():
                 _flash_attn_fwd.compile_cache_blocks_to_batch[compile_key_blocks_to_batch](
                     cu_total_m_blocks_bias,
-                    blocks_to_batch_idx,
-                )
+                    blocks_to_batch_idx)
 
         compile_key = (
             rel_bias.dtype,
@@ -827,8 +809,7 @@ def _flash_attn_fwd(
             group_tile_bias,
             max_m_blocks_leq_one,
             cu_total_m_blocks_bias is not None,
-            blocks_to_batch_idx is not None,
-        )
+            blocks_to_batch_idx is not None)
         if compile_key not in _flash_attn_fwd.compile_cache_shear_bias:
             (
                 cu_seqlens_q_tensor,
@@ -836,8 +817,7 @@ def _flash_attn_fwd(
                 seqused_q_tensor,
                 seqused_k_tensor,
                 cu_total_m_blocks_bias_tensor,
-                blocks_to_batch_idx_tensor,
-            ) = [
+                blocks_to_batch_idx_tensor) = [
                 to_cute_tensor(t, assumed_align=4, leading_dim=0) if t is not None else None
                 for t in (cu_seqlens_q, cu_seqlens_k, seqused_q, seqused_k, cu_total_m_blocks_bias, blocks_to_batch_idx)
             ]
@@ -852,8 +832,7 @@ def _flash_attn_fwd(
                 qhead_per_kvhead=qhead_per_kvhead,
                 rows_per_cta=rows_per_cta,
                 tile_m=group_tile_bias,
-                max_m_blocks_leq_one=max_m_blocks_leq_one,
-            )
+                max_m_blocks_leq_one=max_m_blocks_leq_one)
             _flash_attn_fwd.compile_cache_shear_bias[compile_key] = cute.compile(
                 shearing_bias,
                 rel_bias_tensor,
@@ -869,8 +848,7 @@ def _flash_attn_fwd(
                 window_size_left,
                 window_size_right,
                 current_stream,
-                options="--enable-tvm-ffi",
-            )
+                options="--enable-tvm-ffi")
 
         if not is_fake_mode():
             _flash_attn_fwd.compile_cache_shear_bias[compile_key](
@@ -885,8 +863,7 @@ def _flash_attn_fwd(
                 cu_total_m_blocks_bias,
                 blocks_to_batch_idx,
                 window_size_left,
-                window_size_right,
-            )
+                window_size_right)
     else:
         rel_extent = 0
         rel_extent_padded = 0
@@ -956,8 +933,7 @@ def _flash_attn_fwd(
             seqused_q=seqused_q,
             seqused_k=seqused_k,
             seqlen_k_per_split=seqlen_k_per_split,
-            zfill_padded_output=zfill_padded_output,
-        )
+            zfill_padded_output=zfill_padded_output)
 
     has_scheduler_metadata=scheduler_metadata is not None and not disable_scheduler_metadata
     if has_scheduler_metadata:
@@ -966,8 +942,7 @@ def _flash_attn_fwd(
             num_splits_dynamic,
             varlen_batch_idx,
             num_nheads_in_l2,
-            tile_count_semaphore,
-        ) = scheduler_metadata
+            tile_count_semaphore) = scheduler_metadata
         assert all(
             t is None or t.is_cuda
             for t in (
@@ -975,20 +950,18 @@ def _flash_attn_fwd(
                 num_splits_dynamic,
                 varlen_batch_idx,
                 num_nheads_in_l2,
-                tile_count_semaphore,
-            )
+                tile_count_semaphore)
         ), "scheduler metadata must be on CUDA device"
         assert all(
-            t is None or t.shape == (batch_size, )
+            t is None or t.shape == (batch_size)
             for t in (
                 num_m_blocks,
                 num_splits_dynamic,
                 varlen_batch_idx,
-                num_nheads_in_l2,
-            )
-        ), "these scheduler metadata tensors must have shape (batch_size, )"
+                num_nheads_in_l2)
+        ), "these scheduler metadata tensors must have shape (batch_size)"
         if tile_count_semaphore is not None:
-            assert tile_count_semaphore.shape == (1, ), "semaphore has size 1"
+            assert tile_count_semaphore.shape == (1), "semaphore has size 1"
         # print("In interface: num_splits_dynamic = ", num_splits_dynamic)
     else:
         num_m_blocks = None
@@ -1071,8 +1044,7 @@ def _flash_attn_fwd(
         sfk.ndim if sfk is not None else None,
         sfv.ndim if sfv is not None else None,
         is_persistent,
-        fa_logging.get_fa_log_level(),
-    )
+        fa_logging.get_fa_log_level())
 
     if compile_key not in _flash_attn_fwd.compile_cache:
         (
@@ -1080,8 +1052,7 @@ def _flash_attn_fwd(
             cu_seqlens_k_tensor,
             seqused_q_tensor,
             seqused_k_tensor,
-            learnable_sink_tensor,
-        ) = [
+            learnable_sink_tensor) = [
             to_cute_tensor(t, assumed_align=4, leading_dim=0) if t is not None else None
             for t in (cu_seqlens_q, cu_seqlens_k, seqused_q, seqused_k, learnable_sink)
         ]
@@ -1147,7 +1118,7 @@ def _flash_attn_fwd(
             arch // 10 == 9 and bias is not None and _U2_SM90_GENERIC
         ):
             # U2_SM90_GENERIC=1: sm_90 + rel_bias routes through the generic
-            # kernel — sheared smem-tile bias, parity-PROVEN on sm_120 AND
+            # kernel, sheared smem-tile bias, parity-PROVEN on sm_120 AND
             # H100 (session 23) but ~31x slower; kept as the A/B correctness
             # reference for the native tiled_copy_C path.
             assert page_table is None, "paged KV not supported on generic path"
@@ -1168,8 +1139,7 @@ def _flash_attn_fwd(
                 score_mod=score_mod,
                 mask_mod=mask_mod,
                 has_aux_tensors=aux_tensors is not None,
-                has_bias=bias is not None,
-            )
+                has_bias=bias is not None)
         elif arch // 10 == 9:
             assert not is_split_kv, "SplitKV not supported on SM 9.0"
             fa_fwd = FlashAttentionForwardSm90(
@@ -1193,8 +1163,7 @@ def _flash_attn_fwd(
                 has_aux_tensors=aux_tensors is not None,
                 q_subtile_factor=q_subtile_factor,
                 paged_kv_non_tma=paged_kv_non_tma,
-                has_bias=bias is not None,
-            )
+                has_bias=bias is not None)
         elif arch // 10 in [10, 11]:
             if qv is not None:
                 fa_fwd = FlashAttentionMLAForwardSm100(
@@ -1206,8 +1175,7 @@ def _flash_attn_fwd(
                     qhead_per_kvhead=qhead_per_kvhead,
                     nheads_kv=num_head_kv,
                     is_varlen_q=cu_seqlens_q is not None or seqused_q is not None,
-                    disable_bitmask=disable_sparse_kv_bitmask,
-                )
+                    disable_bitmask=disable_sparse_kv_bitmask)
             else:
                 if use_dedicated_hd256_kernel:
                     # hd=256 2CTA forward: check for currently unsupported features
@@ -1273,8 +1241,7 @@ def _flash_attn_fwd(
                     qk_blockscaled=blockscaled,
                     v_dequant=v_blockscaled,
                     q_sf_interleaved=q_sf_interleaved,
-                    kv_sf_interleaved=kv_sf_interleaved,
-                )
+                    kv_sf_interleaved=kv_sf_interleaved)
         elif arch // 10 == 12:
             # SM120 (Blackwell GeForce / DGX Spark): uses SM80 MMA with SM120 SMEM capacity
             assert not use_block_sparsity, "Block sparsity not supported on SM 12.0"
@@ -1296,8 +1263,7 @@ def _flash_attn_fwd(
                 score_mod=score_mod,
                 mask_mod=mask_mod,
                 has_aux_tensors=aux_tensors is not None,
-                has_bias=bias is not None,
-            )
+                has_bias=bias is not None)
         else:
             raise ValueError(
                 f"Unsupported compute capability: {arch}. Supported: 8.x, 9.x, 10.x, 11.x, 12.x"
@@ -1322,8 +1288,7 @@ def _flash_attn_fwd(
                 window_size_left,
                 window_size_right,
                 current_stream,
-                options="--enable-tvm-ffi",
-            )
+                options="--enable-tvm-ffi")
         elif arch // 10 in [10, 11]:
             _flash_attn_fwd.compile_cache[compile_key] = cute.compile(
                 fa_fwd,
@@ -1354,8 +1319,7 @@ def _flash_attn_fwd(
                 tile_count_semaphore_cute,
                 max_seqlen_q,
                 current_stream,
-                options="--enable-tvm-ffi",
-            )
+                options="--enable-tvm-ffi")
         else:
             _flash_attn_fwd.compile_cache[compile_key] = cute.compile(
                 fa_fwd,
@@ -1378,8 +1342,7 @@ def _flash_attn_fwd(
                 num_splits_dynamic_cute,
                 to_cute_tensor(bias, assumed_align=16) if bias is not None else None,
                 current_stream,
-                options="--enable-tvm-ffi",
-            )
+                options="--enable-tvm-ffi")
 
     if not is_fake_mode():
         if qv is not None:
@@ -1398,8 +1361,7 @@ def _flash_attn_fwd(
                 gather_kv_indices,
                 page_table,
                 window_size_left,
-                window_size_right,
-            )
+                window_size_right)
         elif arch // 10 in [10, 11]:
             exec_args = [
                 q.detach(),
@@ -1455,8 +1417,7 @@ def _flash_attn_fwd(
                 else None,
                 aux_tensors,
                 num_splits_dynamic,
-                bias,
-            )
+                bias)
     if is_split_kv:
         _flash_attn_fwd_combine(
             out_partial,
@@ -1469,8 +1430,7 @@ def _flash_attn_fwd(
             seqused=seqused_q,
             num_splits_dynamic=num_splits_dynamic if has_scheduler_metadata else None,
             semaphore_to_reset=tile_count_semaphore if has_scheduler_metadata else None,
-            max_seqlen_q=max_seqlen_q,
-        )
+            max_seqlen_q=max_seqlen_q)
     elif reuse_scheduler_metadata and tile_count_semaphore is not None:
         tile_count_semaphore.zero_()
     return out, lse, logits_max, bias, cu_total_m_blocks_bias, blocks_to_batch_idx
@@ -1507,8 +1467,7 @@ def flash_attn_func(
     return_logits_max: bool = False,
     sfq: Optional[torch.Tensor] = None,
     sfk: Optional[torch.Tensor] = None,
-    sfv: Optional[torch.Tensor] = None,
-):
+    sfv: Optional[torch.Tensor] = None):
     del deterministic, score_mod_bwd, block_sparse_tensors_bwd
     out, lse, logits_max, *_ = _flash_attn_fwd(
         q,
@@ -1535,8 +1494,7 @@ def flash_attn_func(
         sfk=sfk,
         sfv=sfv,
         qk_sf_vec_size=32 if sfq is not None else None,
-        v_sf_vec_size=32 if sfv is not None else None,
-    )
+        v_sf_vec_size=32 if sfv is not None else None)
     return (out, lse, logits_max) if return_logits_max else (out, lse)
 
 
@@ -1577,8 +1535,7 @@ def flash_attn_varlen_func(
     sfq: Optional[torch.Tensor] = None,
     sfk: Optional[torch.Tensor] = None,
     sfv: Optional[torch.Tensor] = None,
-    out: Optional[torch.Tensor] = None,
-):
+    out: Optional[torch.Tensor] = None):
     del deterministic, score_mod_bwd
     qk_sf_vec_size = None if sfq is None else 32
     v_sf_vec_size = None if sfv is None else 32
@@ -1620,8 +1577,7 @@ def flash_attn_varlen_func(
         sfv=sfv,
         qk_sf_vec_size=qk_sf_vec_size,
         v_sf_vec_size=v_sf_vec_size,
-        out=out,
-    )
+        out=out)
     return (out, lse, logits_max) if return_logits_max else (out, lse)
 
 
@@ -1629,8 +1585,7 @@ def _compile_fwd_combine(
     dtype, dtype_partial, head_dim, num_head, tile_m, k_block_size, log_max_splits,
     has_cu_seqlens, has_seqused, has_lse, has_varlen_batch_idx,
     has_num_splits_dynamic, has_semaphore_to_reset, max_seqlen_q, has_combine_semaphore,
-    has_logits_max,
-):
+    has_logits_max):
     """Compile fwd combine kernel using cute fake tensors (no real GPU tensors needed)."""
     sym = cute.sym_int
     div = 128 // dtype_partial.width  # 16-byte alignment in elements
@@ -1642,12 +1597,10 @@ def _compile_fwd_combine(
         num_head=num_head,
         tile_m=tile_m,
         k_block_size=k_block_size,
-        log_max_splits=log_max_splits,
-    )
+        log_max_splits=log_max_splits)
     if not fa_combine.can_implement(
         dtype, dtype_partial, head_dim, tile_m, k_block_size, log_max_splits,
-        num_threads=256,
-    ):
+        num_threads=256):
         raise RuntimeError(
             "FlashAttention combine kernel cannot be implemented with given parameters"
         )
@@ -1675,12 +1628,12 @@ def _compile_fwd_combine(
     batch_for_1d = batch if not has_cu_seqlens else sym()
     batchp1 = sym()
     semaphore_num = sym()
-    mCuSeqlens = fake_tensor(Int32, (batchp1,), divisibility=1) if has_cu_seqlens else None
-    mSeqused = fake_tensor(Int32, (batch_for_1d,), divisibility=1) if has_seqused else None
-    mNumSplitsDynamic = fake_tensor(Int32, (batch_for_1d,), divisibility=1) if has_num_splits_dynamic else None
-    mVarlenBatchIdx = fake_tensor(Int32, (batch_for_1d,), divisibility=1) if has_varlen_batch_idx else None
-    mSemaphore = fake_tensor(Int32, (semaphore_num,), divisibility=1) if has_semaphore_to_reset else None
-    mCombineSemaphore = fake_tensor(Int32, (semaphore_num,), divisibility=1) if has_combine_semaphore else None
+    mCuSeqlens = fake_tensor(Int32, (batchp1), divisibility=1) if has_cu_seqlens else None
+    mSeqused = fake_tensor(Int32, (batch_for_1d), divisibility=1) if has_seqused else None
+    mNumSplitsDynamic = fake_tensor(Int32, (batch_for_1d), divisibility=1) if has_num_splits_dynamic else None
+    mVarlenBatchIdx = fake_tensor(Int32, (batch_for_1d), divisibility=1) if has_varlen_batch_idx else None
+    mSemaphore = fake_tensor(Int32, (semaphore_num), divisibility=1) if has_semaphore_to_reset else None
+    mCombineSemaphore = fake_tensor(Int32, (semaphore_num), divisibility=1) if has_combine_semaphore else None
 
     return cute.compile(
         fa_combine,
@@ -1688,8 +1641,7 @@ def _compile_fwd_combine(
         mCuSeqlens, mSeqused, mNumSplitsDynamic, mVarlenBatchIdx, mSemaphore,
         max_seqlen_q, mCombineSemaphore,
         cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True),
-        options="--enable-tvm-ffi",
-    )
+        options="--enable-tvm-ffi")
 
 
 def _flash_attn_fwd_combine(
@@ -1705,8 +1657,7 @@ def _flash_attn_fwd_combine(
     varlen_batch_idx: Optional[torch.Tensor] = None,
     semaphore_to_reset: Optional[torch.Tensor] = None,
     max_seqlen_q: Optional[int] = None,
-    use_combine_semaphore: bool = False,
-) -> None:
+    use_combine_semaphore: bool = False) -> None:
     """Forward combine kernel for split attention computation.
 
     Combines partial outputs and log-sum-exp values from multiple splits
@@ -1808,8 +1759,7 @@ def _flash_attn_fwd_combine(
         semaphore_to_reset is not None,
         max_seqlen_q,
         combine_semaphore is not None,
-        logits_max is not None,
-    )
+        logits_max is not None)
     if compile_key not in _flash_attn_fwd_combine.compile_cache:
         _flash_attn_fwd_combine.compile_cache[compile_key] = _compile_fwd_combine(
             *compile_key
@@ -1818,8 +1768,7 @@ def _flash_attn_fwd_combine(
         _flash_attn_fwd_combine.compile_cache[compile_key](
             out_partial, lse_partial, out, lse, logits_max_partial, logits_max,
             cu_seqlens, seqused, num_splits_dynamic, varlen_batch_idx,
-            semaphore_to_reset, max_seqlen_q, combine_semaphore,
-        )
+            semaphore_to_reset, max_seqlen_q, combine_semaphore)
 
 
 _flash_attn_fwd_combine.compile_cache = get_jit_cache("fwd_combine")
@@ -1834,8 +1783,7 @@ def flash_attn_combine(
     seqused: Optional[torch.Tensor] = None,
     varlen_batch_idx: Optional[torch.Tensor] = None,
     return_lse: bool = True,
-    max_seqlen_q: Optional[int] = None,
-) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    max_seqlen_q: Optional[int] = None) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
     """Flash Attention combine function for split attention computation.
 
     Combines partial outputs and log-sum-exp values from multiple splits
@@ -1854,7 +1802,7 @@ def flash_attn_combine(
         cu_seqlens: Cumulative sequence lengths for variable length sequences
         seqused: Used sequence lengths for each batch
         varlen_batch_idx: Optional mapping from virtual batch index to real batch index
-            (int32 tensor of shape (batch_size,)). Used by persistent tile schedulers
+            (int32 tensor of shape (batch_size)). Used by persistent tile schedulers
             that reorder batch processing for load balancing.
         return_lse: Whether to return the combined LSE tensor. Default is True.
         max_seqlen_q: Maximum seqlen_q for any batch, used if there's cu_seqlens.
@@ -1912,8 +1860,7 @@ def flash_attn_combine(
         cu_seqlens=cu_seqlens,
         seqused=seqused,
         varlen_batch_idx=varlen_batch_idx,
-        max_seqlen_q=max_seqlen_q,
-    )
+        max_seqlen_q=max_seqlen_q)
     return out, lse
 
 def get_scheduler_metadata(
@@ -1939,8 +1886,7 @@ def get_scheduler_metadata(
     seqused_k: Optional[torch.Tensor] = None,
     leftpad_k: Optional[torch.Tensor] = None,
     seqlen_k_per_split: Optional[int] = None,
-    zfill_padded_output: bool = True,
-) -> SchedulerMetadataTensorsTorch:
+    zfill_padded_output: bool = True) -> SchedulerMetadataTensorsTorch:
     """
     Helper method to get scheduler metadata for varlen sequences.
     """
@@ -2008,8 +1954,7 @@ def get_scheduler_metadata(
         num_nheads_in_l2 is not None,
         tile_count_semaphore is not None,
         n_blocks_per_split is not None,
-        zfill_padded_output,
-    )
+        zfill_padded_output)
 
     if cache_key not in get_scheduler_metadata.compile_cache:
         (
@@ -2023,8 +1968,7 @@ def get_scheduler_metadata(
             cu_seqlens_k_new_tensor,
             seqused_q_tensor,
             seqused_k_tensor,
-            leftpad_k_tensor,
-         ) = [
+            leftpad_k_tensor) = [
             to_cute_tensor(t, assumed_align=4)
             if t is not None
             else None
@@ -2039,8 +1983,7 @@ def get_scheduler_metadata(
                 cu_seqlens_k_new,
                 seqused_q,
                 seqused_k,
-                leftpad_k,
-            )
+                leftpad_k)
         ]
         scheduler = FlashPrepareScheduler(
             num_warps,
@@ -2053,8 +1996,7 @@ def get_scheduler_metadata(
             causal,
             packgqa=pack_gqa,
             sort=sort,
-            zfill_padded_output=zfill_padded_output,
-        )
+            zfill_padded_output=zfill_padded_output)
         get_scheduler_metadata.compile_cache[cache_key] = cute.compile(
             scheduler,
             max_seqlen_q,
@@ -2075,8 +2017,7 @@ def get_scheduler_metadata(
             num_nheads_in_l2_cute,
             n_blocks_per_split,
             cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True),
-            options="--enable-tvm-ffi",
-        )
+            options="--enable-tvm-ffi")
 
     if not is_fake_mode():
         get_scheduler_metadata.compile_cache[cache_key](
@@ -2096,16 +2037,14 @@ def get_scheduler_metadata(
             num_splits_dynamic,
             varlen_batch_idx,
             num_nheads_in_l2,
-            n_blocks_per_split,
-        )
+            n_blocks_per_split)
 
     return SchedulerMetadataTensorsTorch(
         num_m_blocks_ptr=num_m_blocks,
         num_splits_dynamic_ptr=num_splits_dynamic,
         varlen_batch_idx_ptr=varlen_batch_idx,
         num_nheads_in_l2_ptr=num_nheads_in_l2,
-        tile_count_semaphore=tile_count_semaphore,
-    )
+        tile_count_semaphore=tile_count_semaphore)
 
 get_scheduler_metadata.compile_cache = get_jit_cache("scheduler_metadata")
 
@@ -2123,8 +2062,7 @@ def _compile_mixed_dtype_gemm(
     mma_tiler_mn: Tuple[int, int] = (256, 256),
     cluster_shape_mn: Tuple[int, int] = (2, 1),
     use_2cta_instrs: bool = True,
-    keep_ptx: bool = True,
-):
+    keep_ptx: bool = True):
     a_dtype = torch2cute_dtype_map[a_dtype]
     b_dtype = torch2cute_dtype_map[b_dtype]
     c_dtype = torch2cute_dtype_map[c_dtype]
@@ -2149,8 +2087,7 @@ def _compile_mixed_dtype_gemm(
         c_dtype,
         use_2cta_instrs,
         mma_tiler_mn,
-        cluster_shape_mn,
-    )
+        cluster_shape_mn)
     # Check if configuration can be implemented
     gemm.check_can_implement()
 
@@ -2159,20 +2096,17 @@ def _compile_mixed_dtype_gemm(
         a_dtype,
         (l_fake, m_fake, k_fake),
         stride_order=(2, 1, 0) if a_major == "k" else (2, 0, 1),
-        assumed_align=16,
-    )
+        assumed_align=16)
     b_fake = cute.runtime.make_fake_compact_tensor(
         b_dtype,
         (l_fake, n_fake, k_fake),
         stride_order=(2, 1, 0) if b_major == "k" else (2, 0, 1),
-        assumed_align=16,
-    )
+        assumed_align=16)
     c_fake = cute.runtime.make_fake_compact_tensor(
         c_dtype,
         (l_fake, m_fake, n_fake),
         stride_order=(2, 1, 0) if c_major == "n" else (2, 0, 1),
-        assumed_align=16,
-    )
+        assumed_align=16)
 
     stream = cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True)
     compile_options = "--enable-tvm-ffi"
@@ -2185,8 +2119,7 @@ def _compile_mixed_dtype_gemm(
         c_fake,
         stream,
         epilogue_op=epilogue_op,
-        options=compile_options,
-    )
+        options=compile_options)
 
 
 def mixed_dtype_gemm(
@@ -2200,8 +2133,7 @@ def mixed_dtype_gemm(
     mma_tiler_mn: tuple[int, int] = (256, 256),
     cluster_shape_mn: tuple[int, int] = (2, 1),
     use_2cta_instrs: bool = True,
-    unfused: Optional[bool] = None,
-) -> Optional[torch.Tensor]:
+    unfused: Optional[bool] = None) -> Optional[torch.Tensor]:
     """Mixed dtype GEMM.
 
     Args:
@@ -2297,8 +2229,7 @@ def mixed_dtype_gemm(
         epilogue_op_hash,
         mma_tiler_mn,
         cluster_shape_mn,
-        use_2cta_instrs,
-    )
+        use_2cta_instrs)
 
     if cache_key not in mixed_dtype_gemm.compile_cache:
         mixed_dtype_gemm.compile_cache[cache_key] = _compile_mixed_dtype_gemm(
@@ -2313,8 +2244,7 @@ def mixed_dtype_gemm(
             epilogue_op,
             mma_tiler_mn,
             cluster_shape_mn,
-            use_2cta_instrs,
-        )
+            use_2cta_instrs)
 
     if not is_fake_mode():
         mixed_dtype_gemm.compile_cache[cache_key](a_, b_, c)

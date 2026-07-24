@@ -6,7 +6,7 @@ written by `vllm bench serve --save-result` and emits a markdown comparison
 table per mix/concurrency to ~/gate_summary.md.
 
 Metric keys, verified against the pinned fork @850295881
-(C:/Users/jaber/RightNow-Full/inkling/vllm/vllm/benchmarks/serve.py):
+($REPO/vllm/vllm/benchmarks/serve.py):
   - request_throughput, output_throughput: result dict, lines 1200-1203
   - median_ttft_ms / median_tpot_ms / median_itl_ms and the p99_*_ms
     variants: process_one_metric writes mean_/median_/std_/p<P>_ keys per

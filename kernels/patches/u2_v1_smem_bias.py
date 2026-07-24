@@ -7,10 +7,10 @@ offset n*tile_n + padded - 128*(m+1). k_min = 128*(m+1) - padded is a
 multiple of tile_n, so tiles are NEVER partial: fully valid -> one plain
 cp.async 2D copy (issued with the V load, same commit group); fully
 out-of-range -> skip copy AND skip smem read (scale-only). Apply is a
-per-element smem read + FMA at fragment coords — no bounds checks, no
+per-element smem read + FMA at fragment coords, no bounds checks, no
 gmem, no divmods.
 
-Usage: python3 u2_v1_smem_bias.py /home/jaber/inkling-turbo/vllm
+Usage: python3 u2_v1_smem_bias.py /path/to/vllm
 """
 
 import sys
@@ -35,8 +35,7 @@ EDITS = [
         "        else:\n"
         "            self.sBias_layout = None\n"
         "            self.gmem_tiled_copy_Bias = None\n"
-        "        SharedStorage = self._get_shared_storage_cls()",
-    ),
+        "        SharedStorage = self._get_shared_storage_cls()"),
     # B. SharedStorage: bias variant
     (
         "        @cute.struct\n"
@@ -76,8 +75,7 @@ EDITS = [
         "            sQ: sQV_struct\n"
         "            sK: sK_struct\n"
         "\n"
-        "        return SharedStorageQKV if const_expr(not self.Q_in_regs) else SharedStorageSharedQV",
-    ),
+        "        return SharedStorageQKV if const_expr(not self.Q_in_regs) else SharedStorageSharedQV"),
     # C. kernel: sBias tensor + k-space gmem view + thread partitions
     (
         "        smem = cutlass.utils.SmemAllocator()\n"
@@ -108,8 +106,7 @@ EDITS = [
         "            sBias = None\n"
         "            tBgBias = None\n"
         "            tBsBias = None\n"
-        "            bias_k_min_tile = Int32(0)",
-    ),
+        "            bias_k_min_tile = Int32(0)"),
     # D. thread bias objects into compute_one_n_block
     (
         "            mma_params=mma_params,\n"
@@ -124,8 +121,7 @@ EDITS = [
         "            tBgBias=tBgBias,\n"
         "            tBsBias=tBsBias,\n"
         "            bias_k_min_tile=bias_k_min_tile,\n"
-        "            load_K=load_K,",
-    ),
+        "            load_K=load_K,"),
     # E. compute_one_n_block signature: swap mBias_cur for smem objects
     (
         "        is_first_n_block: cutlass.Constexpr = False,\n"
@@ -138,8 +134,7 @@ EDITS = [
         "        tBgBias=None,\n"
         "        tBsBias=None,\n"
         "        bias_k_min_tile=None,\n"
-        "    ):",
-    ),
+        "    ):"),
     # F. issue the bias tile copy with the V load (same commit group)
     (
         "        load_V_next()\n"
@@ -152,8 +147,7 @@ EDITS = [
         "                    tBsBias,\n"
         "                )\n"
         "        load_V_next()\n"
-        "        sm80_utils.gemm(",
-    ),
+        "        sm80_utils.gemm("),
     # G. replace v0 gmem apply with smem apply after the stage-1 sync
     (
         "        if const_expr(self.has_bias and mBias_cur is not None):\n"
@@ -168,8 +162,7 @@ EDITS = [
         "            )\n"
         "\n"
         "        smem_pipe_write = self.advance_pipeline(smem_pipe_write)",
-        "        smem_pipe_write = self.advance_pipeline(smem_pipe_write)",
-    ),
+        "        smem_pipe_write = self.advance_pipeline(smem_pipe_write)"),
     (
         "        if const_expr(mask_fn is not None):\n"
         "            mask_fn(acc_S, n_block=n_block)\n"
@@ -187,8 +180,7 @@ EDITS = [
         "            )\n"
         "        if const_expr(mask_fn is not None):\n"
         "            mask_fn(acc_S, n_block=n_block)\n"
-        "        row_scale = softmax.online_softmax(acc_S, is_first=is_first_n_block, check_inf=check_inf)",
-    ),
+        "        row_scale = softmax.online_softmax(acc_S, is_first=is_first_n_block, check_inf=check_inf)"),
     # H. the smem apply method (replaces v0's apply_rel_bias body use)
     (
         "    @cute.jit\n"
@@ -218,8 +210,7 @@ EDITS = [
         "                acc_S[i] = acc_S[i] * softmax_scale\n"
         "\n"
         "    @cute.jit\n"
-        "    def apply_rel_bias(\n",
-    ),
+        "    def apply_rel_bias(\n"),
 ]
 
 

@@ -2,12 +2,13 @@
 """Poll Lambda for 8x B200 capacity; exit 0 the moment any target type has capacity.
 
 Usage: py scripts/watch_b200.py [--interval 300] [--max-hours 72]
-Key file: ~/.kernelforge/lambda_api_key
+Key: $LAMBDA_API_KEY, or ~/.lambda/api_key
 """
 
 import argparse
 import base64
 import json
+import os
 import sys
 import time
 import urllib.request
@@ -44,7 +45,7 @@ def main() -> int:
     args = ap.parse_args()
     targets = args.types.split(",")
 
-    key = (Path.home() / ".kernelforge" / "lambda_api_key").read_text().strip()
+    key = os.environ.get("LAMBDA_API_KEY") or (Path.home() / ".lambda" / "api_key").read_text().strip()
     deadline = time.monotonic() + args.max_hours * 3600
     while time.monotonic() < deadline:
         stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")

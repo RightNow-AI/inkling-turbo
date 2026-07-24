@@ -3,7 +3,7 @@
 # Runs ON the 8x H100 Lambda box (after scripts/bootstrap_8x.sh).
 #
 # Benchmark entrypoint, verified against the pinned fork @850295881
-# (C:/Users/jaber/RightNow-Full/inkling/vllm):
+# ($REPO/vllm):
 #   - benchmarks/benchmark_serving.py is a DEPRECATED shim that exits 1 and
 #     points at `vllm bench serve` (benchmarks/benchmark_serving.py lines
 #     5-17). The real entrypoint is `vllm bench serve`

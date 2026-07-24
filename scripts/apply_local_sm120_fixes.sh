@@ -29,7 +29,7 @@ PYEOF
 
 # 2. vllm_flash_attn cute flash_fwd.py: kernel body reads mDynamicCausal but it
 #    was never threaded through the @cute.kernel signature or the launch call
-#    (only the generic path is affected — sm90/sm100 have their own files, so
+#    (only the generic path is affected, sm90/sm100 have their own files, so
 #    CI on H100/B200 never sees it; sm_120 falls back to the generic path).
 python3 - "$VLLM_DIR/vllm/vllm_flash_attn/cute/flash_fwd.py" <<'EOF'
 import sys
@@ -38,15 +38,13 @@ s = open(p).read()
 if "mDynamicCausal,\n        ).launch(" not in s:
     s = s.replace(
         "            output_scale,\n        ).launch(",
-        "            output_scale,\n            mDynamicCausal,\n        ).launch(",
-    )
+        "            output_scale,\n            mDynamicCausal,\n        ).launch(")
 if "mDynamicCausal: Optional[cute.Tensor] = None,\n    ):\n        # Thread index" not in s:
     s = s.replace(
         "        output_scale: Optional[cute.Tensor] = None,\n    ):\n        # Thread index",
         "        output_scale: Optional[cute.Tensor] = None,\n"
         "        mDynamicCausal: Optional[cute.Tensor] = None,\n"
-        "    ):\n        # Thread index",
-    )
+        "    ):\n        # Thread index")
 open(p, "w").write(s)
 EOF
 
@@ -61,8 +59,7 @@ if "self.is_split_kv" not in s:
         "        self.arch = Arch.sm_80\n",
         "        self.arch = Arch.sm_80\n"
         "        if not hasattr(self, \"is_split_kv\"):\n"
-        "            self.is_split_kv = False\n",
-    )
+        "            self.is_split_kv = False\n")
 open(p, "w").write(s)
 EOF
 

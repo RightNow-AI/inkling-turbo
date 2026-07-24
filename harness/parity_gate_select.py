@@ -10,7 +10,7 @@ journal/day0-implementation.md):
 Outputs: ids [T, K+S] int32, weights [T, K+S] fp32.
 
 Run (WSL): cd ~/inkling-turbo/vllm && source .venv/bin/activate && \
-  python /mnt/c/Users/jaber/RightNow-Full/inkling/harness/parity_gate_select.py
+  python $REPO/harness/parity_gate_select.py
 """
 
 from __future__ import annotations
@@ -25,8 +25,7 @@ def reference_gate_select(
     n_shared: int,
     bias: torch.Tensor | None,
     route_scale: float,
-    global_scale: torch.Tensor | None,
-) -> tuple[torch.Tensor, torch.Tensor]:
+    global_scale: torch.Tensor | None) -> tuple[torch.Tensor, torch.Tensor]:
     lr = logits[:, :n_routed].float()
     sel = torch.sigmoid(lr)
     if bias is not None:
@@ -64,7 +63,7 @@ def run_case(T: int, use_bias: bool, use_gscale: bool, seed: int) -> list[str]:
 
     errs = []
     # Routed ids compare as SETS per token (kernel: iterative argmax order,
-    # reference: topk order — both descending-sel so order should match too;
+    # reference: topk order, both descending-sel so order should match too;
     # check order strictly and fall back to set equality for diagnostics).
     if not torch.equal(ids_k, ids_r):
         same_set = (ids_k[:, :K].sort(dim=1).values

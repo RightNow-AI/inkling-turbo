@@ -4,6 +4,7 @@ the given args. Serializes session launches against terminating instances."""
 
 import base64
 import json
+import os
 import subprocess
 import sys
 import time
@@ -12,7 +13,7 @@ from pathlib import Path
 
 
 def main() -> int:
-    key = (Path.home() / ".kernelforge" / "lambda_api_key").read_text().strip()
+    key = os.environ.get("LAMBDA_API_KEY") or (Path.home() / ".lambda" / "api_key").read_text().strip()
     tok = base64.b64encode(f"{key}:".encode()).decode()
     for _ in range(40):
         req = urllib.request.Request(

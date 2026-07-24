@@ -12,6 +12,7 @@ Usage: py scripts/grab_b200.py [--type gpu_1x_b200_sxm6] [--interval 120]
 import argparse
 import base64
 import json
+import os
 import subprocess
 import sys
 import time
@@ -24,7 +25,7 @@ REPO = Path(__file__).resolve().parent.parent
 SSH_KEY = str(Path.home() / ".ssh" / "id_ed25519")
 SSH_ARGS = [
     "-i", SSH_KEY, "-o", "StrictHostKeyChecking=no",
-    "-o", "UserKnownHostsFile=NUL", "-o", "ConnectTimeout=15",
+    "-o", "UserKnownHostsFile=" + os.devnull, "-o", "ConnectTimeout=15",
     "-o", "LogLevel=ERROR",
 ]
 PRICE_PER_HOUR = {"gpu_1x_b200_sxm6": 6.99, "gpu_2x_b200_sxm6": 13.78,
@@ -33,15 +34,14 @@ PRICE_PER_HOUR = {"gpu_1x_b200_sxm6": 6.99, "gpu_2x_b200_sxm6": 13.78,
 
 
 def api(method: str, path: str, body: dict | None = None) -> dict:
-    key = (Path.home() / ".kernelforge" / "lambda_api_key").read_text().strip()
+    key = os.environ.get("LAMBDA_API_KEY") or (Path.home() / ".lambda" / "api_key").read_text().strip()
     token = base64.b64encode(f"{key}:".encode()).decode()
     req = urllib.request.Request(
         API + path, method=method,
         headers={"Authorization": f"Basic {token}",
                  "Content-Type": "application/json",
                  "User-Agent": "inkling-turbo/1.0"},
-        data=json.dumps(body).encode() if body else None,
-    )
+        data=json.dumps(body).encode() if body else None)
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             return json.loads(r.read().decode())
@@ -84,7 +84,7 @@ def wait_for_capacity(itypes: list[str], interval: int,
 def launch(itype: str, region: str) -> str:
     resp = api("POST", "/instance-operations/launch", {
         "region_name": region, "instance_type_name": itype,
-        "ssh_key_names": ["kernelforge"],
+        "ssh_key_names": [os.environ.get("LAMBDA_SSH_KEY", "default")],
         "name": "inkling-turbo-" + itype.removeprefix("gpu_"),
         "quantity": 1,
     })
@@ -134,7 +134,7 @@ def terminate(iid: str) -> None:
         api("POST", "/instance-operations/terminate", {"instance_ids": [iid]})
         print(f"[{stamp()}] TERMINATED {iid}", flush=True)
     except Exception as exc:  # noqa: BLE001
-        print(f"[{stamp()}] TERMINATE FAILED for {iid}: {exc} — "
+        print(f"[{stamp()}] TERMINATE FAILED for {iid}: {exc}, "
               f"KILL MANUALLY IN LAMBDA CONSOLE", flush=True)
 
 

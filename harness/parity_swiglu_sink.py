@@ -11,7 +11,7 @@ column slice of a padded GEMM output; gammas as a column slice of the
 gate-select weights).
 
 Run (WSL): cd ~/inkling-turbo/vllm && source .venv/bin/activate && \
-  python /mnt/c/Users/jaber/RightNow-Full/inkling/harness/parity_swiglu_sink.py
+  python $REPO/harness/parity_swiglu_sink.py
 """
 
 from __future__ import annotations

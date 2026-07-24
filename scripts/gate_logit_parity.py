@@ -14,7 +14,7 @@ lengths, one >600 tokens). Also runs a batched-vs-batch-1 consistency check
 on 4 prompts per build (CLAUDE.md gate: batched output == batch-1 output).
 
 API mechanism, verified against the pinned fork @850295881
-(C:/Users/jaber/RightNow-Full/inkling/vllm):
+($REPO/vllm):
   - `echo: bool | None = False` and `logprobs: int | None = None` are
     CompletionRequest fields: vllm/entrypoints/openai/completion/protocol.py
     lines 59 and 62.

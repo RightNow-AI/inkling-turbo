@@ -12,7 +12,7 @@ places values so that the LAST valid kv (k = i) sits at bias_idx_right-1
 computed from the row's n_idx_right, values descending dist leftward, -inf
 right-pad (causal), left pad -inf (local) / 0.0 (global beyond extent).
 
-We don't re-derive col() analytically here — we EXTRACT it empirically:
+We don't re-derive col() analytically here, we EXTRACT it empirically:
 write rel_logits with unique values rel_logits[i,h,d] = encode(i,h,d), run
 the writer, decode positions, and dump the observed (i, k) -> column map.
 The map is then asserted against the affine form col = A*i + B*k + C per
@@ -51,8 +51,7 @@ def run(T: int, ext: int, window_left: int | None) -> dict:
     sb = ShearingBias(
         rel_extent=ext, is_causal=True,
         is_local=window_left is not None,
-        pack_gqa=False, qhead_per_kvhead=1, rows_per_cta=4,
-    )
+        pack_gqa=False, qhead_per_kvhead=1, rows_per_cta=4)
     compiled = cute.compile(
         sb,
         to_cute_tensor(rel), to_cute_tensor(bias),
@@ -60,8 +59,7 @@ def run(T: int, ext: int, window_left: int | None) -> dict:
         to_cute_tensor(cu), to_cute_tensor(cu),
         None, None, None, None,
         window_left, 0 if window_left is not None else None,
-        stream,
-    )
+        stream)
     compiled(rel, bias, T, T, cu, cu, None, None, None, None,
              window_left, 0 if window_left is not None else None, stream)
     torch.cuda.synchronize()

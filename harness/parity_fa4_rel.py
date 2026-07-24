@@ -9,7 +9,7 @@ tml-fa4 ShearingBias, journal/day0-implementation.md):
 Local (SWA) mode adds window masking: attend iff 0 <= i - j <= window_left.
 
 Run (WSL): cd ~/inkling-turbo/vllm && source .venv/bin/activate && \
-  python /mnt/c/Users/jaber/RightNow-Full/inkling/harness/parity_fa4_rel.py
+  python $REPO/harness/parity_fa4_rel.py
 """
 
 from __future__ import annotations
@@ -25,8 +25,7 @@ def reference_rel_attention(
     v: torch.Tensor,  # (T, Hkv, D)
     rel_logits: torch.Tensor,  # (T, Hq, rel_extent)
     softmax_scale: float,
-    window_left: int | None = None,
-) -> torch.Tensor:
+    window_left: int | None = None) -> torch.Tensor:
     T, Hq, D = q.shape
     Hkv = k.shape[1]
     rel_extent = rel_logits.shape[-1]
@@ -57,8 +56,7 @@ def reference_rel_attention(
 
 def run_case(
     T: int, Hq: int, Hkv: int, D: int, rel_extent: int, window_left: int | None,
-    seed: int,
-) -> dict:
+    seed: int) -> dict:
     torch.manual_seed(seed)
     dev = "cuda"
     q = torch.randn(T, Hq, D, dtype=torch.bfloat16, device=dev) / (D**0.25)
@@ -80,7 +78,7 @@ def run_case(
     results = {}
 
     # Backend 1: tml-fa4 sheared rel_bias (sm_100/110 kernel; on sm_120 the
-    # interface asserts tile_n == 128 — expected unsupported locally).
+    # interface asserts tile_n == 128, expected unsupported locally).
     from vllm.third_party.tml_fa4 import flash_attn_varlen_func as fa4_sheared
 
     try:
@@ -89,8 +87,7 @@ def run_case(
             rel_bias=rel_logits,
             cu_seqlens_q=cu, cu_seqlens_k=cu,
             max_seqlen_q=T, max_seqlen_k=T,
-            softmax_scale=scale, causal=True, window_size=window,
-        )
+            softmax_scale=scale, causal=True, window_size=window)
         if isinstance(out, tuple):
             out = out[0]
         diff = (out.float() - ref.float()).abs()
@@ -100,13 +97,12 @@ def run_case(
     except Exception as exc:  # noqa: BLE001 - report per-backend failures
         results["tml_fa4_rel_bias"] = f"FAILED: {type(exc).__name__}: {exc}"
 
-    # Backend 2: score_mod gather — vLLM's actual sm_120/Hopper path
+    # Backend 2: score_mod gather, vLLM's actual sm_120/Hopper path
     # (vllm/models/inkling/nvidia/ops/fa4_rel_attention.py else-branch).
     try:
         from vllm.models.inkling.nvidia.ops.fa4_rel_attention import _get_score_mod
         from vllm.vllm_flash_attn.cute import (
-            flash_attn_varlen_func as fa_score_mod,
-        )
+            flash_attn_varlen_func as fa_score_mod)
 
         cute_window = (None, None) if window_left is None else window
         out = fa_score_mod(
@@ -115,8 +111,7 @@ def run_case(
             max_seqlen_q=T, max_seqlen_k=T,
             softmax_scale=scale, causal=True, window_size=cute_window,
             score_mod=_get_score_mod(rel_extent),
-            aux_tensors=[rel_logits.contiguous()],
-        )
+            aux_tensors=[rel_logits.contiguous()])
         if isinstance(out, tuple):
             out = out[0]
         diff = (out.float() - ref.float()).abs()
@@ -124,7 +119,7 @@ def run_case(
     except Exception as exc:  # noqa: BLE001
         results["score_mod"] = f"FAILED: {type(exc).__name__}: {exc}"
 
-    # Backend 3: U2-Hopper Design B V1 — register-resident r-projection bias
+    # Backend 3: U2-Hopper Design B V1, register-resident r-projection bias
     # (kernels/relproj_score_mod.py). Consumes (r, proj) instead of the
     # materialized rel_logits; rel_logits used by ref/backends 1-2 is
     # derived from the same (r, proj) below, so all backends see one truth.
@@ -135,8 +130,7 @@ def run_case(
         _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
         from kernels.relproj_score_mod import get_relproj_score_mod
         from vllm.vllm_flash_attn.cute import (
-            flash_attn_varlen_func as fa_relproj,
-        )
+            flash_attn_varlen_func as fa_relproj)
 
         cute_window = (None, None) if window_left is None else window
         out = fa_relproj(
@@ -145,8 +139,7 @@ def run_case(
             max_seqlen_q=T, max_seqlen_k=T,
             softmax_scale=scale, causal=True, window_size=cute_window,
             score_mod=get_relproj_score_mod(rel_extent),
-            aux_tensors=[r_small.contiguous(), proj.contiguous()],
-        )
+            aux_tensors=[r_small.contiguous(), proj.contiguous()])
         if isinstance(out, tuple):
             out = out[0]
         diff = (out.float() - ref.float()).abs()
@@ -165,7 +158,7 @@ def main() -> None:
     print(f"device: {torch.cuda.get_device_name(0)}, "
           f"capability {torch.cuda.get_device_capability(0)}")
 
-    # (name, T, Hq, Hkv, D, rel_extent, window_left) — real Inkling head geometry,
+    # (name, T, Hq, Hkv, D, rel_extent, window_left), real Inkling head geometry,
     # reduced head count / seqlen to fit quick runs.
     cases = [
         ("global_short", 128, 8, 1, 128, 1024, None),

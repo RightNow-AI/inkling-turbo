@@ -2,7 +2,7 @@
 """U2-Hopper Design B, V1: register-resident relative bias as a score_mod.
 
 Replaces the day-0 gather `rel_logits[q, h, dist]` (aux tensor (T, H, ext)
-bf16 — zero reuse, gmem-latency-bound, measured 3.2x overhead at kv64k
+bf16, zero reuse, gmem-latency-bound, measured 3.2x overhead at kv64k
 decode, journal/remote/h100-session1.md session 4) with an inline
 16-term dot product:
 
@@ -12,7 +12,7 @@ aux_tensors = [r (T, H, 16) bf16, proj (16, ext) bf16]. proj is 32KB total
 (ext=1024) with T*H/ext-fold reuse -> L1-resident; r is 32B per row reused
 across every attended kv. No rel_logits materialization, no shear kernel.
 
-Log scaling: fold tau into r upstream (r' = r * tau[token]) — same math as
+Log scaling: fold tau into r upstream (r' = r * tau[token]), same math as
 day-0's rel_logits *= tau, different bf16 rounding path (documented; parity
 gate judges).
 
@@ -30,7 +30,7 @@ D_REL = 16
 
 @cache
 def get_relproj_score_mod(rel_extent: int) -> Callable:
-    """V1: proj stored (16, ext) — per-element column walk (strided loads)."""
+    """V1: proj stored (16, ext), per-element column walk (strided loads)."""
     import cutlass
     import cutlass.cute as cute
     from cutlass import Float32
@@ -45,8 +45,7 @@ def get_relproj_score_mod(rel_extent: int) -> Callable:
         q_idx: cute.TensorSSA,
         kv_idx: cute.TensorSSA,
         seqlen_info: SeqlenInfoQK,
-        aux_tensors: list[cute.Tensor],
-    ) -> cute.TensorSSA:
+        aux_tensors: list[cute.Tensor]) -> cute.TensorSSA:
         r = aux_tensors[0]      # (total_q, H, 16)
         proj = aux_tensors[1]   # (16, rel_extent)
 
@@ -71,7 +70,7 @@ def get_relproj_score_mod(rel_extent: int) -> Callable:
 
 @cache
 def get_relproj_score_mod_v15(rel_extent: int) -> Callable:
-    """V1.5: proj stored TRANSPOSED (ext, 16) — the 16 loads per element are
+    """V1.5: proj stored TRANSPOSED (ext, 16), the 16 loads per element are
     contiguous (32B span; compiler can merge into vector loads). Tests the
     load-coalescing half of the V1 diagnosis with zero kernel plumbing."""
     import cutlass
@@ -88,8 +87,7 @@ def get_relproj_score_mod_v15(rel_extent: int) -> Callable:
         q_idx: cute.TensorSSA,
         kv_idx: cute.TensorSSA,
         seqlen_info: SeqlenInfoQK,
-        aux_tensors: list[cute.Tensor],
-    ) -> cute.TensorSSA:
+        aux_tensors: list[cute.Tensor]) -> cute.TensorSSA:
         r = aux_tensors[0]      # (total_q, H, 16)
         projT = aux_tensors[1]  # (rel_extent, 16) contiguous rows
 

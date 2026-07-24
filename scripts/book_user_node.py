@@ -13,6 +13,7 @@ Usage: py scripts/book_user_node.py [--interval 30] [--max-hours 96]
 """
 
 import argparse
+import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -58,7 +59,7 @@ def main() -> int:
                 try:
                     r = gb.api("POST", "/instance-operations/launch", {
                         "region_name": region, "instance_type_name": t,
-                        "ssh_key_names": ["kernelforge"],
+                        "ssh_key_names": [os.environ.get("LAMBDA_SSH_KEY", "default")],
                         "name": "inkling-user-node", "quantity": 1,
                     })
                     iid = r["data"]["instance_ids"][0]

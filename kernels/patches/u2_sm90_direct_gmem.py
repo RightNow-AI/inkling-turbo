@@ -11,7 +11,7 @@ own wgmma fragment elements, using reshape_acc_to_mn coords (the proven
 AttentionMask pattern). Correctness first; smem staging done right is a later
 perf pass. Idempotent.
 
-Usage: python3 u2_sm90_direct_gmem.py /home/jaber/inkling-turbo/vllm
+Usage: python3 u2_sm90_direct_gmem.py /path/to/vllm
 """
 
 import sys

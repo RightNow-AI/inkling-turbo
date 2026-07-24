@@ -7,7 +7,7 @@ cp.async load -> named barrier 7 (free slot; enum uses 1-6) across MMA
 warpgroups -> fragment-coord smem apply. tile_mn forced (128,128) when
 rel_bias on sm_90 so bias tiles are never partial (k_min % tile_n == 0).
 
-Usage: python3 u2_sm90_bias_port.py /home/jaber/inkling-turbo/vllm
+Usage: python3 u2_sm90_bias_port.py /path/to/vllm
 """
 
 import sys

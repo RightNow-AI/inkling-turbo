@@ -26,7 +26,7 @@ Semantics derived from vllm/models/inkling/nvidia/ops/qkvr_prep.py (fork base
   :840-868) and tiled (>= 128, :870-917). Both are tested.
 
 Run (WSL): cd ~/inkling-turbo/vllm && source .venv/bin/activate && \
-  python /mnt/c/Users/jaber/RightNow-Full/inkling/harness/parity_qkvr_prep.py
+  python $REPO/harness/parity_qkvr_prep.py
 """
 
 from __future__ import annotations

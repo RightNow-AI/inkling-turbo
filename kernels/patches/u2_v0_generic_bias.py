@@ -2,7 +2,7 @@
 """U2 v0: tile-level sheared-bias add in tml_fa4's generic (SM80/sm_120) kernel.
 
 Applies to the WSL editable install. v0 = direct-gmem fragment add (no smem
-staging yet): per acc element, one gmem load at fragment coords + FMA — no
+staging yet): per acc element, one gmem load at fragment coords + FMA, no
 divmods, no callback SSA machinery (the measured 3.2x overhead of score_mod).
 v1 (smem staging + cp.async pipeline) follows only if v0 misses target.
 
@@ -13,10 +13,10 @@ Layout contract (machine-verified, journal/u2-hopper-design.md):
   (col < 0 or >= padded) contribute 0 (global beyond-extent) and window
   masking handles local-mode exclusion.
 
-Scale semantics: mimics score_mod contract — acc = acc*scale + bias applied
+Scale semantics: mimics score_mod contract, acc = acc*scale + bias applied
 to every tile element; softmax_scale_log2 switches to log2e-only mode.
 
-Usage: python3 u2_v0_generic_bias.py /home/jaber/inkling-turbo/vllm
+Usage: python3 u2_v0_generic_bias.py /path/to/vllm
 """
 
 import sys
@@ -35,8 +35,7 @@ EDITS_FWD = [
         "        has_aux_tensors: bool = False,\n"
         "        q_subtile_factor: int | None = None,\n"
         "        has_bias: bool = False,\n"
-        "    ):",
-    ),
+        "    ):"),
     (
         "        self.score_mod = score_mod\n"
         "        self.mask_mod = mask_mod\n"
@@ -44,8 +43,7 @@ EDITS_FWD = [
         "        self.score_mod = score_mod\n"
         "        self.mask_mod = mask_mod\n"
         "        self.has_bias = has_bias\n"
-        "        self.qk_acc_dtype = Float32",
-    ),
+        "        self.qk_acc_dtype = Float32"),
     # 2. SM80 __call__: accept mBias, transpose, thread into kernel
     (
         "        aux_tensors=None,\n"
@@ -58,8 +56,7 @@ EDITS_FWD = [
         "        mBias: Optional[cute.Tensor] = None,\n"
         "        # Always keep stream as the last parameter (EnvStream: obtained implicitly via TVM FFI).\n"
         "        stream: cuda.CUstream = None,\n"
-        "    ):",
-    ),
+        "    ):"),
     (
         "        if const_expr(mLSE is not None):\n"
         "            LSE_layout_transpose = [2, 1, 0] if const_expr(mCuSeqlensQ is None) else [1, 0]\n"
@@ -73,8 +70,7 @@ EDITS_FWD = [
         "            mBias = cute.make_tensor(\n"
         "                assume_tensor_aligned(mBias).iterator,\n"
         "                cute.select(mBias.layout, mode=Bias_layout_transpose),\n"
-        "            )",
-    ),
+        "            )"),
     (
         "            tile_sched_params,\n"
         "            TileScheduler,\n"
@@ -86,8 +82,7 @@ EDITS_FWD = [
         "            aux_tensors,\n"
         "            fastdiv_mods,\n"
         "            mBias,\n"
-        "        ).launch(",
-    ),
+        "        ).launch("),
     # 3. kernel signature (SM80 kernel: aux_tensors=None, fastdiv_mods=None tail)
     (
         "        aux_tensors=None,\n"
@@ -98,8 +93,7 @@ EDITS_FWD = [
         "        fastdiv_mods=None,\n"
         "        mBias: Optional[cute.Tensor] = None,\n"
         "    ):\n"
-        "        # Thread index, block index",
-    ),
+        "        # Thread index, block index"),
     # 4. kernel body: slice mBias per (head, varlen offset) alongside mQ_cur
     (
         "        gQ = cute.local_tile(mQ_cur, blkQ_shape, (m_block, 0))",
@@ -112,8 +106,7 @@ EDITS_FWD = [
         "                )\n"
         "        else:\n"
         "            mBias_cur = None\n"
-        "        gQ = cute.local_tile(mQ_cur, blkQ_shape, (m_block, 0))",
-    ),
+        "        gQ = cute.local_tile(mQ_cur, blkQ_shape, (m_block, 0))"),
     # 5. thread mBias_cur through compute_one_n_block partial
     (
         "        compute_one_n_block = partial(\n"
@@ -128,8 +121,7 @@ EDITS_FWD = [
         "            smem_copy_params=smem_copy_params,\n"
         "            softmax=softmax,\n"
         "            mBias_cur=mBias_cur,\n"
-        "            load_K=load_K,",
-    ),
+        "            load_K=load_K,"),
     # 6. compute_one_n_block: new param + bias application after gemm
     (
         "        mask_fn: Optional[Callable] = None,\n"
@@ -140,8 +132,7 @@ EDITS_FWD = [
         "        is_first_n_block: cutlass.Constexpr = False,\n"
         "        check_inf: cutlass.Constexpr = True,\n"
         "        mBias_cur=None,\n"
-        "    ):",
-    ),
+        "    ):"),
     (
         "        if const_expr(score_mod is not None):\n"
         "            self.apply_score_mod(\n"
@@ -178,8 +169,7 @@ EDITS_FWD = [
         "                softmax.softmax_scale,\n"
         "                mBias_cur,\n"
         "                seqlen,\n"
-        "            )",
-    ),
+        "            )"),
     # 7. apply_rel_bias method (before apply_score_mod def)
     (
         "    @cute.jit\n"
@@ -228,8 +218,7 @@ EDITS_FWD = [
         "        thr_mma_qk,\n"
         "        batch_idx,\n"
         "        head_idx,\n"
-        "        m_block,",
-    ),
+        "        m_block,"),
 ]
 
 # Interface: route rel_bias to the generic family (sm_120/sm_80) with the
@@ -239,8 +228,7 @@ EDITS_IFACE = [
         "        assert tile_m == 128\n"
         "        assert tile_n == 128",
         "        assert tile_m == 128\n"
-        "        assert tile_n == 128 or arch // 10 in [8, 12]",
-    ),
+        "        assert tile_n == 128 or arch // 10 in [8, 12]"),
 ]
 
 
@@ -262,4 +250,4 @@ if __name__ == "__main__":
     print(f"interface.py: {apply(IFACE, EDITS_IFACE)} edits applied")
     print("NOTE: scale-mode switch (softmax_scale_log2 when has_bias) and the "
           "interface ctor/call plumbing for the generic family are applied in "
-          "the follow-up edit set — run the parity harness to drive debugging.")
+          "the follow-up edit set, run the parity harness to drive debugging.")

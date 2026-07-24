@@ -1,0 +1,29 @@
+{
+  "prefill_global_8k": {
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/microbench_attn_day0.py\", line 100, in main\n    profile_case(name, make())\n  File \"/home/ubuntu/microbench_attn_day0.py\", line 24, in profile_case\n    fn()\n  File \"/home/ubuntu/microbench_attn_day0.py\", line 61, in fn\n    flash_attn_varlen_func(\nTypeError: `copy` currently only supports equal source and destination element type bit width\n"
+  },
+  "prefill_swa_8k": {
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/microbench_attn_day0.py\", line 100, in main\n    profile_case(name, make())\n  File \"/home/ubuntu/microbench_attn_day0.py\", line 24, in profile_case\n    fn()\n  File \"/home/ubuntu/microbench_attn_day0.py\", line 61, in fn\n    flash_attn_varlen_func(\nTypeError: `copy` currently only supports equal source and destination element type bit width\n"
+  },
+  "decode_b32_global_kv8k": {
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/microbench_attn_day0.py\", line 100, in main\n    profile_case(name, make())\n  File \"/home/ubuntu/microbench_attn_day0.py\", line 24, in profile_case\n    fn()\n  File \"/home/ubuntu/microbench_attn_day0.py\", line 61, in fn\n    flash_attn_varlen_func(\nTypeError: `copy` currently only supports equal source and destination element type bit width\n"
+  },
+  "decode_b32_global_kv64k": {
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/microbench_attn_day0.py\", line 100, in main\n    profile_case(name, make())\n  File \"/home/ubuntu/microbench_attn_day0.py\", line 24, in profile_case\n    fn()\n  File \"/home/ubuntu/microbench_attn_day0.py\", line 61, in fn\n    flash_attn_varlen_func(\nTypeError: `copy` currently only supports equal source and destination element type bit width\n"
+  },
+  "decode_b1_global_kv64k": {
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/microbench_attn_day0.py\", line 100, in main\n    profile_case(name, make())\n  File \"/home/ubuntu/microbench_attn_day0.py\", line 24, in profile_case\n    fn()\n  File \"/home/ubuntu/microbench_attn_day0.py\", line 61, in fn\n    flash_attn_varlen_func(\nTypeError: `copy` currently only supports equal source and destination element type bit width\n"
+  },
+  "gate_select_T1": {
+    "total_us_per_iter": 4.268749999999978,
+    "kernels_us": {
+      "_inkling_gate_select_kernel": 4.268749999999978
+    }
+  },
+  "gate_select_T4096": {
+    "total_us_per_iter": 22.28469999999994,
+    "kernels_us": {
+      "_inkling_gate_select_kernel": 22.28469999999994
+    }
+  }
+}

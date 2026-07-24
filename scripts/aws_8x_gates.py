@@ -208,10 +208,10 @@ def terminate(iid: str) -> None:
                 print(f"[{stamp()}] TERMINATED {iid} ({state})", flush=True)
                 return
             time.sleep(15)
-        print(f"[{stamp()}] WARNING: {iid} not confirmed terminated — "
+        print(f"[{stamp()}] WARNING: {iid} not confirmed terminated, "
               f"CHECK THE EC2 CONSOLE", flush=True)
     except Exception as exc:  # noqa: BLE001
-        print(f"[{stamp()}] TERMINATE FAILED {iid}: {exc} — "
+        print(f"[{stamp()}] TERMINATE FAILED {iid}: {exc}, "
               f"KILL MANUALLY IN EC2 CONSOLE", flush=True)
 
 

@@ -2,7 +2,7 @@
 """Day-0 FA4 rel-attention microbench at real Inkling shapes (single GPU).
 
 Measures per-CUDA-kernel time via torch.profiler so the ShearingBias /
-forward / combine split is visible — the U2 evidence (bias share of
+forward / combine split is visible, the U2 evidence (bias share of
 attention time). Sections are independent; one failure doesn't kill the rest.
 
 Output: printed tables + JSON next to this script (microbench_attn_day0.json).
@@ -24,8 +24,7 @@ def profile_case(name: str, fn, iters: int = 20, warmup: int = 5) -> None:
         fn()
     torch.cuda.synchronize()
     with torch.profiler.profile(
-        activities=[torch.profiler.ProfilerActivity.CUDA],
-    ) as prof:
+        activities=[torch.profiler.ProfilerActivity.CUDA]) as prof:
         for _ in range(iters):
             fn()
         torch.cuda.synchronize()
@@ -62,8 +61,7 @@ def attn_case(T_q: int, T_k: int, Hq: int, Hkv: int, ext: int,
             q=q, k=k, v=v, rel_bias=rel,
             cu_seqlens_q=cu_q, cu_seqlens_k=cu_k,
             max_seqlen_q=T_q, max_seqlen_k=T_k,
-            softmax_scale=1.0 / D, causal=True, window_size=window,
-        )
+            softmax_scale=1.0 / D, causal=True, window_size=window)
     return fn
 
 
@@ -90,8 +88,7 @@ def batched_decode_case(B: int, L: int, Hq: int, Hkv: int, ext: int,
             q=q, k=k, v=v, rel_bias=rel,
             cu_seqlens_q=cu_q, cu_seqlens_k=cu_k,
             max_seqlen_q=1, max_seqlen_k=L,
-            softmax_scale=1.0 / D, causal=True, window_size=window,
-        )
+            softmax_scale=1.0 / D, causal=True, window_size=window)
     return fn
 
 

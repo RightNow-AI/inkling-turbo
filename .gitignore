@@ -14,3 +14,17 @@ harness/parity_shear_writer.json
 
 journal/remote/session*_grab.log
 journal/remote/grab_b200_detached.log
+
+# ops scratch and machine-local state (audit 2026-07-24)
+/NUL
+NUL
+journal/remote/s*.log
+journal/remote/*.log.err
+journal/remote/*_grab.log
+scripts/.*instance.json
+/tml-fa4/
+.mcp.json
+.claude/
+AGENTS-GOALs/
+docs/figures/*.aux
+docs/figures/*.log

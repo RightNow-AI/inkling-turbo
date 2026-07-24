@@ -1,6 +1,6 @@
 # H100 session 1, first contact (2026-07-18)
 
-Instance: gpu_1x_h100_sxm5, us-south-2, 632f524682b2435ba9480d6ae6437a5d.
+Instance: gpu_1x_h100_sxm5, us-south-2.
 11:48:12 -> 11:55:55 UTC = 0.13 h = $0.55. Auto-terminated (finally block). Log:
 b200_first_contact_20260718_1155.log.
 

@@ -2,7 +2,7 @@
 """Honest sm_90 attention baseline: score_mod path (vLLM's Hopper route) at
 real Inkling shapes, per-kernel breakdown via torch.profiler.
 
-Unlike microbench_attn_day0.py (rel_bias path — numerically wrong on sm_90,
+Unlike microbench_attn_day0.py (rel_bias path, numerically wrong on sm_90,
 journal/remote/h100-session1.md session 3), this measures the path vLLM
 actually serves with on Hopper, parity-proven to 7.8e-3.
 
@@ -25,8 +25,7 @@ def profile_case(name: str, fn, iters: int = 20, warmup: int = 5) -> None:
         fn()
     torch.cuda.synchronize()
     with torch.profiler.profile(
-        activities=[torch.profiler.ProfilerActivity.CUDA],
-    ) as prof:
+        activities=[torch.profiler.ProfilerActivity.CUDA]) as prof:
         for _ in range(iters):
             fn()
         torch.cuda.synchronize()
@@ -64,8 +63,7 @@ def attn_case(T_q: int, T_k: int, Hq: int, Hkv: int, ext: int,
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
         from kernels.relproj_score_mod import (
             get_relproj_score_mod,
-            get_relproj_score_mod_v15,
-        )
+            get_relproj_score_mod_v15)
 
         r = torch.randn(T_q, Hq, 16, dtype=torch.bfloat16, device=dev)
         proj = torch.randn(16, ext, dtype=torch.bfloat16, device=dev)
@@ -86,8 +84,7 @@ def attn_case(T_q: int, T_k: int, Hq: int, Hkv: int, ext: int,
             cu_seqlens_q=cu_q, cu_seqlens_k=cu_k,
             max_seqlen_q=T_q, max_seqlen_k=T_k,
             softmax_scale=1.0 / D, causal=True, window_size=window,
-            score_mod=score_mod, aux_tensors=aux,
-        )
+            score_mod=score_mod, aux_tensors=aux)
     return fn
 
 
@@ -147,8 +144,7 @@ def attn_case_plain(T_q: int, T_k: int, Hq: int, Hkv: int):
             q=q, k=k, v=v,
             cu_seqlens_q=cu_q, cu_seqlens_k=cu_k,
             max_seqlen_q=T_q, max_seqlen_k=T_k,
-            softmax_scale=1.0 / D, causal=True,
-        )
+            softmax_scale=1.0 / D, causal=True)
     return fn
 
 
