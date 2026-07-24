@@ -1,0 +1,57 @@
+{
+  "prefill_global_8k": {
+    "total_us_per_iter": 2609.6228000000015,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o810737418242147483647111210_0": 1676.755450000001,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16o8i64div8i64div81i64div64_tensorptrbf16gmemalign16o8i64div8i64div81i64div64_00_inf_0": 928.54415,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_cutlasscutecorestruct_object_at__0": 2.326400000000467,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_0": 1.9968000000001893
+    }
+  },
+  "prefill_swa_8k": {
+    "total_us_per_iter": 853.8263999999999,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16o4i64div8i64div81i64div32_tensorptrbf16gmemalign16o4i64div8i64div81i64div32_inf_in_0": 461.8857500000002,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o411121041_tensor000o111012_tensor000o111012_tensor0000o410737418242147483647111210_0": 387.78709999999995,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_cutlasscutecorestruct_object_at__0": 2.2959999999998955,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_0": 1.857549999999884
+    }
+  },
+  "decode_b32_global_kv8k": {
+    "total_us_per_iter": 109.47364999999996,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o810737418242147483647111210_0": 98.9152,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16o8i64div8i64div81i64div64_tensorptrbf16gmemalign16o8i64div8i64div81i64div64_00_inf_0": 6.79525000000001,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_cutlasscutecorestruct_object_at__0": 2.073649999999998,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_0": 1.6895499999999628
+    }
+  },
+  "decode_b32_global_kv64k": {
+    "total_us_per_iter": 747.1313999999993,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o810737418242147483647111210_0": 736.5762499999998,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16o8i64div8i64div81i64div64_tensorptrbf16gmemalign16o8i64div8i64div81i64div64_00_inf_0": 6.654400000000038,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_cutlasscutecorestruct_object_at__0": 2.2015499999997816,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_0": 1.6991999999996779
+    }
+  },
+  "decode_b1_global_kv64k": {
+    "total_us_per_iter": 739.6153000000003,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o810737418242147483647111210_0": 735.5929500000001,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16o8i64div8i64div81i64div64_tensorptrbf16gmemalign16o8i64div8i64div81i64div64_00_inf_0": 4.022350000000154
+    }
+  },
+  "gate_select_T1": {
+    "total_us_per_iter": 4.272050000000013,
+    "kernels_us": {
+      "_inkling_gate_select_kernel": 4.272050000000013
+    }
+  },
+  "gate_select_T4096": {
+    "total_us_per_iter": 22.21919999999998,
+    "kernels_us": {
+      "_inkling_gate_select_kernel": 22.21919999999998
+    }
+  }
+}

@@ -1,0 +1,9 @@
+Inkling-turbo
+Copyright 2026 Inkling-turbo contributors
+
+This product includes software developed as a derivative of vLLM
+(https://github.com/vllm-project/vllm), licensed under the Apache License 2.0.
+
+Modified kernel sources under kernels/tml_fa4_modified/ are derived from
+vllm-project/tml-fa4 and vLLM's vendored attention code, both Apache 2.0.
+The pinned upstream commits are recorded in journal/day0-implementation.md.
