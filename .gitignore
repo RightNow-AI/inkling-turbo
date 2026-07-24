@@ -28,3 +28,17 @@ scripts/.*instance.json
 AGENTS-GOALs/
 docs/figures/*.aux
 docs/figures/*.log
+# credentials, defense in depth (audit 2026-07-24)
+.env
+.env.*
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+.netrc
+credentials*
+secrets*
+*.lambda_key
+lambda_api_key
+.aws/
+.kernelforge/
