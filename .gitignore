@@ -41,3 +41,6 @@ secrets*
 *.lambda_key
 lambda_api_key
 .aws/
+
+# figure build artifacts, regenerate with docs/figures/build.sh
+docs/figures/*.pdf
