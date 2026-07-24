@@ -1,4 +1,4 @@
-# 2026-07-21 — Ultrateam finish fleet (4 sol lanes + capacity hunters)
+# 2026-07-21, Ultrateam finish fleet (4 sol lanes + capacity hunters)
 
 State when this fleet launched: main @ 9bf3f6b. U2 sm_90 native GREEN + race
 won (session 24); U3 write path proven both archs; serving route patch merged;
@@ -14,7 +14,7 @@ ICE; Lambda 8x/1x dry. Spend ~$25.1 of $3k.
 | u3-readpath | ../inkling-u3read | feat/u3-readpath | task-mrupj4rq-pcmedw | fp8 KV read path in generic kernel + interface patch script + harness case |
 | upstream-final | ../inkling-upfinal | docs/upstream-final | task-mruphu0y-9es2be | findings 01-04 filing-ready |
 
-Lanes are briefed NO-GIT (sandbox denies .git): orchestrator gates, commits,
+Lanes are briefed NO-GIT (sandbox denies .git): orchestrator gates, commits
 merges. Status: `node ~/.claude/skills/ultrateam/scripts/codex-lane.mjs status <job> --lane <worktree> --json`.
 
 ## Gate plan per lane

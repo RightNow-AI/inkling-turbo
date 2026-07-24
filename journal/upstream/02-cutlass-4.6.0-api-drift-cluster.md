@@ -2,7 +2,7 @@
 
 **Repo:** vllm-project/tml-fa4 @ `13374f0c` (latest main `09d2482` unaffected
 by fixes). vLLM pins `nvidia-cutlass-dsl[cu13]==4.6.0` (requirements/cuda.txt)
-while vendoring tml-fa4 at this commit — the combination cannot run on any
+while vendoring tml-fa4 at this commit, the combination cannot run on any
 arch we tested (sm_90 H100, sm_120 RTX 5090). Fixes for all four are one-line
 mechanical changes; happy to PR.
 
@@ -14,7 +14,7 @@ Fix: `cute.core.ThrMma` -> `cute.ThrMma`, same for TiledMma.
 
 ## 2. `cute.make_fragment` renamed `cute.make_rmem_tensor`
 
-23 call sites (`utils.py` 8, `softmax.py` 5, `flash_fwd_sm100.py` 7,
+23 call sites (`utils.py` 8, `softmax.py` 5, `flash_fwd_sm100.py` 7
 `flash_fwd.py` 2, `pack_gqa.py` 1). Same positional signature
 `(layout_or_shape, dtype)`. Note the sm_100 count: the flagship
 Blackwell sheared-bias path cannot run against the pinned DSL either.
@@ -43,7 +43,7 @@ as Python ints; the DSL requires `Int32 | None`:
 
 ## Environment
 
-torch 2.11.0+cu129 and 2.11.0+cu130, nvidia-cutlass-dsl 4.6.0,
+torch 2.11.0+cu129 and 2.11.0+cu130, nvidia-cutlass-dsl 4.6.0
 python 3.12, H100 SXM5 (sm_90) and RTX 5090 (sm_120). All four verified
 independently; sequence of discovery + minimal repros in the linked logs.
 

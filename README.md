@@ -1,110 +1,156 @@
 # Inkling-turbo
 
-Inkling-turbo is an open-source kernel project for serving TML's Inkling model on top of vLLM's day-0 implementation. It replaces selected GPU kernels and their integration code. It does not change the checkpoint, model architecture, or attention semantics.
+Faster attention kernels for serving TML's Inkling model on vLLM.
 
-The first target is Inkling's relative-attention path, rebuilt around tile-level sheared bias instead of the day-0 per-score callback. Every claim below is architecture-local and parity-gated: a kernel counts only where it has been run on that silicon against the same PyTorch oracle as the baseline.
+Inkling's attention is unusual. There is no RoPE. Instead the model adds a learned relative-position term to every pre-softmax score, and it alternates global and sliding-window layers. vLLM's day-0 support handles this with a per-score callback. That callback is slow.
 
-**Validated today:** `sm_90` (H100, 2.7x to 8.4x over every day-0 production variant, reproduced across two software stacks), `sm_80` (A100, where this repository is the only working implementation because the day-0 path cannot execute at all), and `sm_120` (RTX 5090). **Coming next:** the Blackwell tier (`sm_100`/B200) - the kernels dispatch to it already, and automated capacity hunters are standing by to run the architecture-local gates plus full end-to-end serving benchmarks the moment B200-class nodes become available.
+This project replaces it with a tile-level sheared-bias kernel. On an H100 it runs 2.7x to 8.4x faster than every day-0 path we could measure, and it produces the same tokens as the stock build on the real 975B model. On an A100 it is the only thing that runs at all, because the day-0 path raises `NotImplementedError` there.
 
-This is a kernel-development release, not yet a claim of end-to-end serving readiness. See [Methodology](docs/METHODOLOGY.md) for the evidence rules.
+The checkpoint is untouched. No quantization, no retraining, no changes to the attention math. Only the kernel and the code that dispatches to it.
 
-## Headline findings
+![Measured latency and project status](docs/figures/status.png)
 
-| Finding | Result | Scope | Evidence |
-|---|---|---|---|
-| The replacement Hopper kernel beats every day-0 production variant with parity | Native `sm_90` kernel: parity 3/3, then 905.6 us versus 2375 to 6209 us production at batch-1 64K-KV global decode (2.6x to 6.9x) and 2.5x to 3.9x at 8K prefill; the relative-attention term costs 21% over plain attention | One H100 SXM5, `sm_90`, per-op microbenchmark, same machine and same harness for all paths. This is not end-to-end serving performance | [Session 24](journal/u2-hopper-design.md#session-24-2026-07-20-sm_90-native-parity-33-green--race-won), [JSON](journal/remote/microbench_attn_day0_native_sm90_session24.json) |
-| The result reproduces independently on a second H100 and a different software stack | Parity 3/3 again on torch 2.11/cu130 (versus the original cu129 run); the same-box gap widened to 2.7x to 8.4x at batch-1 64K-KV decode (852.6 us versus 2326.6 to 7194.5 us) and 3.2x to 4.6x at 8K prefill | Second H100 SXM5, fresh instance, full production-path comparison rerun on the same machine | [Session 25](journal/u2-hopper-design.md#session-25-2026-07-23-parked-1x-h100-reproducibility--true-batched-decode), [JSON](journal/remote/microbench_attn_day0_session25_h100.json) |
-| On Ampere, this repository is the only way to run Inkling attention at all | Our generic kernel: parity 3/3 on A100. Every day-0 path raises `NotImplementedError` (`score_mod` is hard-blocked on SM8x upstream), so no baseline exists to compare against | A100-SXM4-40GB, `sm_80`, per-op parity harness. A support claim, deliberately not a speedup claim | [Session 26](journal/u2-hopper-design.md#session-26-2026-07-23-founder-8x-a100-node-sm_80--ours-runs-day-0-cannot), [finding 05](journal/upstream/00-INDEX.md) |
-| Hopper long-context decode has large relative-attention overhead | vLLM's production `score_mod` path took 2375 us versus 743 us for plain attention, a 3.2x gap | One H100 SXM5, `sm_90`, batch 1, global decode, 64K KV, per-op microbenchmark. This is not end-to-end serving performance | [H100 session 4](journal/remote/h100-session1.md#h100-session-4-2026-07-18-12291237-utc-056--honest-baseline) |
-| U2 tile-level sheared-bias attention is green on the local architecture | Parity passed 3/3, and the kernel beat the same-machine day-0 `score_mod` baseline on every reported case | RTX 5090 Laptop, `sm_120`. Timings are relative-only because the system is WDDM and power-capped | [U2 v1 results](journal/u2-hopper-design.md#v1-complete-parity-33--beats-score_mod-on-every-case-2026-07-19), [local hardware limits](journal/phase0.md#local-tier) |
-| The day-0 stack contains correctness and compatibility defects | 8 findings are currently indexed, including `rel_bias` being silently ignored on non-Blackwell kernels and returning plausible wrong output | Draft upstream reports, not yet filed. The index is the source of truth for the count | [Upstream findings index](journal/upstream/00-INDEX.md) |
+## What is measured
 
-## The kernels
-
-### U2: tile-level sheared-bias attention
-
-Inkling attention has no RoPE. It adds learned relative-position terms to the pre-softmax scores. The day-0 Hopper path applies those terms through a per-score callback, while the Blackwell path uses a sheared layout. U2 loads a contiguous bias tile and applies it to the score fragment before softmax. The generic path is complete at its per-op gate and is also parity-proven on H100. The native Hopper kernel applies the sheared tile through the same tiled-copy machinery the kernel already uses for its P matrix, and is awaiting its architecture-local gate.
-
-The replacement keeps Inkling's attention math intact:
-
-- the checkpoint and model weights are untouched;
-- relative distance outside the configured extent contributes zero;
-- global and sliding-window attention retain their original masks;
-- the kernel is accepted only when it agrees with the same PyTorch parity oracle used for the baseline.
-
-| Architecture | Status | Current evidence |
+| Result | Numbers | Where it was run |
 |---|---|---|
-| `sm_120` | Done for the current per-op gate | Parity 3/3 and faster than the day-0 `score_mod` path on all reported local cases. These are relative-only local measurements, not serving numbers. [Journal](journal/u2-hopper-design.md#v1-complete-parity-33--beats-score_mod-on-every-case-2026-07-19) |
-| `sm_90` | Done for the current per-op gate | Native wgmma kernel: parity 3/3 on H100 (max error 1.6e-2) and faster than every day-0 production variant on the same machine: 905.6 us versus 2375 to 6209 us at batch-1 64K-KV global decode (2.6x to 6.9x), 3362 us versus 8483 to 13049 us at 8K global prefill (2.5x to 3.9x). The relative-attention term costs 21% over biasless plain attention. The root cause that blocked this path (GQA head packing changing the tile-row meaning) is documented, and `pack_gqa` is disabled with bias as the v0 tradeoff. These are per-op microbenchmarks, not serving numbers. [Session 24](journal/u2-hopper-design.md#session-24-2026-07-20-sm_90-native-parity-33-green--race-won), [microbench JSON](journal/remote/microbench_attn_day0_native_sm90_session24.json), [ncu analysis](journal/u2-hopper-design.md#session-24-ncu-kernel-gate-evidence-reports-in-journalncu) |
-| `sm_80` | Done for the current per-op gate, as the ONLY working implementation | Parity 3/3 on A100-SXM4-40GB. The day-0 stack cannot run Inkling attention on Ampere at all: upstream raises `NotImplementedError` for `score_mod` on SM8x, and every non-Blackwell day-0 path is `score_mod`-based. No speedup is claimed on this architecture because no baseline exists to compare against. [Session 26](journal/u2-hopper-design.md#session-26-2026-07-23-founder-8x-a100-node-sm_80--ours-runs-day-0-cannot), [finding 05](journal/upstream/00-INDEX.md) |
-| `sm_100` / `sm_110` | Pending hardware capacity | The Blackwell variants have not received the required architecture-local validation. No Blackwell performance number is claimed. [Blockers](BLOCKERS.md#owner-decision-2026-07-19-lambda-only-lean-finish-plan) |
+| Faster than every day-0 path on Hopper | 853 us versus 2327 to 7195 us at batch-1 decode with 64K KV. 3309 us versus 10552 to 15255 us at 8K prefill. | One H100 SXM5 |
+| Reproduces on a second machine and a different software stack | Parity green again on torch 2.11/cu130 after the first run used cu129. The gap widened rather than shrank. | A second H100 SXM5 |
+| Same tokens as stock on the real model | 32 of 32 prompts produced identical greedy tokens. 2369 tokens compared. | 8x H100, TP8, full NVFP4 checkpoint |
+| The only working option on Ampere | Parity green on A100. Every day-0 path fails to run. | A100 SXM4 40GB |
+| Tuned tile sizes for Ampere | 10% to 18.7% faster on decode shapes than the upstream default, which shipped with a "should tune" comment. | A100 SXM4 40GB |
+| Inkling fits and serves on 8x H100 | 592GB of weights on 640GB of HBM. The working configuration is in [Serving the full model](#serving-the-full-model). | 8x H100 |
 
-The implementation and reproducible patch sequence live under `kernels/tml_fa4_modified/` and `kernels/patches/`. Earlier correct-but-slow variants remain as evidence of rejected designs rather than being presented as wins.
+Every timing has a passing parity run behind it. A fast kernel that returns the wrong answer is a failed kernel, and the harness discards its timing.
 
-## Reproduce the current kernel work
+## What is not measured
 
-The scripts expect a Linux or WSL environment with a compatible vLLM checkout and CUDA toolchain. The fork base and pinned day-0 commits are recorded in [the implementation study](journal/day0-implementation.md).
+Read this section before quoting any number above.
 
-### Apply the local toolchain fixes and U2 patch
+- **No end-to-end serving speedup is claimed.** The throughput rows in [LEDGER.md](LEDGER.md) are `null`. We ran the sweep on 8x H100 and lost the results when a safety watchdog killed the box mid-run. That was our own bug and it is [written up](journal/u2-hopper-design.md#session-28-postscript-e2e-curves-lost-to-a-watchdog-race-orchestrator-error) instead of quietly retried.
+- Attention is only part of serving time. The MoE layers and the big GEMMs dominate. Do not assume a 8x kernel speedup becomes an 8x serving speedup. It will not.
+- **Blackwell is untested.** The code dispatches to `sm_100`, but no B200 was available while this was built. No number here comes from Blackwell hardware.
+- The full-model gate compared tokens and logprobs between two builds. It is a correctness check, not a quality benchmark. We ran no downstream evals.
+- RTX 5090 numbers are relative only. That machine is power-capped and on WDDM.
+- U3 quantizes KV on write. Attention does not yet read the quantized cache directly.
+- The upstream bug reports are written but not filed.
 
-Review each patch before applying it to your checkout.
+## Architecture support
+
+| GPU | State | Detail |
+|---|---|---|
+| H100 (`sm_90`) | Working, per-op and full-model | Native wgmma kernel. Parity green, 2.7x to 8.4x faster than day-0, token-identical to stock on the real model. |
+| A100 (`sm_80`) | Working, and the only option | Parity green, tile sizes tuned. Day-0 cannot run here at all. |
+| RTX 5090 (`sm_120`) | Working, per-op | Parity green, faster than day-0 locally. Timings relative only. |
+| B200 (`sm_100`, `sm_110`) | Untested | Dispatch exists. No hardware was available. |
+
+## How it works
+
+The day-0 Hopper path calls a function for every score to add its bias term. We build a bias tile instead, lay it out sheared so that a contiguous tile lines up with the scores it belongs to, and add it to the accumulator in one pass before softmax.
+
+The hard part was not the idea. It was that on `sm_90` the accumulator lives in wgmma fragments whose element-to-coordinate mapping you cannot compute by hand. Seventeen debugging sessions went into that. The fix is to stop computing coordinates: partition the bias tile with the same partitioner that produced the accumulator, then pair them by flat index. They cannot disagree, because they came from the same object.
+
+The bug underneath all seventeen sessions was `pack_gqa`. It packs eight GQA query heads into the rows of a score tile, so a "row" is not a sequence position. Every coordinate-based scheme was wrong before it started. That story is in [journal/u2-hopper-design.md](journal/u2-hopper-design.md), including the probes that finally exposed it.
+
+Behavior we preserve:
+
+- weights and checkpoint untouched
+- distances outside the configured extent contribute zero
+- global and sliding-window masks unchanged
+- a kernel ships only when it matches the same PyTorch oracle the baseline is checked against
+
+## Reproducing this
+
+You need Linux or WSL, a vLLM checkout at the pinned commit, and a CUDA toolchain. Pinned commits are in [journal/day0-implementation.md](journal/day0-implementation.md).
+
+### Apply the patches
+
+Read each patch before you run it.
 
 ```bash
 bash scripts/apply_local_sm120_fixes.sh /path/to/vllm
 python3 kernels/patches/u2_v0_generic_bias.py /path/to/vllm
 python3 kernels/patches/u2_v1_smem_bias.py /path/to/vllm
+python3 kernels/patches/u3_fp8_kv.py /path/to/vllm         # optional, FP8 KV writes
+python3 kernels/patches/u2_serving_route.py /path/to/vllm  # send sm_90 and sm_120 serving here
 ```
 
-The first script repairs known incompatibilities between the vendored attention code and the pinned CuTe DSL. The U2 scripts patch the generic `sm_120` path. The Hopper work is in `kernels/patches/u2_sm90_bias_port.py` and `kernels/patches/u2_sm90_direct_gmem.py`, and remains under its architecture-local parity gate.
+The first script fixes incompatibilities between the vendored attention code and the pinned CuTe DSL. Full kernel sources are in `kernels/tml_fa4_modified/`.
 
-### Run parity and microbenchmarks
-
-Activate the vLLM environment, run from the vLLM checkout, and use absolute paths if this repository is elsewhere:
+### Run the gates
 
 ```bash
-python /path/to/inkling-turbo/harness/parity_fa4_rel.py
-python /path/to/inkling-turbo/harness/parity_shear_writer.py
-python /path/to/inkling-turbo/harness/microbench_attn_scoremod.py
-python /path/to/inkling-turbo/harness/microbench_attn_day0.py
+python harness/parity_fa4_rel.py           # main attention gate, global and SWA
+python harness/parity_kv_fp8.py            # FP8 KV writes
+python harness/parity_shear_writer.py      # shear layout contract
+python harness/microbench_attn_day0.py     # our kernel, real shapes
+python harness/microbench_attn_scoremod.py # day-0 baselines
+python harness/tune_sm80.py                # tile sweep, parity-gated
 ```
 
-The main relative-attention harness checks global, beyond-relative-extent, and sliding-window cases against one PyTorch oracle. A timing result is discarded when its corresponding parity result is not green. See [Methodology](docs/METHODOLOGY.md#parity-oracle-discipline).
+Run these from inside the vLLM checkout with its environment active.
 
-### Run a remote validation session
+### Serving the full model
 
-`scripts/grab_b200.py` polls for an allowed instance type, uploads the bootstrap and harness payload, captures logs under `journal/remote/`, and terminates the instance in a `finally` block unless `--park` is explicitly supplied.
+This configuration is measured, not guessed. Seven different things break if you change it, and all seven are documented in the journal.
 
-```powershell
-py scripts/grab_b200.py --types gpu_1x_h100_sxm5 --max-hours 1
+```bash
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+vllm serve /path/to/inkling --served-model-name inkling \
+  --tensor-parallel-size 8 \
+  --max-model-len 3072 \
+  --gpu-memory-utilization 0.94 \
+  --enforce-eager --seed 0
 ```
 
-This command can incur external GPU charges and requires provider credentials. Set a budget before running it. The bootstrap is designed to collect all evidence even when an individual harness fails, so a zero bootstrap exit alone is not a correctness gate. Inspect the parity output and journal artifact.
+KV cache headroom moves by roughly 0.77GB per GPU for every 0.01 of `gpu-memory-utilization`. At 0.95 the warmup allocation fails. At 0.90 there is no room left for KV at all. 0.94 is the window.
 
-## What is not claimed yet
+### Compare two builds on a real model
 
-- No end-to-end throughput, latency, TTFT, TPOT, or tokens-per-second improvement is claimed. Those fields remain `null` in the [measured-or-null ledger](LEDGER.md#e2e-serving-remote-vs-stock-day-0-build--same-checkpointquantgpus-slo).
-- End-to-end serving curves are pending the planned 8-GPU integration and final validation sessions. They must compare the same checkpoint, quantization, GPU set, workload, and SLO. [Validation plan](BLOCKERS.md#owner-decision-2026-07-19-lambda-only-lean-finish-plan)
-- The `sm_90` U2 path is not done until architecture-local parity passes. A fast parity failure is a failed kernel.
-- Blackwell variants are pending hardware capacity and architecture-local verification. Hopper or RTX 5090 results are not projected onto Blackwell.
-- RTX 5090 Laptop timings are relative-only. H100 figures in this README are per-op microbenchmarks, not end-to-end serving results. [Hardware ground truth](journal/phase0.md#hardware-ground-truth-measured-2026-07-17)
+`scripts/gate_logit_parity.py` serves the model twice, once with the stock kernels and once with ours, sends the same 32 prompts to both, and compares tokens and logprobs. `scripts/grab_b200.py` provisions a cloud box, runs the harness, and terminates it in a `finally` block.
 
-## Roadmap
+These scripts spend real money. Set a budget first.
 
-1. `sm_90` performance pass: split-KV decode (batch-1 decode is parallelism-bound, measured DRAM 7% and occupancy 14%), re-enable `intra_wg_overlap` with bias, packed-GQA bias addressing, and shear-writer overlap. The current kernel ships on its measured 2.5x to 6.9x with the ceilings documented honestly in the ncu analysis.
-2. Validate the `sm_100` and `sm_110` U2 variants when Blackwell capacity is available.
-3. Validate U3 quantized paged KV per architecture. Its per-op parity is green locally (2/2 on `sm_120`); H100 and integration-level checks are pending.
-4. Run the full prompt-level parity and batched-consistency integration gate.
-5. Run stock-versus-turbo end-to-end serving sweeps on the same 8-GPU system and publish median, best, latency, throughput, and raw artifacts together.
-6. Upstream the kernel and compatibility fixes after tracker duplicate checks.
+## Repository layout
 
-The broader unit plan, including MoE, routing, QKVR, graphs, overlap, and batch-aware dispatch, is tracked in [the project rules](CLAUDE.md) and [the ledger](LEDGER.md).
+```
+kernels/tml_fa4_modified/   modified kernel sources, the real implementation
+kernels/patches/            idempotent patch scripts against a clean checkout
+harness/                    parity oracles, microbenchmarks, the tile tuner
+scripts/                    cloud provisioning, bootstrap, full-model gates
+journal/                    the working record, including every dead end
+journal/remote/             raw measurement artifacts as JSON
+journal/ncu/                Nsight Compute profiles
+journal/upstream/           bug reports written against upstream
+docs/METHODOLOGY.md         the evidence rules
+docs/figures/               the status figure, LaTeX source and rendered PNG
+LEDGER.md                   every number, measured or null
+```
 
-## Upstream findings
+## Upstream bugs found
 
-The currently indexed issue drafts are under [`journal/upstream/`](journal/upstream/):
+Five reports covering ten distinct defects, in [journal/upstream/](journal/upstream/). We checked both trackers and found no existing coverage. They are not filed yet.
 
-- [Silent `rel_bias` omission on non-Blackwell kernels](journal/upstream/01-rel-bias-silently-ignored-non-blackwell.md), a wrong-output correctness issue.
-- [Four CuTe DSL compatibility breaks](journal/upstream/02-cutlass-4.6.0-api-drift-cluster.md) against the dependency version pinned by the day-0 stack.
-- [Three generic-path defects](journal/upstream/03-vllm-flash-attn-generic-path-bugs.md) exposed on `sm_120`.
+1. [`rel_bias` is silently ignored on non-Blackwell kernels](journal/upstream/01-rel-bias-silently-ignored-non-blackwell.md). The kernel accepts the argument, drops it, and returns output that looks plausible and is wrong. This is the one that matters most.
+2. [Four CuTe DSL breaks](journal/upstream/02-cutlass-4.6.0-api-drift-cluster.md) against the dependency version the day-0 stack pins.
+3. [Three generic-path defects](journal/upstream/03-vllm-flash-attn-generic-path-bugs.md) found on `sm_120`.
+4. `pack_gqa` changes what a score-tile row means, which breaks any row-indexed feature. Indexed in `00-INDEX.md`.
+5. No Inkling attention path exists on SM8x at all. Indexed in `00-INDEX.md`.
 
-The drafts are evidence packages, not filed issue links. Duplicate-check the target trackers before filing, then update the [index](journal/upstream/00-INDEX.md) with the canonical upstream references.
+## What comes next
+
+1. Split-KV decode for `sm_90`. Batch-1 decode is parallelism-bound, not bandwidth-bound: 64 CTAs on 132 SMs, DRAM at 7%, occupancy at 14%. Splitting the KV range is the fix.
+2. Blackwell validation when hardware is available.
+3. U3 read path, so attention consumes the FP8 cache directly.
+4. Re-run the serving sweep, pulling artifacts after every config so a dead box costs one config instead of everything.
+5. File the upstream reports.
+
+Longer-term units (MoE grouped GEMM, router fusion, QKVR fusion, CUDA graphs, batch-aware dispatch) are listed in [CLAUDE.md](CLAUDE.md) and [LEDGER.md](LEDGER.md).
+
+## How we handle numbers
+
+[LEDGER.md](LEDGER.md) contains no estimates. Every cell is a measurement or the word `null`. Failures get the same space as wins, including the GPU capacity we lost to bugs in our own tooling and the serving results we lost to a watchdog race. The journal is the working record, not a highlight reel. If you find a number here you cannot reproduce, open an issue.
+
+## License
+
+See [LICENSE](LICENSE).

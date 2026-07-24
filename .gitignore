@@ -11,3 +11,6 @@ __pycache__/
 harness/microbench_attn_day0.json
 harness/microbench_attn_scoremod.json
 harness/parity_shear_writer.json
+
+journal/remote/session*_grab.log
+journal/remote/grab_b200_detached.log

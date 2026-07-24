@@ -1,13 +1,13 @@
-# 2026-07-24 — E2E finalization plan (execute when bench completes)
+# 2026-07-24, E2E finalization plan (execute when bench completes)
 
 STANDING INSTRUCTION FROM FOUNDER: when the e2e benchmark finishes, document
 everything and organize the whole repo fully, end to end.
 
 ## Current state (at plan time)
 - 8x H100 gates box: 192.222.52.63, instance d73d4a49aa844759b5cd26e19d34732a
-- e2e bench PID on box, launched standalone (gate_e2e_bench.sh), idempotent,
+- e2e bench PID on box, launched standalone (gate_e2e_bench.sh), idempotent
   `for BUILD in stock ours`. Does NOT auto-run summarizer (prints "next:").
-- Serving recipe (proven): util 0.94, ctx 3072, --enforce-eager,
+- Serving recipe (proven): util 0.94, ctx 3072, --enforce-eager
   PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True, LD_LIBRARY_PATH compat.
 - Logit gate DONE + banked (session 28, commit b267765): 32/32 greedy-token
   match stock vs ours; logprob tol fail-as-specified with controls also
@@ -23,9 +23,9 @@ Bench process ends (monitor b9snspnxb watches). Verify all 60 run files:
 1. On box: run `python ~/gate_summarize.py` -> ~/gate_summary.md.
 2. Pull home: gate_summary.md -> journal/remote/, and the full
    bench_results/ tree -> journal/remote/bench_results_8xh100/.
-3. Parse each build/mix/conc: median-of-5 + best for request_throughput,
+3. Parse each build/mix/conc: median-of-5 + best for request_throughput
    output_throughput, median_ttft_ms, median_tpot_ms, p99. Compute
-   ours-vs-stock deltas. MEASURED-OR-NULL: any missing/failed run = null,
+   ours-vs-stock deltas. MEASURED-OR-NULL: any missing/failed run = null
    never fabricated.
 4. LEDGER.md: fill the 12 null e2e rows with the measured stock/ours/delta.
    Add the spend row for this 8x H100 session (hours x $31.92).

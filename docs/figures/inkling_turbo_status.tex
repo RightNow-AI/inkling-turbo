@@ -1,0 +1,173 @@
+% Inkling-turbo status figure.
+% Build:  tectonic docs/figures/inkling_turbo_status.tex
+% Render: pdftoppm -png -r 150 inkling_turbo_status.pdf inkling_turbo_status
+%
+% EVERY value below is measured. Nothing is interpolated or estimated.
+% Source: one H100 SXM5 (sm_90), session 25, torch 2.11/cu130.
+%   journal/remote/microbench_attn_day0_session25_h100.json      (our path)
+%   journal/remote/microbench_attn_scoremod_session25_h100.json  (day-0 paths)
+% Where a bar is absent, that pairing was not measured. It is left out
+% rather than filled in.
+\documentclass[border=10pt]{standalone}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{sansmath}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{calc}
+
+\definecolor{ours}{HTML}{0F766E}
+\definecolor{plainref}{HTML}{94A3B8}
+\definecolor{day0a}{HTML}{DC2626}
+\definecolor{day0b}{HTML}{EA580C}
+\definecolor{day0c}{HTML}{B45309}
+\definecolor{done}{HTML}{15803D}
+\definecolor{partial}{HTML}{CA8A04}
+\definecolor{blocked}{HTML}{9AA6B4}
+\definecolor{ink}{HTML}{0F172A}
+
+\begin{document}
+\sansmath
+\sffamily
+\begin{tikzpicture}
+
+% ----------------------------------------------------------------------
+% Panel A: measured attention latency
+% ----------------------------------------------------------------------
+\begin{axis}[
+  name=panelA,
+  width=15.5cm, height=9.0cm,
+  xbar,
+  bar width=7.5pt,
+  xmode=log,
+  log basis x=10,
+  xmin=550, xmax=90000,
+  xlabel={kernel latency, microseconds, log scale. lower is better},
+  xlabel style={font=\small, color=ink},
+  ytick=data,
+  symbolic y coords={prefill8k,decodeb32,decodeb1},
+  yticklabels={
+    {\small prefill\\\small 8K global},
+    {\small decode b32\\\small 64K KV},
+    {\small decode b1\\\small 64K KV}},
+  yticklabel style={align=right, font=\small, color=ink},
+  enlarge y limits=0.32,
+  grid=major,
+  grid style={dotted, gray!35},
+  tick align=outside,
+  axis line style={color=ink!60},
+  legend style={
+    at={(0.5,1.16)}, anchor=north, legend columns=2,
+    draw=ink!25, font=\small, column sep=10pt,
+    /tikz/every even column/.append style={column sep=5pt}},
+  point meta=explicit symbolic,
+  nodes near coords,
+  nodes near coords style={font=\scriptsize, color=ink!85, xshift=2pt},
+]
+
+\addplot[fill=ours, draw=ours!70!black] coordinates {
+  (3308.8,prefill8k) [3309]
+  (854.8,decodeb32)  [855]
+  (852.6,decodeb1)   [853]};
+\addlegendentry{Inkling-turbo}
+
+\addplot[fill=plainref, draw=plainref!70!black] coordinates {
+  (727.2,decodeb32) [727]
+  (736.0,decodeb1)  [736]};
+\addlegendentry{plain attention, no bias: the floor}
+
+\addplot[fill=day0a, draw=day0a!70!black] coordinates {
+  (2391.2,decodeb32) [2391]
+  (2326.6,decodeb1)  [2327]};
+\addlegendentry{day-0 \texttt{score\_mod}: the production path}
+
+\addplot[fill=day0b, draw=day0b!70!black] coordinates {
+  (10551.5,prefill8k) [10552]
+  (5065.1,decodeb32)  [5065]
+  (5154.7,decodeb1)   [5155]};
+\addlegendentry{day-0 relproj, transposed}
+
+\addplot[fill=day0c, draw=day0c!70!black] coordinates {
+  (15254.6,prefill8k) [15255]
+  (7595.5,decodeb32)  [7596]
+  (7194.5,decodeb1)   [7195]};
+\addlegendentry{day-0 relproj}
+
+\end{axis}
+
+\node[anchor=north west, font=\bfseries\large, color=ink]
+  at ($(panelA.north west)+(-1.15cm,2.65cm)$)
+  {A\quad Attention kernel latency, one H100 SXM5};
+\node[anchor=north west, font=\small, color=ink!70, text width=15.2cm]
+  at ($(panelA.north west)+(-1.15cm,2.22cm)$)
+  {Same machine, same harness, same shapes. Every timing has a passing parity
+   run behind it. Grey is biasless attention: the floor this feature can
+   approach but never beat.};
+
+\node[anchor=east, font=\small\bfseries, color=ours]
+  at ($(panelA.east)+(-0.25cm,2.05cm)$) {2.7x to 8.4x faster};
+\node[anchor=east, font=\small\bfseries, color=ours]
+  at ($(panelA.east)+(-0.25cm,0.05cm)$) {2.8x to 8.9x faster};
+\node[anchor=east, font=\small\bfseries, color=ours]
+  at ($(panelA.east)+(-0.25cm,-1.95cm)$) {3.2x to 4.6x faster};
+
+% ----------------------------------------------------------------------
+% Panel B: status grid. Colours and labels are passed directly, because
+% \ifx letter tests do not survive a nested \foreach.
+% ----------------------------------------------------------------------
+\begin{scope}[shift={($(panelA.south west)+(-1.15cm,-2.9cm)$)}]
+
+\node[anchor=north west, font=\bfseries\large, color=ink]
+  at (0,1.0cm) {B\quad Status by unit and architecture};
+\node[anchor=north west, font=\small, color=ink!70, text width=15.2cm]
+  at (0,0.57cm)
+  {Green means it ran on that silicon and passed. Nothing is marked done on
+   hardware it has never run on.};
+
+\def\colw{2.55}
+\def\rowh{0.70}
+\def\colzero{5.25}
+
+\foreach \c/\lab in {%
+  0/{sm\_120\\RTX 5090},
+  1/{sm\_90\\H100},
+  2/{sm\_80\\A100},
+  3/{sm\_100\\B200}} {
+  \pgfmathsetmacro{\hx}{\colzero+\c*\colw}
+  \node[font=\scriptsize\bfseries, color=ink, align=center]
+    at (\hx cm,-0.22cm) {\lab};
+}
+
+% each cell: colour/label pair, given explicitly
+\foreach \r/\name/\ca/\la/\cb/\lb/\cc/\lc/\cd/\ld in {%
+  0/{U2 relative attention}/done/validated/done/validated/done/validated/blocked/{no hardware},
+  1/{U2 full-model token gate}/blocked/{n/a}/done/{32 of 32}/blocked/{n/a}/blocked/{no hardware},
+  2/{U3 FP8 paged KV, writes}/done/validated/done/validated/done/validated/blocked/{no hardware},
+  3/{U3 FP8 paged KV, reads}/blocked/pending/blocked/pending/blocked/pending/blocked/pending,
+  4/{U2 split-KV decode}/blocked/pending/blocked/pending/blocked/pending/blocked/pending,
+  5/{End-to-end serving curves}/blocked/{n/a}/partial/{run lost}/blocked/{n/a}/blocked/pending,
+  6/{U1 MoE grouped GEMM}/blocked/pending/blocked/pending/blocked/pending/blocked/pending%
+} {
+  \pgfmathsetmacro{\ry}{-0.85-\r*\rowh}
+  \node[anchor=east, font=\small, color=ink] at (3.85cm,\ry cm) {\name};
+  \foreach \ci/\cx/\lx in {0/\ca/\la, 1/\cb/\lb, 2/\cc/\lc, 3/\cd/\ld} {
+    \pgfmathsetmacro{\xx}{\colzero+\ci*\colw}
+    \node[draw=ink!15, rounded corners=2pt,
+      minimum width=2.05cm, minimum height=0.46cm,
+      fill=\cx, font=\scriptsize\bfseries, text=white]
+      at (\xx cm,\ry cm) {\lx};
+  }
+}
+
+\begin{scope}[shift={(0cm,-5.95cm)}]
+  \node[draw=ink!15, rounded corners=2pt, minimum width=0.62cm, minimum height=0.34cm, fill=done] at (0.3cm,0) {};
+  \node[anchor=west, font=\scriptsize, color=ink!80] at (0.72cm,0) {validated on that silicon};
+  \node[draw=ink!15, rounded corners=2pt, minimum width=0.62cm, minimum height=0.34cm, fill=partial] at (5.6cm,0) {};
+  \node[anchor=west, font=\scriptsize, color=ink!80] at (6.02cm,0) {ran, results lost};
+  \node[draw=ink!15, rounded corners=2pt, minimum width=0.62cm, minimum height=0.34cm, fill=blocked] at (10.0cm,0) {};
+  \node[anchor=west, font=\scriptsize, color=ink!80] at (10.42cm,0) {not done, or not applicable};
+\end{scope}
+
+\end{scope}
+
+\end{tikzpicture}
+\end{document}

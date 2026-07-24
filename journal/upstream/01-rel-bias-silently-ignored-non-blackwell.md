@@ -1,13 +1,13 @@
-# [tml-fa4] `rel_bias` silently ignored on every non-Blackwell arch — wrong attention output returned without error
+# [tml-fa4] `rel_bias` silently ignored on every non-Blackwell arch, wrong attention output returned without error
 
 **Repo:** vllm-project/tml-fa4 @ `13374f0c` (vLLM fork-base `850295881` pin)
-**Severity: highest of this series — silent numerical correctness trap.**
+**Severity: highest of this series, silent numerical correctness trap.**
 
 ## Summary
 
-`flash_attn_varlen_func(..., rel_bias=...)` accepts the bias tensor on sm_80,
+`flash_attn_varlen_func(..., rel_bias=...)` accepts the bias tensor on sm_80
 sm_90, and sm_120, allocates the padded sheared tensor, launches the
-`ShearingBias` pre-kernel — then constructs the forward kernel WITHOUT any
+`ShearingBias` pre-kernel, then constructs the forward kernel WITHOUT any
 bias argument and returns plain (bias-free) attention as if it were the
 requested result. No error, no warning.
 
@@ -42,11 +42,11 @@ k = torch.randn(T, 1, 128, dtype=torch.bfloat16, device="cuda")
 v = torch.randn(T, 1, 128, dtype=torch.bfloat16, device="cuda")
 rb = torch.randn(T, 8, 1024, dtype=torch.bfloat16, device="cuda")
 cu = torch.tensor([0, T], dtype=torch.int32, device="cuda")
-out_bias = flash_attn_varlen_func(q=q, k=k, v=v, rel_bias=rb,
-    cu_seqlens_q=cu, cu_seqlens_k=cu, max_seqlen_q=T, max_seqlen_k=T,
+out_bias = flash_attn_varlen_func(q=q, k=k, v=v, rel_bias=rb
+    cu_seqlens_q=cu, cu_seqlens_k=cu, max_seqlen_q=T, max_seqlen_k=T
     softmax_scale=1/128, causal=True)
-out_plain = flash_attn_varlen_func(q=q, k=k, v=v,
-    cu_seqlens_q=cu, cu_seqlens_k=cu, max_seqlen_q=T, max_seqlen_k=T,
+out_plain = flash_attn_varlen_func(q=q, k=k, v=v
+    cu_seqlens_q=cu, cu_seqlens_k=cu, max_seqlen_q=T, max_seqlen_k=T
     softmax_scale=1/128, causal=True)
 print((out_bias - out_plain).abs().max())  # ~0 on sm_90: bias was dropped
 ```
