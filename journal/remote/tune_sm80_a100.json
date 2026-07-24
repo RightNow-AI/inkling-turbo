@@ -1,0 +1,49 @@
+{
+ "results": {
+  "tile128x32": {
+   "parity": 0.008664369583129883,
+   "timings": {
+    "prefill_global_8k": 10712.7,
+    "prefill_swa_8k": 10565.6,
+    "decode_b1_global_kv64k": 5350.1,
+    "decode_32seqs_global_kv64k": 60801.4
+   }
+  },
+  "tile128x64": {
+   "parity": 0.008664369583129883,
+   "timings": {
+    "prefill_global_8k": 11124.1,
+    "prefill_swa_8k": 9175.2,
+    "decode_b1_global_kv64k": 5953.7,
+    "decode_32seqs_global_kv64k": 74356.6
+   }
+  },
+  "tile128x128": {
+   "parity": 0.008664369583129883,
+   "timings": {
+    "prefill_global_8k": 362806.1,
+    "prefill_swa_8k": 359901.9,
+    "decode_b1_global_kv64k": 131729.5,
+    "decode_32seqs_global_kv64k": 2865716.7
+   }
+  }
+ },
+ "best": {
+  "prefill_global_8k": [
+   "tile128x32",
+   10712.7
+  ],
+  "prefill_swa_8k": [
+   "tile128x64",
+   9175.2
+  ],
+  "decode_b1_global_kv64k": [
+   "tile128x32",
+   5350.1
+  ],
+  "decode_32seqs_global_kv64k": [
+   "tile128x32",
+   60801.4
+  ]
+ }
+}

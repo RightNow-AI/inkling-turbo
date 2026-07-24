@@ -1,0 +1,80 @@
+{
+  "prefill_global_8k": {
+    "total_us_per_iter": 4799.442699999999,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 4799.442699999999
+    }
+  },
+  "prefill_swa_8k": {
+    "total_us_per_iter": 956.5184499999999,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o411121041_tensor000o111012_tensor000o111012_tensor0000o41073741824214748364711121_0": 956.5184499999999
+    }
+  },
+  "decode_b32_global_kv8k": {
+    "total_us_per_iter": 304.39525,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 304.39525
+    }
+  },
+  "decode_b32_global_kv64k": {
+    "total_us_per_iter": 2391.1633500000003,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 2391.1633500000003
+    }
+  },
+  "decode_b1_global_kv64k": {
+    "total_us_per_iter": 2326.6145,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 2326.6145
+    }
+  },
+  "decode_b1_plain_kv64k": {
+    "total_us_per_iter": 735.9664000000001,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 735.9664000000001
+    }
+  },
+  "decode_b32_plain_kv64k": {
+    "total_us_per_iter": 727.2116,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 727.2116
+    }
+  },
+  "relproj_prefill_global_8k": {
+    "total_us_per_iter": 15254.617549999999,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 15254.617549999999
+    }
+  },
+  "relproj_decode_b32_kv64k": {
+    "total_us_per_iter": 7595.53345,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 7595.53345
+    }
+  },
+  "relproj_decode_b1_kv64k": {
+    "total_us_per_iter": 7194.453299999998,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 7194.453299999998
+    }
+  },
+  "relprojT_decode_b1_kv64k": {
+    "total_us_per_iter": 5154.6671000000015,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 5154.6671000000015
+    }
+  },
+  "relprojT_decode_b32_kv64k": {
+    "total_us_per_iter": 5065.09895,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 5065.09895
+    }
+  },
+  "relprojT_prefill_global_8k": {
+    "total_us_per_iter": 10551.462300000003,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 10551.462300000003
+    }
+  }
+}

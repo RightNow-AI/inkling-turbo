@@ -1,0 +1,80 @@
+{
+  "prefill_global_8k": {
+    "total_us_per_iter": 5367.6465499999995,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 5367.6465499999995
+    }
+  },
+  "prefill_swa_8k": {
+    "total_us_per_iter": 952.4394499999996,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o411121041_tensor000o111012_tensor000o111012_tensor0000o41073741824214748364711121_0": 952.4394499999996
+    }
+  },
+  "decode_b32_global_kv8k": {
+    "total_us_per_iter": 327.4260499999999,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 327.4260499999999
+    }
+  },
+  "decode_b32_global_kv64k": {
+    "total_us_per_iter": 2434.2812500000005,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 2434.2812500000005
+    }
+  },
+  "decode_b1_global_kv64k": {
+    "total_us_per_iter": 2432.9766500000005,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 2432.9766500000005
+    }
+  },
+  "decode_b1_plain_kv64k": {
+    "total_us_per_iter": 742.5651000000001,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 742.5651000000001
+    }
+  },
+  "decode_b32_plain_kv64k": {
+    "total_us_per_iter": 731.2249999999999,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 731.2249999999999
+    }
+  },
+  "relproj_prefill_global_8k": {
+    "total_us_per_iter": 13049.3202,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 13049.3202
+    }
+  },
+  "relproj_decode_b32_kv64k": {
+    "total_us_per_iter": 6268.580150000002,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 6268.580150000002
+    }
+  },
+  "relproj_decode_b1_kv64k": {
+    "total_us_per_iter": 6209.404750000001,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 6209.404750000001
+    }
+  },
+  "relprojT_decode_b1_kv64k": {
+    "total_us_per_iter": 4162.70655,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 4162.70655
+    }
+  },
+  "relprojT_decode_b32_kv64k": {
+    "total_us_per_iter": 4068.0151000000005,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 4068.0151000000005
+    }
+  },
+  "relprojT_prefill_global_8k": {
+    "total_us_per_iter": 8482.809200000003,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o811121081_tensor000o111012_tensor000o111012_tensor0000o81073741824214748364711121_0": 8482.809200000003
+    }
+  }
+}

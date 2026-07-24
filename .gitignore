@@ -1,0 +1,42 @@
+# nested vLLM fork clone (tracked as its own repo; base commit pinned in journal/phase0.md)
+/vllm/
+
+# profiling artifacts too large for git (kept locally + referenced by journal)
+journal/ncu/*.ncu-rep
+journal/nsys/*.nsys-rep
+
+__pycache__/
+*.pyc
+.venv/
+harness/microbench_attn_day0.json
+harness/microbench_attn_scoremod.json
+harness/parity_shear_writer.json
+
+journal/remote/session*_grab.log
+journal/remote/grab_b200_detached.log
+
+# ops scratch and machine-local state (audit 2026-07-24)
+/NUL
+NUL
+journal/remote/s*.log
+journal/remote/*.log.err
+journal/remote/*_grab.log
+scripts/.*instance.json
+/tml-fa4/
+.mcp.json
+.claude/
+AGENTS-GOALs/
+# credentials, defense in depth (audit 2026-07-24)
+.env
+.env.*
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+.netrc
+credentials*
+secrets*
+*.lambda_key
+lambda_api_key
+.aws/
+
