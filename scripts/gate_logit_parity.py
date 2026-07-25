@@ -9,9 +9,33 @@ TP=8) twice with `vllm serve`:
   2. OURS  : ~/tml_fa4_modified/*.py copied into the resolved package dir
 
 and compares per-token logprobs through the OpenAI-compatible completions
-API using echo=True + logprobs on 32 fixed prompts (bundled below, varied
-lengths, one >600 tokens). Also runs a batched-vs-batch-1 consistency check
-on 4 prompts per build (gate: batched output == batch-1 output).
+API on 32 fixed prompts (bundled below, varied lengths, one >600 tokens). Also
+runs a batched-vs-batch-1 consistency check on 4 prompts per build.
+
+TWO comparisons run, and the second one is why this file was edited:
+
+  prompt_echo   echo=True, max_tokens=0. Compares PROMPT logprobs, so it
+                exercises prefill and nothing else. This is what the gate used
+                to do, and only this. Its "tokens_compared: 2369,
+                tokens_match_all: true" was recorded as evidence that the two
+                builds were token-identical on the real model. It was not
+                evidence of anything: with max_tokens=0 the token list IS the
+                echoed prompt, one tokenizer produced both, so equality was
+                forced by construction and no token was ever decoded. The
+                docstring of diff_stats below said as much at the time.
+
+  decode        echo=False, max_tokens=DECODE_MAX_TOKENS. Compares the
+                GENERATED tokens and their logprobs. Every decode step has
+                seqlen_k > seqlen_q, which is the shape family where the sm_90
+                shear shift was wrong for the entire life of the kernel, and
+                which the old prompt-echo comparison could not reach at all.
+
+Both are gated on the same logprob tolerances. Token equality is REPORTED for
+the decode comparison and deliberately not gated: greedy decoding can flip a
+single near-tie token for the floating-point reasons item 4 of the tolerance
+derivation describes, whereas a kernel that drops the relative bias moves the
+logprobs by O(1) and fails the tolerance. If the tokens diverge, the index of
+the first divergence is recorded so it can be read rather than guessed at.
 
 API mechanism, verified against the pinned fork @850295881
 ($REPO/vllm):
@@ -229,6 +253,11 @@ assert len(PROMPTS) == 32, f"expected 32 prompts, got {len(PROMPTS)}"
 
 BATCH_PROMPTS = [PROMPTS[8], PROMPTS[16], PROMPTS[20], PROMPTS[24]]
 BATCH_MAX_TOKENS = 32
+# Generated tokens per prompt for the cross-build decode comparison. 32 is
+# enough that a bias that is absent from decode cannot hide: the relative term
+# applies from the first generated token onward, and every one of them runs the
+# seqlen_k > seqlen_q path.
+DECODE_MAX_TOKENS = 32
 
 
 def stamp() -> str:
@@ -394,13 +423,20 @@ def stop_server(proc: subprocess.Popen | None) -> None:
     time.sleep(30)
 
 
-def completion_logprobs(prompt: str, max_tokens: int) -> dict:
-    """One /v1/completions call; returns {tokens, token_logprobs}."""
+def completion_logprobs(prompt: str, max_tokens: int, echo: bool = True) -> dict:
+    """One /v1/completions call; returns {tokens, token_logprobs}.
+
+    echo=True with max_tokens=0 returns PROMPT logprobs only, which is a prefill
+    measurement. echo=False with max_tokens>0 returns the GENERATED tokens only,
+    which is a decode measurement. Mixing them in one call would leave the
+    prompt/generated boundary to be inferred from a token count that can differ
+    between builds, so the two are requested separately instead.
+    """
     payload = {
         "model": SERVED_NAME,
         "prompt": prompt,
         "max_tokens": max_tokens,   # 0 = echo-only prompt logprobs
-        "echo": True,               # protocol.py line 59
+        "echo": echo,               # protocol.py line 59
         "logprobs": 1,              # protocol.py line 62 -> prompt_logprobs
         "temperature": 0.0,
     }
@@ -412,23 +448,40 @@ def completion_logprobs(prompt: str, max_tokens: int) -> dict:
     return {"tokens": lp["tokens"], "token_logprobs": lp["token_logprobs"]}
 
 
-def collect_parity(build: str) -> list[dict]:
-    out = []
+def collect_parity(build: str) -> dict:
+    """Both comparisons, per prompt.
+
+    prompt_echo is prefill only and is the historical figure. decode is the new
+    one: generated tokens, which is the only way this gate can see the
+    seqlen_k > seqlen_q path the kernel serves with on every step after the
+    first.
+    """
+    echo, dec = [], []
     for i, p in enumerate(PROMPTS):
-        r = completion_logprobs(p, max_tokens=0)
-        out.append(r)
-        log(f"  [{build}] prompt {i + 1}/32: {len(r['tokens'])} tokens")
-    return out
+        e = completion_logprobs(p, max_tokens=0, echo=True)
+        d = completion_logprobs(p, max_tokens=DECODE_MAX_TOKENS, echo=False)
+        echo.append(e)
+        dec.append(d)
+        log(f"  [{build}] prompt {i + 1}/32: {len(e['tokens'])} prompt tokens, "
+            f"{len(d['tokens'])} generated")
+    return {"prompt_echo": echo, "decode": dec}
 
 
 def collect_batch(build: str) -> dict:
-    """4 prompts concurrently, then one at a time. Greedy, 32 new tokens."""
+    """4 prompts concurrently, then one at a time. Greedy, 32 new tokens.
+
+    echo=False on purpose. This check is the measured noise floor the cross-build
+    tolerance sits above, and the comparison it has to calibrate is now a decode
+    comparison, so it must not be diluted by hundreds of prompt positions.
+    """
     log(f"  [{build}] batched: {len(BATCH_PROMPTS)} concurrent requests")
     with ThreadPoolExecutor(max_workers=len(BATCH_PROMPTS)) as ex:
         batched = list(ex.map(
-            lambda p: completion_logprobs(p, BATCH_MAX_TOKENS), BATCH_PROMPTS))
+            lambda p: completion_logprobs(p, BATCH_MAX_TOKENS, echo=False),
+            BATCH_PROMPTS))
     log(f"  [{build}] batch-1: same prompts sequentially")
-    single = [completion_logprobs(p, BATCH_MAX_TOKENS) for p in BATCH_PROMPTS]
+    single = [completion_logprobs(p, BATCH_MAX_TOKENS, echo=False)
+              for p in BATCH_PROMPTS]
     return {"batched": batched, "single": single}
 
 
@@ -436,19 +489,31 @@ def diff_stats(a: dict, b: dict) -> dict:
     """Compare two {tokens, token_logprobs} records position-wise.
 
     Skips positions where either logprob is None (first prompt token).
-    tokens_match is exact string-list equality; a mismatch in the echoed
-    prompt region is impossible with one tokenizer, so a mismatch means the
-    greedy continuations diverged.
+    tokens_match is exact string-list equality. On an echo=True, max_tokens=0
+    record it is FORCED TRUE: the list is the echoed prompt and one tokenizer
+    produced both sides, so it carries no information about the kernel. On an
+    echo=False record it is a real greedy-continuation comparison, and
+    first_divergence says where the two builds parted.
     """
     tokens_match = a["tokens"] == b["tokens"]
+    first_divergence = None
+    if not tokens_match:
+        for i, (ta, tb) in enumerate(zip(a["tokens"], b["tokens"])):
+            if ta != tb:
+                first_divergence = i
+                break
+        if first_divergence is None:
+            first_divergence = min(len(a["tokens"]), len(b["tokens"]))
     n = min(len(a["token_logprobs"]), len(b["token_logprobs"]))
     diffs = [abs(x - y)
              for x, y in zip(a["token_logprobs"][:n], b["token_logprobs"][:n])
              if x is not None and y is not None]
     if not diffs:
-        return {"tokens_match": tokens_match, "n": 0,
+        return {"tokens_match": tokens_match,
+                "first_divergence": first_divergence, "n": 0,
                 "max": None, "mean": None}
-    return {"tokens_match": tokens_match, "n": len(diffs),
+    return {"tokens_match": tokens_match,
+            "first_divergence": first_divergence, "n": len(diffs),
             "max": max(diffs), "mean": sum(diffs) / len(diffs)}
 
 
@@ -481,13 +546,16 @@ def main() -> int:
                    "num_prompts": len(PROMPTS),
                    "batch_prompts": len(BATCH_PROMPTS),
                    "batch_max_tokens": BATCH_MAX_TOKENS},
-        "builds": {}, "parity": None, "batch_consistency": {},
+        "builds": {},
+        "parity_prompt_echo": None,
+        "parity_decode": None,
+        "batch_consistency": {},
         "last_error": None,
     }
 
     pkg = resolve_tml_pkg()
     ensure_backup(pkg)
-    parity_data: dict[str, list[dict] | None] = {"stock": None, "ours": None}
+    parity_data: dict[str, dict | None] = {"stock": None, "ours": None}
     batch_data: dict[str, dict | None] = {"stock": None, "ours": None}
 
     try:
@@ -514,27 +582,63 @@ def main() -> int:
 
     all_pass = True
 
-    # cross-build parity on the 32 echoed prompts
+    # cross-build parity, twice: prefill via the echoed prompt, then decode via
+    # the generated tokens. The second one is the one that can see the
+    # seqlen_k > seqlen_q path; the first one never could.
     if parity_data["stock"] and parity_data["ours"]:
-        per_prompt = [diff_stats(a, b) for a, b in
-                      zip(parity_data["stock"], parity_data["ours"])]
-        agg = aggregate(per_prompt)
-        ok = (agg["max"] is not None and agg["max"] <= TOL_MAX
-              and agg["mean"] <= TOL_MEAN and agg["tokens_match_all"])
-        results["parity"] = {"per_prompt": per_prompt, **agg, "pass": ok}
-        all_pass &= ok
-        print(f"GATE logit_parity: {'PASS' if ok else 'FAIL'} "
-              f"(max={agg['max']}, mean={agg['mean']}, "
-              f"n={agg['tokens_compared']}, tol_max={TOL_MAX}, "
-              f"tol_mean={TOL_MEAN})", flush=True)
+        for region, key, gate_name in (
+            ("prompt_echo", "parity_prompt_echo", "logit_parity_prefill"),
+            ("decode", "parity_decode", "logit_parity_decode"),
+        ):
+            per_prompt = [diff_stats(a, b) for a, b in
+                          zip(parity_data["stock"][region],
+                              parity_data["ours"][region])]
+            agg = aggregate(per_prompt)
+            # Gated on logprobs only. Token equality is recorded, not gated:
+            # on prompt_echo it is forced true and means nothing, and on decode
+            # a single flipped near-tie is not a kernel defect while a dropped
+            # bias moves the logprobs far past TOL_MAX.
+            ok = (agg["max"] is not None and agg["max"] <= TOL_MAX
+                  and agg["mean"] <= TOL_MEAN)
+            rec = {"region": region, "per_prompt": per_prompt, **agg,
+                   "pass": ok,
+                   "tokens_gated": False}
+            if region == "prompt_echo":
+                rec["tokens_match_all_is_tautological"] = True
+                rec["note"] = (
+                    "max_tokens=0 with echo=True. The token list is the echoed "
+                    "prompt, so tokens_match_all is forced true by one "
+                    "tokenizer and is not evidence. The logprob figures are "
+                    "real and measure PREFILL only.")
+            else:
+                rec["note"] = (
+                    "echo=False, generated tokens. Every position here ran "
+                    "seqlen_k > seqlen_q. tokens_match_all is informative but "
+                    "not gated; read first_divergence per prompt.")
+            results[key] = rec
+            all_pass &= ok
+            print(f"GATE {gate_name}: {'PASS' if ok else 'FAIL'} "
+                  f"(max={agg['max']}, mean={agg['mean']}, "
+                  f"n={agg['tokens_compared']}, "
+                  f"tokens_match_all={agg['tokens_match_all']}, "
+                  f"tol_max={TOL_MAX}, tol_mean={TOL_MEAN})", flush=True)
     else:
-        results["parity"] = None
+        results["parity_prompt_echo"] = None
+        results["parity_decode"] = None
         all_pass = False
-        print("GATE logit_parity: FAIL (missing build data, see last_error)",
-              flush=True)
+        print("GATE logit_parity_prefill: FAIL (missing build data, "
+              "see last_error)", flush=True)
+        print("GATE logit_parity_decode: FAIL (missing build data, "
+              "see last_error)", flush=True)
 
     # batched-vs-batch-1 per build; the stock number is also the measured
-    # noise floor for the cross-build tolerance (see derivation above)
+    # noise floor for the cross-build tolerance (see derivation above).
+    # This one DOES gate on token equality, unlike the two cross-build checks
+    # above, and that asymmetry is deliberate: here the claim being tested is
+    # determinism of one build against itself, where a flipped token is the
+    # result, not a tolerable rounding artefact. It has been observed to fail on
+    # the stock build itself, which is recorded in LEDGER.md rather than tuned
+    # away.
     for build in ("stock", "ours"):
         data = batch_data[build]
         if data:

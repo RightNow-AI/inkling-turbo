@@ -129,32 +129,36 @@ per-tile scalar, and for tiles entirely inside or entirely outside the band it
 is nothing at all.
 
 
-THIS PATH USES THE GENERAL FORM. THE EXISTING PATH DOES NOT.
-------------------------------------------------------------
+BOTH PATHS NOW USE THE GENERAL FORM
+-----------------------------------
 
-flash_fwd_sm90.py's existing `bias_tile_shift` is
+flash_fwd_sm90.py's `bias_tile_shift` USED to be
 
     padded // tile_n - (128 * (m_block + 1)) // tile_n
 
-i.e. it hardcodes `n_block_max(m_block) == m_block + 1`, the
-seqlen_q == seqlen_k specialisation. That is correct for full prefill and
-WRONG whenever seqlen_k != seqlen_q, which is every chunked-prefill and every
-decode call: at seqlen_q=1, seqlen_k=8192 the correct shift is
-padded/128 - 64 and the code uses padded/128 - 1, so the bias lands 63 tiles
-away and only n_block=0 receives any bias at all.
+which hardcodes `n_block_max(m_block) == m_block + 1`, the
+seqlen_q == seqlen_k specialisation of the layout contract. That was fixed on
+this branch: commit eb1e487 for this kernel, 9b63979 for the sm_80 / sm_120
+generic one. The shift now comes from n_block_max fetched with absolute=True.
+Write-up in journal/regression-sm90-bias-shift.md, gate in
+harness/parity_rel_chunked_decode.py.
 
-This patch does NOT change that. The gate is default off and the existing path
-is left byte-for-byte alone, per the brief. But it means:
+This patch carries the FIXED block through verbatim on the gate-off branch, so
+with INKLING_TURBO_INKERNEL_SHEAR unset the pre-sheared reader is byte-for-byte
+what kernels/tml_fa4_modified/flash_fwd_sm90.py has today, n_block_max
+included. That is the whole point of the gate-off passthrough and it is checked
+mechanically: the patched file must contain
+"- (128 * n_block_max_bias) // self.tile_n" and zero occurrences of
+"- (128 * (m_block + 1)) // self.tile_n".
 
-  * on seqlen_q == seqlen_k shapes the two paths must agree to within
-    bf16 rounding of the same values (they read the same numbers);
-  * on chunked-prefill and decode shapes they will NOT agree, and the
-    in-kernel path is the one that matches
-    harness/parity_fa4_rel.py's reference. Do not read that disagreement as a
-    bug in this patch without checking the reference.
+Consequence for validation, and this CHANGED from the first draft of this
+patch: gate-on and gate-off should now agree on EVERY shape the constraints
+below allow, decode and chunked prefill included, to within bf16 rounding of
+the same values. A disagreement is a defect in one of the two paths, not an
+expected difference.
 
 See kernels/patches/u2_inkernel_shear.md, "The specialisation bug this
-uncovered".
+uncovered, and its fix".
 
 
 CONSTRAINTS ASSERTED
@@ -289,12 +293,41 @@ SM90_MMA_OLD = """            elif const_expr(self.has_bias and mBias is not Non
                 gBias_tiles = cute.local_tile(
                     mBias_cur, (self.tile_m, self.tile_n), (m_block, None)
                 )
-                # Sheared col = j + padded - 128*(m_block+1). tile_n | 128 and
-                # tile_n | padded make the shift a whole number of tiles, so
-                # every tile is fully in-shear or fully out (never partial).
+                # The shear shift is set by n_block_max, NOT by m_block + 1.
+                #
+                # This used to read `128 * (m_block + 1)`, which is the
+                # seqlen_q == seqlen_k specialisation of the layout contract.
+                # It is right for full prefill, where n_block_max really does
+                # equal m_block + 1, and wrong for every shape where the two
+                # lengths differ. The general contract is
+                #   base(i) = n_idx_right(i) + 256 - 128 * n_block_max
+                # and at tile granularity that is exactly what is below.
+                #
+                # How wrong it was: at batch-1 decode with 64K of KV,
+                # n_block_max is 512 while m_block + 1 is 1, so the shift came
+                # out +9 instead of -502. Since apply_rel_bias_sm90 guards on
+                # `0 <= tile_idx < bias_num_tiles`, only n_block 0 passed, so
+                # the kernel added bias to the OLDEST KV block and none at all
+                # to the other 511, including the recent ones the relative
+                # position term is actually about. Chunked prefill had the same
+                # defect. Nothing caught it: all three parity_fa4_rel cases pass
+                # cu_seqlens_q == cu_seqlens_k, the decode microbenchmarks check
+                # no output, and the full-model gate ran with max_tokens=0 so it
+                # never decoded.
+                #
+                # tile_n | 128 and tile_n | padded make the shift a whole number
+                # of tiles, so every tile is fully in-shear or fully out.
+                # absolute=True on purpose. ShearingBias runs once per sequence
+                # and knows nothing about splits, so the layout it wrote is
+                # defined by the FULL block count. Passing the split's own
+                # n_block_max here would shift the bias by a per-split amount
+                # against a buffer that was never sheared that way.
+                _, n_block_max_bias = block_info.get_n_block_min_max(
+                    seqlen, m_block, split_idx, batch_idx, absolute=True
+                )
                 bias_tile_shift = (
                     padded_bias // self.tile_n
-                    - (128 * (m_block + 1)) // self.tile_n
+                    - (128 * n_block_max_bias) // self.tile_n
                 )
                 bias_num_tiles = padded_bias // self.tile_n
                 score_mod_fn = partial(
@@ -378,13 +411,41 @@ SM90_MMA_NEW = '''            elif const_expr(self.has_bias and mBias is not Non
                     gBias_tiles = cute.local_tile(
                         mBias_cur, (self.tile_m, self.tile_n), (m_block, None)
                     )
-                    # Sheared col = j + padded - 128*(m_block+1). tile_n | 128
-                    # and tile_n | padded make the shift a whole number of
-                    # tiles, so every tile is fully in-shear or fully out
-                    # (never partial).
+                    # The shear shift is set by n_block_max, NOT by m_block + 1.
+                    #
+                    # This used to read `128 * (m_block + 1)`, which is the
+                    # seqlen_q == seqlen_k specialisation of the layout contract.
+                    # It is right for full prefill, where n_block_max really does
+                    # equal m_block + 1, and wrong for every shape where the two
+                    # lengths differ. The general contract is
+                    #   base(i) = n_idx_right(i) + 256 - 128 * n_block_max
+                    # and at tile granularity that is exactly what is below.
+                    #
+                    # How wrong it was: at batch-1 decode with 64K of KV,
+                    # n_block_max is 512 while m_block + 1 is 1, so the shift came
+                    # out +9 instead of -502. Since apply_rel_bias_sm90 guards on
+                    # `0 <= tile_idx < bias_num_tiles`, only n_block 0 passed, so
+                    # the kernel added bias to the OLDEST KV block and none at all
+                    # to the other 511, including the recent ones the relative
+                    # position term is actually about. Chunked prefill had the same
+                    # defect. Nothing caught it: all three parity_fa4_rel cases pass
+                    # cu_seqlens_q == cu_seqlens_k, the decode microbenchmarks check
+                    # no output, and the full-model gate ran with max_tokens=0 so it
+                    # never decoded.
+                    #
+                    # tile_n | 128 and tile_n | padded make the shift a whole number
+                    # of tiles, so every tile is fully in-shear or fully out.
+                    # absolute=True on purpose. ShearingBias runs once per sequence
+                    # and knows nothing about splits, so the layout it wrote is
+                    # defined by the FULL block count. Passing the split's own
+                    # n_block_max here would shift the bias by a per-split amount
+                    # against a buffer that was never sheared that way.
+                    _, n_block_max_bias = block_info.get_n_block_min_max(
+                        seqlen, m_block, split_idx, batch_idx, absolute=True
+                    )
                     bias_tile_shift = (
                         padded_bias // self.tile_n
-                        - (128 * (m_block + 1)) // self.tile_n
+                        - (128 * n_block_max_bias) // self.tile_n
                     )
                     bias_num_tiles = padded_bias // self.tile_n
                     score_mod_fn = partial(

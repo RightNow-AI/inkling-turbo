@@ -210,9 +210,21 @@ band layout partitions the way the arithmetic says, or that a single element
 lands where it should on hardware. It proves only that the arithmetic the code
 implements is the arithmetic `ShearingBias` implements.
 
-## The specialisation bug this uncovered
+## The specialisation bug this uncovered, and its fix
 
-`flash_fwd_sm90.py`'s existing bias reader computes
+**Status: FIXED.** `eb1e487` fixed `flash_fwd_sm90.py`; `9b63979` fixed
+`flash_fwd.py`, the sm_80 / sm_120 generic kernel, where the same defect was
+live. `harness/parity_rel_chunked_decode.py` is the gate that covers it and
+scores 7/7 on an H100 at `e9857de`, with a deliberately broken control run
+scoring 1/7 on the same gate. Write-up:
+`journal/regression-sm90-bias-shift.md`. Artifacts:
+`journal/remote/validate_s27_decodefix/` and
+`journal/remote/validate_s27_brokencontrol/`.
+
+This section is kept as the record of how the defect was found and how wrong it
+was. It no longer describes live code.
+
+`flash_fwd_sm90.py`'s bias reader USED to compute
 
     bias_tile_shift = padded // tile_n - (128 * (m_block + 1)) // tile_n
 
@@ -221,7 +233,7 @@ which hardcodes `n_block_max(m_block) == m_block + 1`, the
 warns about. Measuring `n_block_max(m_block) != m_block + 1` over the same
 120 configurations, at `rel_extent=512`:
 
-| shape | rows where the existing shift is wrong | worst error |
+| shape | rows where the old shift was wrong | worst error |
 |---|---|---|
 | 200 / 200 causal, 8192 / 8192 causal, 4096 / 4096 causal, all with window_right = 0 | 0 | 0 tiles |
 | 300 / 256 causal | 44 of 300 | 1 tile |
@@ -232,15 +244,15 @@ warns about. Measuring `n_block_max(m_block) != m_block + 1` over the same
 | 8192 / 8192, shifted diagonal (window_right = 256) | 8064 of 8192 | 2 tiles |
 
 `n_block_max == m_block + 1` holds identically when `seqlen_q == seqlen_k` and
-`window_right` is 0 or absent, which is exactly the family the repository's
-correctness gates cover, so this is consistent with the recorded sm_90 parity
-3/3. It fails for every chunked-prefill and every decode call. At
+`window_right` is 0 or absent, which was exactly the family the repository's
+correctness gates covered, so this was consistent with the recorded sm_90
+parity 3/3. It failed for every chunked-prefill and every decode call. At
 `seqlen_q=1, seqlen_k=8192, rel_extent=512` the correct shift is
-`padded/128 - 64` and the code uses `padded/128 - 1`, so `tile_idx` is in
-range only for `n_block == 0` and the relative bias is applied to the oldest
+`padded/128 - 64` and the code used `padded/128 - 1`, so `tile_idx` was in
+range only for `n_block == 0` and the relative bias was applied to the oldest
 KV block instead of the newest, with the wrong values.
 
-Nothing in the repository would have caught it:
+Nothing in the repository would have caught it at the time:
 
 * `harness/parity_fa4_rel.py` has three cases, all `seqlen_q == seqlen_k`.
 * `harness/microbench_attn_day0.py`'s five decode cases do run
@@ -253,21 +265,29 @@ Nothing in the repository would have caught it:
 * `_use_sheared_bias()` after `u2_serving_route.py` returns True for
   capability 9 on **every** shape, so serving decode does route here.
 
-**This patch does not fix it.** The gate is default off and the existing path
-is left byte-for-byte alone, which is what the brief asked for. But the new
-path uses the general form, so:
+The first of those holes is now closed by
+`harness/parity_rel_chunked_decode.py`, seven cases of which six have
+`seqlen_k > seqlen_q` and one is the `seqlen_q == seqlen_k` control.
 
-* on `seqlen_q == seqlen_k` with `window_right = 0`, gate-on and gate-off must
-  agree (they read the same numbers through different addresses);
-* on chunked-prefill and decode shapes they will **not** agree, and the
-  gate-on path is the one that matches `parity_fa4_rel.py`'s reference. Do not
-  read that disagreement as a defect in this patch without checking against
-  the reference.
+**What this patch does about it.** The gate-off branch of the `mma` edit is a
+verbatim copy of the fixed block, lifted programmatically out of
+`kernels/tml_fa4_modified/flash_fwd_sm90.py` rather than retyped, so applying
+this patch cannot reintroduce the defect. That matters because an earlier draft
+of this patch DID reproduce the pre-fix arithmetic in that branch: the patch and
+the fix landed in the same commit (`eb1e487`), so the patch was born stale, its
+`mma` anchor matched 0 times, and making the anchor match without also fixing
+the body would have silently undone the fix on the DEFAULT path. Two mechanical
+checks guard it now, both listed under "How to check it, in order", step 0.
 
-Fixing the pre-sheared reader is a two-token change (`128 * (m_block + 1)` ->
-`128 * n_block_max`, with `n_block_max` already computed 4 lines later in
-`mma`), but it is a behaviour change to a path that is green today, so it
-belongs to whoever owns that decision, not to this patch.
+Both paths now use the general form, so:
+
+* gate-on and gate-off should agree on every shape this patch's constraints
+  allow, `seqlen_q == seqlen_k` and `seqlen_k > seqlen_q` alike, to within bf16
+  rounding of the same values (they read the same numbers through different
+  addresses);
+* a disagreement on any shape is therefore a defect in one of the two paths. It
+  is no longer an expected difference, which is what it was while the
+  pre-sheared reader was still specialised.
 
 ## How to check it, in order
 
@@ -292,8 +312,27 @@ Expect `flash_fwd_sm90.py: 4 edits applied`, `interface.py: 9 edits applied`,
 It must **not** be combined with `u2_shear_fusion.py`, which makes `qkvr_prep`
 emit the sheared layout that this patch removes the need for.
 
+Then two checks that the gate-off path still carries the `n_block_max` fix.
+Both are free, and both must hold with the environment variable **unset**:
+
+```
+grep -c -- "- (128 \* n_block_max_bias) // self.tile_n" \
+  $VLLM/vllm/third_party/tml_fa4/flash_fwd_sm90.py     # expect 1
+grep -c -- "- (128 \* (m_block + 1)) // self.tile_n" \
+  $VLLM/vllm/third_party/tml_fa4/flash_fwd_sm90.py     # expect 0
+```
+
+The second one is not paranoia. The first draft of this patch failed it, for
+the reason recorded in "The specialisation bug this uncovered, and its fix".
+
 Re-apply after every bootstrap: `interface.py` and `flash_fwd_sm90.py` live in
-the deployed tree and are overwritten by the deploy step.
+the deployed tree and are overwritten by the deploy step. The `mma` anchor is
+the fragile one: it is the block `eb1e487` rewrote, so any further change to
+the pre-sheared reader will make this patch abort with
+`anchor 'mma: build the in-kernel-shear score_mod_fn' matched 0 times`. When
+that happens, re-lift the block from `kernels/tml_fa4_modified/flash_fwd_sm90.py`
+into BOTH `SM90_MMA_OLD` and the `else:` body of `SM90_MMA_NEW`, never just the
+first.
 
 ### 1. H100, baseline first, gate OFF
 
@@ -389,15 +428,24 @@ Also worth reading in the same artifact: the five decode cases. They run
 executes the general form at all, even though they check no output. A crash or
 an illegal memory access there is a real signal.
 
-### 5. Not covered by anything, and worth one new case
+### 5. The `seqlen_k > seqlen_q` gate, which now exists
 
-No harness checks a `seqlen_q != seqlen_k` rel-bias shape for correctness on
-any architecture. The cheapest fix is one case in `parity_fa4_rel.py` with a
-prefix, which needs `reference_rel_attention` generalised from `dist = i - j`
-to `dist = (i + seqlen_k - seqlen_q) - j`. It is deliberately not in this
-patch, because with the gate OFF that case fails (see "The specialisation bug
-this uncovered") and turning a green harness red is not this patch's business.
-Whoever fixes the pre-sheared reader should add it in the same change.
+```
+python harness/parity_rel_chunked_decode.py
+INKLING_TURBO_INKERNEL_SHEAR=1 python harness/parity_rel_chunked_decode.py
+```
+
+This is the gate that did not exist when this patch was first written. Seven
+cases, six with `seqlen_k > seqlen_q`, one `seqlen_q == seqlen_k` control. It
+scores 7/7 gate-off at `e9857de`. **Gate-on must also be 7/7**, and this is now
+the most informative single run for the in-kernel shear, because it is the only
+harness that exercises the `seqlen_k - seqlen_q` term of `shear_k` against a
+checked reference. At `seqlen_q == seqlen_k` that term vanishes, so
+`parity_fa4_rel.py` cannot see a sign error in it and this one can.
+
+A gate-on score below 7/7 while gate-off is 7/7 localises the defect to the
+in-kernel path. Both below 7/7 means the deploy is not the fixed kernel, so
+re-check step 0's two greps before blaming the gate.
 
 ## Residual risks, ranked
 
@@ -448,8 +496,15 @@ Whoever fixes the pre-sheared reader should add it in the same change.
 
 ## Things deliberately not done
 
-* The pre-sheared reader's `128 * (m_block + 1)` was not corrected. See above.
-* `harness/parity_fa4_rel.py` was not modified.
+* The pre-sheared reader was not changed by this patch. It no longer needs
+  changing: `eb1e487` corrected `128 * (m_block + 1)` to `128 * n_block_max`
+  with `absolute=True`, and this patch's gate-off branch carries that corrected
+  block through verbatim. See "The specialisation bug this uncovered, and its
+  fix".
+* `harness/parity_fa4_rel.py` was not modified. It does not need a
+  `seqlen_q != seqlen_k` case any more either;
+  `harness/parity_rel_chunked_decode.py` covers that family, and step 5 runs it
+  under both gate states.
 * No shared-memory staging was added. See "Deviation from the design note".
 * `flash_fwd.py` (the sm_80/sm_120 generic kernel) was not touched, so
   `U2_SM90_GENERIC=1` keeps working as the A/B reference and is explicitly

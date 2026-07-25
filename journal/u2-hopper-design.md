@@ -669,9 +669,20 @@ bootstrap worked first try on a second box).
 
 ## SESSION 27 (2026-07-23, founder A100 node): sm_80 tile tuning
 
+**WITHDRAWN 2026-07-25, the decode half of this session.** The percentages below
+(10.1, 18.2, 18.7) are withdrawn and must not be quoted. The sweep timed decode
+shapes, T_q=1 against T_k=65536, while tune_sm80.py's parity_ok() built ONE
+cu_seqlens and passed it as both cu_seqlens_q and cu_seqlens_k, so the gate
+verified seqlen_q == seqlen_k. The generic kernel carried the same shear-shift
+specialisation sm_90 did, and it is wrong on exactly the family the gate never
+checked. The two prefill rows are 8192-on-8192 and survive, as does the tile_n=128
+collapse. The entry below is left as written, because the journal appends. Full
+record: journal/regression-ampere-tile-sweep.md.
+
 Parity-gated sweep (harness/tune_sm80.py; every config must pass a float32
-oracle before its timing counts). Legal space with bias: tile_m=128 fixed
-(shear contract), tile_n in {32, 64, 128}. Results
+oracle before its timing counts, and the point above is that the oracle was
+running a different shape family from the timings). Legal space with bias:
+tile_m=128 fixed (shear contract), tile_n in {32, 64, 128}. Results
 (journal/remote/tune_sm80_a100.json):
   tile_n=32: b1 decode 5350.1us | 32-seq 60801.4 | prefill_g 10712.7 | swa 10565.6
   tile_n=64: b1 decode 5953.7   | 32-seq 74356.6 | prefill_g 11124.1 | swa 9175.2
@@ -679,8 +690,10 @@ oracle before its timing counts). Legal space with bias: tile_m=128 fixed
 SHIPPED: interface sm_80 branch now picks tile_n=32 when max_seqlen_q<=32
 (decode-shaped), 64 otherwise. Upstream default was an untuned 64 with a
 literal "should tune" comment. Post-deploy validation on A100: parity 3/3
-32-seq decode 60977.5us vs 75013.4 pre-tune = 18.7 percent faster; sm_120
-regression 3/3 green (arch-12 branch untouched).
+32-seq decode 60977.5us vs 75013.4 pre-tune = ~~18.7 percent faster~~ WITHDRAWN,
+see the note at the head of this session; sm_120 regression 3/3 green (arch-12
+branch untouched, and that 3/3 is seqlen_q == seqlen_k like every other parity
+run of this era).
 
 ## SESSION 28 (2026-07-24, 8x H100): FIRST FULL-MODEL SERVING + LOGIT GATE
 

@@ -146,8 +146,28 @@ MODEL_MOUNT = "/models"
 MODEL_DIR = f"{MODEL_MOUNT}/inkling"
 MODEL_MARKER = f"{MODEL_DIR}/.download_complete"
 RESULTS_MOUNT = "/results"
-RESULTS_ROOT = f"{RESULTS_MOUNT}/bench"
-LOGS_ROOT = f"{RESULTS_MOUNT}/logs"
+# PIN THE GPU KIND, and assert at runtime that we got what we asked for.
+#
+# Requesting "H100:8" is not a guarantee. A run on 2026-07-25 asked for H100:8
+# and received 8x NVIDIA H200 with 143771 MiB each, and the difference is not
+# cosmetic: the KV pool went from 4379 tokens to 188160 and vLLM's own reported
+# max concurrency from 1.43x to 61.25x. A stock-versus-ours comparison split
+# across those two would be comparing memory budgets, not kernels.
+#
+# H200 is the pinned choice for end-to-end serving. Same architecture, sm_90, so
+# the kernel under test is identical to the one the microbenchmarks measured on
+# H100. What changes is headroom: 8x143GB against a 592GB checkpoint leaves room
+# for a real batch sweep, where 8x80GB leaves room for 1.43 concurrent
+# maximum-length requests and no sweep at all. Serving a 975B model at a
+# concurrency of one is not a deployment anyone would run.
+BENCH_GPU_KIND = "H200"
+
+# Namespaced by GPU kind. Resume skips runs whose JSON already exists, so a
+# shared path plus a hardware substitution silently produces a mixed-hardware
+# comparison. The path is the guard: results from different silicon cannot land
+# in the same tree. bench/ (unsuffixed) holds the 2026-07-25 partial H100 run.
+RESULTS_ROOT = f"{RESULTS_MOUNT}/bench_{BENCH_GPU_KIND.lower()}"
+LOGS_ROOT = f"{RESULTS_MOUNT}/logs_{BENCH_GPU_KIND.lower()}"
 LEDGER_PATH = f"{RESULTS_MOUNT}/spend_ledger.json"
 
 # Validate step (single GPU, no model). Image-mounted sources.
@@ -214,6 +234,11 @@ PROMPTS_PER_SLOT = 4  # num_prompts = max(conc*4, 16), same as gate_e2e_bench.sh
 # --------------------------------------------------------------------------
 
 USD_PER_H100_SEC = 0.001097  # $3.9492 per GPU-hour
+# H200 is billed above H100. Rate read from modal.com/pricing on 2026-07-25;
+# VERIFY before spend, prices move. Erring high is the safe direction here,
+# because the ledger uses this to decide whether a container may start.
+USD_PER_H200_SEC = 0.001261  # $4.5396 per GPU-hour
+GPU_SEC_RATE = {"H100": USD_PER_H100_SEC, "H200": USD_PER_H200_SEC}
 USD_PER_CPU_CORE_SEC = 0.0000131
 USD_PER_GIB_MEM_SEC = 0.00000222
 
@@ -236,7 +261,11 @@ BUDGET_USD = 200.0
 # authorised $138 for a container whose expected work is about $70. The real
 # protection is not this number, it is the per-run timeout and the per-build
 # time allowance, both of which stop a single hang from eating the container.
-BENCH_TIMEOUT_HOURS = 3.5
+# 2.75h at the pinned H200 rate is a $101 worst case, against $145 remaining in
+# the ledger at the time this was set. Was 3.5h, which was sized for the cheaper
+# H100 rate and would have authorised $130 and left almost no margin. The real
+# protection is still the per-run timeout and the per-build allowance.
+BENCH_TIMEOUT_HOURS = 2.75
 BENCH_TIMEOUT_S = int(BENCH_TIMEOUT_HOURS * 3600)
 DOWNLOAD_TIMEOUT_S = 6 * 3600  # CPU only at ~$0.63/hr, so at most ~$4
 # Leave room to stop the server, copy results and commit before Modal kills
@@ -467,9 +496,11 @@ results_vol = modal.Volume.from_name("inkling-bench-results", create_if_missing=
 # --------------------------------------------------------------------------
 
 
-def _usd_per_hour(n_gpu: float, cpu: float, mem_mib: float) -> float:
+def _usd_per_hour(
+    n_gpu: float, cpu: float, mem_mib: float, kind: str = "H100"
+) -> float:
     per_sec = (
-        n_gpu * USD_PER_H100_SEC
+        n_gpu * GPU_SEC_RATE[kind]
         + cpu * USD_PER_CPU_CORE_SEC
         + (mem_mib / 1024.0) * USD_PER_GIB_MEM_SEC
     )
@@ -477,7 +508,7 @@ def _usd_per_hour(n_gpu: float, cpu: float, mem_mib: float) -> float:
 
 
 def _bench_usd_per_hour() -> float:
-    return _usd_per_hour(N_GPU, BENCH_CPU, BENCH_MEMORY_MIB)
+    return _usd_per_hour(N_GPU, BENCH_CPU, BENCH_MEMORY_MIB, BENCH_GPU_KIND)
 
 
 def _download_usd_per_hour() -> float:
@@ -518,12 +549,12 @@ def _print_validate_cost_banner(where: str) -> None:
 
 
 def _print_cost_banner(where: str, runs: int, n_configs: int, n_builds: int) -> None:
-    gpu_hr = N_GPU * USD_PER_H100_SEC * 3600.0
+    gpu_hr = N_GPU * GPU_SEC_RATE[BENCH_GPU_KIND] * 3600.0
     rate = _bench_usd_per_hour()
     total_runs = n_builds * n_configs * runs
     print(f"=== COST ESTIMATE ({where}) ===")
     print(
-        f"H100 ${USD_PER_H100_SEC * 3600:.4f}/GPU-hr x {N_GPU} GPUs "
+        f"{BENCH_GPU_KIND} ${GPU_SEC_RATE[BENCH_GPU_KIND] * 3600:.4f}/GPU-hr x {N_GPU} GPUs "
         f"= ${gpu_hr:.2f}/hr"
     )
     print(
@@ -1125,7 +1156,7 @@ def download_model(force: int = 0) -> str:
 
 @app.function(
     image=bench_image,
-    gpu=f"H100:{N_GPU}",
+    gpu=f"{BENCH_GPU_KIND}:{N_GPU}",
     volumes={
         # Read only. The GPU container must never download anything.
         MODEL_MOUNT: model_vol.with_mount_options(read_only=True),
@@ -1182,14 +1213,39 @@ def run_bench(
     )
 
     print("=== host ===")
-    subprocess.run(
+    smi_out = subprocess.run(
         [
             "nvidia-smi",
             "--query-gpu=name,memory.total,driver_version",
             "--format=csv,noheader",
         ],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
         check=False,
     )
+    print(smi_out.stdout.strip())
+    # Assert the silicon, before the model load, before any money goes on a
+    # comparison that cannot be published. Asking for a GPU kind does not
+    # guarantee it: a run on 2026-07-25 requested H100:8 and got 8x H200, which
+    # changed the KV pool by 43x. Fail here rather than discover it in the
+    # numbers.
+    gpu_names = [
+        ln.split(",")[0].strip()
+        for ln in smi_out.stdout.splitlines() if ln.strip()
+    ]
+    wrong = [n for n in gpu_names if BENCH_GPU_KIND.upper() not in n.upper()]
+    if wrong or len(gpu_names) != N_GPU:
+        msg = (
+            f"GPU MISMATCH. Requested {BENCH_GPU_KIND}:{N_GPU}, got "
+            f"{len(gpu_names)} device(s): {gpu_names}. Refusing to spend on a "
+            "comparison whose hardware is not what was asked for."
+        )
+        print(msg)
+        _ledger_upsert(
+            "run_bench", (time.time() - t0) / 3600.0,
+            rate_hr * (time.time() - t0) / 3600.0, "aborted: gpu mismatch",
+        )
+        raise RuntimeError(msg)
+    print(f"GPU_CHECK ok: {len(gpu_names)}x {BENCH_GPU_KIND}")
     # /dev/shm size matters: the vLLM v1 message queue lives there.
     subprocess.run(["df", "-h", "/dev/shm"], check=False)
     subprocess.run(["df", "-h", MODEL_MOUNT], check=False)
@@ -2971,7 +3027,7 @@ def main(
         print(download_model.remote(force=force_download))
 
     if step in ("all", "bench"):
-        print(">>> step: bench (8x H100)")
+        print(f">>> step: bench ({N_GPU}x {BENCH_GPU_KIND})")
         out = run_bench.remote(
             runs=runs,
             builds=builds,

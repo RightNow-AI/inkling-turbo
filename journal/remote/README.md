@@ -8,7 +8,10 @@ trace to a file in this directory. Five do not, and it is better to name them
 than to state a rule that is false:
 
 - the Nsight Compute percentages, because the `.ncu-rep` files are gitignored;
-- the 18.7% post-deploy A100 re-run, journal session 27, no separate JSON;
+- the 18.7% post-deploy A100 re-run, journal session 27, no separate JSON.
+  **Withdrawn 2026-07-25** along with the rest of the Ampere tile-tuning
+  percentages, and kept on this list because a withdrawn number is not a deleted
+  one: [regression-ampere-tile-sweep.md](../regression-ampere-tile-sweep.md);
 - the `sm_120` relative timings, which were local and never packaged;
 - the 8x H100 memory recipe and its 0.77GB-per-0.01 sensitivity, session 28
   prose;
@@ -50,12 +53,14 @@ our kernel. The filename does not tell you which; the session column below does.
 
 | File | Hardware | What it is | Backs |
 |---|---|---|---|
-| `microbench_attn_day0_session25_h100.json` | 1x H100 SXM5 | Our kernel, all cases | The "Ours" column of the README latency table |
-| `microbench_attn_scoremod_session25_h100.json` | 1x H100 SXM5 | The day-0 `score_mod` baseline and biasless attention, same shapes, same box, same run. Also `relproj` and `relprojT`, which are OUR abandoned prototypes and not baselines. | The `score_mod` column of that table |
+| `validate_s27_decodefix/` | 1x H100 80GB HBM3 | The post-fix run: `parity_rel_chunked_decode` 7/7, `parity_fa4_rel` 3/3, and our kernel against the day-0 `score_mod` baseline in one container | **Every row of the README latency table.** The decode ratios 2.66x / 2.75x / 2.10x, the prefill 1.44x, and the 1.27x sliding-window loss |
+| `validate_s27_brokencontrol/` | 1x H100 80GB HBM3 | The same payload with the `128*(m_block+1)` shift deliberately restored, so the new gate could be observed failing on the defect it was written for | That the gate is a gate, the tolerance choice (`TOL_MEAN` 5e-4), and the cost of correct decode bias measured as broken against fixed |
+| `microbench_attn_day0_session25_h100.json` | 1x H100 SXM5 | Our kernel, all cases, **before the bias-shift fix** | The prefill rows of the README latency table. Its decode rows are **withdrawn**: the kernel was applying the bias to one KV block instead of ten. See [regression-sm90-bias-shift.md](../regression-sm90-bias-shift.md) |
+| `microbench_attn_scoremod_session25_h100.json` | 1x H100 SXM5 | The day-0 `score_mod` baseline and biasless attention, same shapes, same box, same run. Also `relproj` and `relprojT`, which are OUR abandoned prototypes and not baselines. | The `score_mod` side of that comparison. The baseline itself was never defective; what is withdrawn is dividing by it |
 | `microbench_attn_day0_native_sm90_session24.json` | 1x H100 SXM5 | Our kernel, session 24, torch cu129 | The first native `sm_90` result, superseded as the headline by session 25 |
 | `microbench_attn_scoremod_session24.json` | 1x H100 SXM5 | Day-0 baselines, session 24 | The session-24 comparison |
 | `microbench_attn_scoremod_gpu_1x_h100_sxm5.json` | 1x H100 SXM5 | Byte-identical duplicate of the line above | Nothing. Redundant copy. |
-| `tune_sm80_a100.json` | A100 SXM4 40GB | Parity-gated tile sweep, three configurations | The Ampere tile-tuning result |
+| `tune_sm80_a100.json` | A100 SXM4 40GB | Tile sweep, three configurations. Parity-gated, but the gate ran `seqlen_q == seqlen_k` while the decode cases were timed at `T_q=1` against `T_k=65536`, and the generic kernel was wrong on the second family | The **decode** percentages it backed are **withdrawn**: [regression-ampere-tile-sweep.md](../regression-ampere-tile-sweep.md). It still backs the two prefill rows, which are 8192-on-8192 and unaffected, and the `tile_n=128` collapse. Note that all three configurations report the identical parity max diff to sixteen digits, `:4`, `:13`, `:22` |
 | `gate_logit_parity_8xh100.json` | 8x H100, TP8 | Full-model gate: 32 prompts, stock build against ours, plus both same-build controls | The 32/32 token match, and the logprob gate recorded as a fail |
 | `microbench_attn_day0_gpu_1x_h100_sxm5.json` | 1x H100 SXM5 | Session 1. Every attention case errored on a toolchain break; only `gate_select` produced a number | Nothing about attention. Kept as the record of the first drift failure. |
 | `microbench_attn_day0_sm100.json` | 1x H100 SXM5, **not sm_100** | Session 3, the `rel_bias` path before we knew it was silently returning plain attention | **Nothing. These numbers are retracted.** The correction is in [u2-hopper-design.md](../u2-hopper-design.md#correction-2026-07-18-post-static-analysis-supersedes-design-a). The filename is wrong and predates the correction. |

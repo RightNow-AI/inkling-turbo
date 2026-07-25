@@ -168,7 +168,12 @@ def main() -> int:
     ]
 
     any_data = False
-    for mix, mix_desc in MIXES.items():
+    # mix_labels() replaced the old hardcoded MIXES table, but this call site
+    # still read MIXES, so the summarizer raised NameError here on every run and
+    # produced a header-only file. run_gates_full.sh calls it with `|| true`, so
+    # the crash was invisible: the stage logged nothing and the summary looked
+    # merely empty.
+    for mix, mix_desc in mix_labels(args.root).items():
         lines.append(f"## Mix: {mix_desc}")
         lines.append("")
         concs = discover_concs(args.root, mix)
