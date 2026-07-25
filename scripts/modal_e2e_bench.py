@@ -625,6 +625,14 @@ def _run_id() -> str:
 
 
 def _ledger_read() -> dict:
+    # reload() first, or a container reads the mount snapshot it booted with and
+    # a whole-file write then drops any entry another live container added. The
+    # $200 cap is enforced from this file, so a dropped entry is money that
+    # stops counting.
+    try:
+        results_vol.reload()
+    except Exception as exc:  # noqa: BLE001
+        print(f"WARN: ledger volume reload failed ({exc}); reading local view")
     p = Path(LEDGER_PATH)
     if p.exists():
         try:
@@ -2644,12 +2652,37 @@ def run_validate(
                 "case x backend checks fails)",
             ),
             (
+                # THE gate for the shear-shift fix. Every case here has
+                # seqlen_k > seqlen_q, which is the shape family the old
+                # 128*(m_block+1) formula got wrong and which no existing gate
+                # covered. A green run here is what restores the decode claim.
+                "parity_rel_chunked_decode",
+                [py, "parity_rel_chunked_decode.py"],
+                {},
+                [
+                    (
+                        "parity_rel_chunked_decode_sm90.json",
+                        f"parity_rel_chunked_decode_{tag}.json",
+                    )
+                ],
+                "7/7. control_full_prefill must pass either way; the chunked_* "
+                "and decode_* cases FAIL before the n_block_max fix and pass "
+                "after it. Before the fix, decode got bias on 1 of 512 KV "
+                "blocks and it was the oldest one.",
+            ),
+            (
                 "parity_shear_fusion",
                 [py, "parity_shear_fusion.py"],
                 {"INKLING_TURBO_FUSED_SHEAR": "1"},
-                [],
-                "16/16 cases bit-exact. FIRST TIME the shear fusion runs on "
-                "Hopper; previously validated only on an RTX 5090.",
+                [
+                    (
+                        "parity_shear_fusion_sm90.json",
+                        f"parity_shear_fusion_{tag}.json",
+                    )
+                ],
+                "16/16 now expected. It scored 14/16 on Hopper in session 26 "
+                "because both attention_consumes_* cases hit the unbound "
+                "n_block, which is fixed.",
             ),
             (
                 "parity_kv_fp8",
@@ -2867,6 +2900,14 @@ def main(
         tag = VALIDATE_TAG if patches == "u3+shear" else (
             f"{VALIDATE_TAG}_{patches.replace('+', '')}"
         )
+        # Lets a deliberately-broken control run land beside the real one
+        # instead of overwriting it. Used to prove a new gate actually fails
+        # against the defect it was written for, which is the difference
+        # between having a gate and believing you have one.
+        suffix = os.environ.get("VALIDATE_TAG_SUFFIX", "").strip()
+        if suffix:
+            tag = f"{tag}_{re.sub(r'[^A-Za-z0-9_.-]', '', suffix)}"
+            print(f"    tag suffix in effect: results land under {tag}")
         out = run_validate.remote(
             budget_usd=budget_usd, tag=tag, patches=patches
         )

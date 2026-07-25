@@ -1,0 +1,46 @@
+device: NVIDIA H100 80GB HBM3, capability (9, 0)
+/usr/local/lib/python3.12/site-packages/torch/profiler/profiler.py:224: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+
+[prefill_global_8k] total 4795.2 us/iter
+       4795.2 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[prefill_swa_8k] total 953.9 us/iter
+        953.9 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[decode_b32_global_kv8k] total 305.3 us/iter
+        305.3 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[decode_b32_global_kv64k] total 2270.7 us/iter
+       2270.7 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[decode_b1_global_kv64k] total 2342.6 us/iter
+       2342.6 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py:2214: UserWarning: Argument aux_data (position 18) cannot be converted to a JitArgument for function 'cutlass___call___vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_object_at__Tensorgmemoi64i641_Tensorgmemoi64i641_Tensorgmemoi64i641_Tensorgmemoi64i641_None_00078125'. Its type `<class 'vllm.vllm_flash_attn.cute.utils.AuxData'>` is not supported. If the value is known at compile time, annotate it: `aux_data: Constexpr`. Otherwise, implement the `JitArgument` or `DynamicExpression` protocol for type `<class 'vllm.vllm_flash_attn.cute.utils.AuxData'>`, or register a custom argument adapter.
+  exe_args, func_types, adapted_args = self.generate_mlir_function_types(
+
+[decode_b1_plain_kv64k] total 711.8 us/iter
+        711.8 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[decode_b32_plain_kv64k] total 738.0 us/iter
+        738.0 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[relproj_prefill_global_8k] total 15345.7 us/iter
+      15345.7 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[relproj_decode_b32_kv64k] total 7541.6 us/iter
+       7541.6 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[relproj_decode_b1_kv64k] total 7159.4 us/iter
+       7159.4 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[relprojT_decode_b1_kv64k] total 5060.3 us/iter
+       5060.3 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[relprojT_decode_b32_kv64k] total 5100.7 us/iter
+       5100.7 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+[relprojT_prefill_global_8k] total 10471.8 us/iter
+      10471.8 us  100.0%  kernel_cutlass_kernel_vllmvllm_flash_attncuteflash_fwd_sm90FlashAttentionForwardSm90_objec
+
+saved: /tmp/inkling_validate/harness/microbench_attn_scoremod.json

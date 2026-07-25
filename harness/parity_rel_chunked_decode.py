@@ -126,12 +126,37 @@ def run_case(name, T_q, ctx, Hq, Hkv, rel_extent, window_left, seed):
     }
 
 
-# Tolerances match parity_fa4_rel's observed bf16 behaviour: the three prefill
-# cases there land at max 7.8125e-03, which is the bf16 quantum at these
-# magnitudes. A dropped or misplaced bias tile is orders of magnitude larger,
-# so this threshold separates the two cleanly rather than finely.
+# Tolerances CALIBRATED against a deliberately broken control, not guessed.
+#
+# Both runs are on one H100. "fixed" is the n_block_max form, "broken" is the
+# 128*(m_block+1) form put back on purpose to prove this gate is a gate:
+#
+#   case                          fixed max / mean      broken max / mean
+#   control_full_prefill          7.81e-03 / 6.86e-05   7.81e-03 / 6.86e-05
+#   chunked_global_128_on_1408    4.88e-04 / 3.73e-05   7.14e-02 / 1.05e-02
+#   chunked_global_256_on_768     9.77e-04 / 4.67e-05   1.11e-01 / 1.43e-02
+#   decode_global_ctx2047         2.44e-04 / 2.89e-05   3.56e-02 / 6.44e-03
+#   decode_global_ctx4095         2.44e-04 / 2.18e-05   1.81e-02 / 3.28e-03
+#   decode_swa_ctx4095            9.77e-04 / 6.96e-05   8.68e-02 / 1.69e-02
+#   chunked_swa_128_on_1408       9.77e-04 / 6.39e-05   1.34e-01 / 1.79e-02
+#
+# The control is identical in both, which is the point: the defect only touches
+# seqlen_q != seqlen_k, so a change there would mean the swap did something else.
+#
+# THE MEAN IS THE DISCRIMINATOR, and the first version of this file got that
+# wrong. With TOL_MAX = 0.05 the broken decode_global_ctx4095 case passed at
+# 1.81e-02, so 5 of 6 defective cases were caught and one was certified as
+# correct. Max cannot separate cleanly because the legitimate prefill control
+# sits at the bf16 quantum 7.81e-03, only 2.3x below the tightest broken value.
+#
+# Mean separates with no overlap at all: worst legitimate 6.96e-05 against best
+# defective 3.28e-03, a factor of 47. TOL_MEAN = 5e-4 sits in that gap with 7.2x
+# headroom above every passing case and 6.6x below every failing one.
+#
+# TOL_MAX stays loose on purpose. It is a backstop for a gross failure such as
+# NaN or a dropped output, not the primary signal.
 TOL_MAX = 0.05
-TOL_MEAN = 0.005
+TOL_MEAN = 5e-4
 
 CASES = [
     # The control: seqlen_q == seqlen_k, which the old formula got RIGHT.

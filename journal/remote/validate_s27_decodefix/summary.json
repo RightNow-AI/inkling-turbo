@@ -1,0 +1,183 @@
+{
+  "tag": "modal_h100x1_route",
+  "steps": [
+    {
+      "step": "env_proof",
+      "verdict": "PASS",
+      "expect": "sm_90 (H100)",
+      "capability": [
+        9,
+        0
+      ],
+      "sm_90": true,
+      "nvidia_smi": "NVIDIA H100 80GB HBM3, 81559 MiB, 580.95.05",
+      "torch": "2.11.0+cu130",
+      "torch_cuda": "13.0",
+      "device_name": "NVIDIA H100 80GB HBM3",
+      "sm_count": 132,
+      "total_memory_gb": 85.0,
+      "device_count": 1,
+      "vllm": "0.23.1rc1.dev1237+g850295881.precompiled",
+      "nvidia_cutlass_dsl": "4.6.0"
+    },
+    {
+      "step": "setup",
+      "verdict": "PASS",
+      "tml_pkg": "/opt/vllm/vllm/third_party/tml_fa4",
+      "tml_source_tree_same": true,
+      "deployed": [
+        "flash_fwd.py:df489224",
+        "flash_fwd_sm90.py:7a600ff8",
+        "interface.py:da53a2b9"
+      ],
+      "patch_set": "route",
+      "patch_order": [
+        "u2_serving_route.py"
+      ],
+      "patch_markers": {
+        "u2_serving_route": true
+      },
+      "patches_confirmed_absent": [
+        "u2_shear_relshearspec",
+        "u3_quantize_kv"
+      ]
+    },
+    {
+      "step": "parity_fa4_rel",
+      "cmd": "/usr/local/bin/python3 parity_fa4_rel.py",
+      "env": {},
+      "expect": "3/3 green for tml_fa4_rel_bias on the sm_90 native path (the harness also reports score_mod and our abandoned relproj prototype; it exits non-zero if any of the 9 case x backend checks fails)",
+      "verdict": "PASS",
+      "seconds": 95.2,
+      "rc": 0,
+      "lines_ok": 9,
+      "lines_fail": 0,
+      "lines_skip": 0
+    },
+    {
+      "step": "parity_rel_chunked_decode",
+      "cmd": "/usr/local/bin/python3 parity_rel_chunked_decode.py",
+      "env": {},
+      "expect": "7/7. control_full_prefill must pass either way; the chunked_* and decode_* cases FAIL before the n_block_max fix and pass after it. Before the fix, decode got bias on 1 of 512 KV blocks and it was the oldest one.",
+      "verdict": "PASS",
+      "seconds": 28.2,
+      "rc": 0,
+      "lines_ok": 0,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "parity_rel_chunked_decode_modal_h100x1_route.json": {
+          "device": null,
+          "compute_capability": null,
+          "torch_version": null,
+          "cuda_version": null,
+          "tol_max": null,
+          "tol_mean": null,
+          "cases": null,
+          "passed": null,
+          "total": null
+        }
+      },
+      "artifacts": [
+        "parity_rel_chunked_decode_modal_h100x1_route.json"
+      ]
+    },
+    {
+      "step": "parity_qkvr_prep",
+      "cmd": "/usr/local/bin/python3 parity_qkvr_prep.py",
+      "env": {},
+      "expect": "5/5. Regression gate: the DEFAULT qkvr_prep path must behave identically after u3 and u2 have both rewritten this file.",
+      "verdict": "PASS",
+      "seconds": 9.5,
+      "rc": 0,
+      "lines_ok": 5,
+      "lines_fail": 0,
+      "lines_skip": 0
+    },
+    {
+      "step": "microbench_attn_scoremod",
+      "cmd": "/usr/local/bin/python3 microbench_attn_scoremod.py",
+      "env": {},
+      "expect": "day-0 baseline. score_mod is the ONLY day-0 path; relproj and relprojT in this JSON are OUR abandoned prototypes.",
+      "verdict": "PASS",
+      "seconds": 64.5,
+      "rc": 0,
+      "lines_ok": 0,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "microbench_attn_scoremod_modal_h100x1_route.json": {
+          "prefill_global_8k": 4820.8,
+          "prefill_swa_8k": 965.4,
+          "decode_b32_global_kv8k": 307.7,
+          "decode_b32_global_kv64k": 2389.4,
+          "decode_b1_global_kv64k": 2375.6,
+          "decode_b1_plain_kv64k": 736.0,
+          "decode_b32_plain_kv64k": 736.4,
+          "relproj_prefill_global_8k": 15303.7,
+          "relproj_decode_b32_kv64k": 7705.7,
+          "relproj_decode_b1_kv64k": 7319.3,
+          "relprojT_decode_b1_kv64k": 5185.1,
+          "relprojT_decode_b32_kv64k": 5114.4,
+          "relprojT_prefill_global_8k": 10632.4
+        }
+      },
+      "artifacts": [
+        "microbench_attn_scoremod_modal_h100x1_route.json"
+      ]
+    },
+    {
+      "step": "microbench_ours_attn_shearfusion_OFF",
+      "cmd": "/usr/local/bin/python3 microbench_attn_day0.py",
+      "env": {
+        "INKLING_TURBO_FUSED_SHEAR": "0"
+      },
+      "expect": "reproduces session 25 (decode b1 64K 852.6, b32 64K 854.8, b32 8K 124.1, prefill global 3308.8, prefill SWA 1223.0 us/iter on one H100 SXM5)",
+      "verdict": "PASS",
+      "seconds": 28.2,
+      "rc": 0,
+      "lines_ok": 0,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "microbench_ours_attn_shearfusion_OFF_modal_h100x1_route.json": {
+          "prefill_global_8k": 3353.7,
+          "prefill_swa_8k": 1224.5,
+          "decode_b32_global_kv8k": 146.3,
+          "decode_b32_global_kv64k": 867.6,
+          "decode_b1_global_kv64k": 894.7,
+          "decode_32seqs_global_kv8k": 2131.1,
+          "decode_32seqs_global_kv64k": 14697.5,
+          "gate_select_T1": 4.0,
+          "gate_select_T4096": 22.0
+        }
+      },
+      "artifacts": [
+        "microbench_ours_attn_shearfusion_OFF_modal_h100x1_route.json"
+      ]
+    }
+  ],
+  "passed": [
+    "env_proof",
+    "setup",
+    "parity_fa4_rel",
+    "parity_rel_chunked_decode",
+    "parity_qkvr_prep",
+    "microbench_attn_scoremod",
+    "microbench_ours_attn_shearfusion_OFF"
+  ],
+  "failed": [],
+  "not_run": [],
+  "elapsed_hours": 0.072,
+  "spend_usd_est": 0.33,
+  "ledger_total_usd_est": 40.51,
+  "budget_usd": 200.0,
+  "results_root": "/results/validate/modal_h100x1_route",
+  "caveats": {
+    "fused_shear_env_var": "INKLING_TURBO_FUSED_SHEAR does NOT change what microbench_attn_day0.py measures. That harness calls tml-fa4 directly with rel_bias=<natural layout>, so ShearingBias still runs inside the timed region. The env var is read only by fa4_rel_attention.use_fused_shear, on the vLLM serving path, and it additionally requires _use_sheared_bias(), which is false on sm_90 unless u2_serving_route.py is applied (it is NOT applied here). Expect the fusion_on and fusion_off JSONs to agree within noise. The measurement that actually isolates the removed pre-kernel is the presheared_* section of the generated extra_microbench.py.",
+    "qkvr_writer_cost": "MEASURED by the writer_* section of extra_microbench.py. The fused writer emits rel_extent + 256 columns instead of rel_extent, so it is strictly more work than the natural writer and the fusion only pays if that extra cost is smaller than the ShearingBias launch it removes. The verdict on any shape is writer_*.writer_delta_us_per_iter against presheared_*.saved_us_per_iter_vs_natural. Quoting either section on its own overstates the fusion.",
+    "artifact_names": "microbench_attn_day0_*.json holds OUR numbers, not day-0 ones. The harness times whatever tml_fa4 resolves to, which here is our build. The actual day-0 baseline is microbench_attn_scoremod_*.json. The file name is historical and this repo has already published one wrong headline by confusing our own code for a baseline.",
+    "parity_fa4_rel_verdict": "parity_fa4_rel's PASS/FAIL is rc-based, and the harness counts every non-tuple result including SKIP as a failure across all 9 case x backend combinations. A red verdict there may be the abandoned relproj_v1 prototype rather than the real tml_fa4_rel_bias gate. Read logs/parity_fa4_rel.log before concluding anything from it.",
+    "split_kv": "sm_90 split-KV has never run on Hopper. Any splitkv_* result here is its first execution."
+  }
+}

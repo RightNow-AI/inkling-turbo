@@ -1,0 +1,71 @@
+{
+  "prefill_global_8k": {
+    "total_us_per_iter": 3329.7124999999996,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o111012_tensor000o111012_tensor000o111012_tensor0000o1073741824214748364711101213_N_0": 2497.1547,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_00_inf__tensorptri32_gme_0": 829.9311999999998,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_cutlasscutecorestruct_object_at__0": 1.3333999999997672,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_0": 1.2932000000001835
+    }
+  },
+  "prefill_swa_8k": {
+    "total_us_per_iter": 1210.6073999999999,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o111012_tensor000o111012_tensor000o111012_tensor0000o1073741824214748364711101213_N_0": 748.1538499999998,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_inf_inf__tensorptri32_gm_0": 459.85684999999995,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_cutlasscutecorestruct_object_at__0": 1.3151000000004274,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_0": 1.2815999999996905
+    }
+  },
+  "decode_b32_global_kv8k": {
+    "total_us_per_iter": 122.16950000000007,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o111012_tensor000o111012_tensor000o111012_tensor0000o1073741824214748364711101213_N_0": 112.26435000000001,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_00_inf__tensorptri32_gme_0": 7.087750000000023,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_cutlasscutecorestruct_object_at__0": 1.5454000000000037,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_0": 1.2720000000000369
+    }
+  },
+  "decode_b32_global_kv64k": {
+    "total_us_per_iter": 851.7529000000002,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o111012_tensor000o111012_tensor000o111012_tensor0000o1073741824214748364711101213_N_0": 841.8860000000002,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_00_inf__tensorptri32_gme_0": 7.02829999999999,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_cutlasscutecorestruct_object_at__0": 1.5799999999998362,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_0": 1.258600000000206
+    }
+  },
+  "decode_b1_global_kv64k": {
+    "total_us_per_iter": 852.3427499999998,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o111012_tensor000o111012_tensor000o111012_tensor0000o1073741824214748364711101213_N_0": 848.8610499999999,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_00_inf__tensorptri32_gme_0": 3.481699999999978
+    }
+  },
+  "decode_32seqs_global_kv8k": {
+    "total_us_per_iter": 1784.845800000001,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o111012_tensor000o111012_tensor000o111012_tensor0000o1073741824214748364711101213_N_0": 1777.8184500000007,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_00_inf__tensorptri32_gme_0": 7.027350000000331
+    }
+  },
+  "decode_32seqs_global_kv64k": {
+    "total_us_per_iter": 13915.197550000004,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwd_sm90FlashAttentionForwardSm90_object_at__tensor000o111012_tensor000o111012_tensor000o111012_tensor0000o1073741824214748364711101213_N_0": 13908.018500000002,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_00_inf__tensorptri32_gme_0": 7.179050000002007
+    }
+  },
+  "gate_select_T1": {
+    "total_us_per_iter": 4.025799999999981,
+    "kernels_us": {
+      "_inkling_gate_select_kernel": 4.025799999999981
+    }
+  },
+  "gate_select_T4096": {
+    "total_us_per_iter": 21.98580000000002,
+    "kernels_us": {
+      "_inkling_gate_select_kernel": 21.98580000000002
+    }
+  }
+}

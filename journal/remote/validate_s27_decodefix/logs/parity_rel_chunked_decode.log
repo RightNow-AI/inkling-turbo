@@ -1,0 +1,13 @@
+device: NVIDIA H100 80GB HBM3, capability (9, 0)
+tolerance: max <= 0.05, mean <= 0.005
+
+[control_full_prefill] OK: max=7.8125e-03 mean=6.8648e-05
+[chunked_global_128_on_1408] OK: max=4.8828e-04 mean=3.7287e-05
+[chunked_global_256_on_768] OK: max=9.7656e-04 mean=4.6737e-05
+[decode_global_ctx2047] OK: max=2.4414e-04 mean=2.8889e-05
+[decode_global_ctx4095] OK: max=2.4414e-04 mean=2.1760e-05
+[decode_swa_ctx4095] OK: max=9.7656e-04 mean=6.9583e-05
+[chunked_swa_128_on_1408] OK: max=9.7656e-04 mean=6.3930e-05
+
+7/7 cases within tolerance
+saved: /tmp/inkling_validate/harness/parity_rel_chunked_decode_sm90.json

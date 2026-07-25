@@ -1,0 +1,110 @@
+{
+  "device": "NVIDIA H100 80GB HBM3",
+  "compute_capability": "9.0",
+  "torch_version": "2.11.0+cu130",
+  "cuda_version": "13.0",
+  "tol_max": 0.05,
+  "tol_mean": 0.005,
+  "cases": {
+    "control_full_prefill": {
+      "max_abs_diff": 0.0078125,
+      "mean_abs_diff": 6.864773604320362e-05,
+      "shape": {
+        "T_q": 1536,
+        "ctx": 0,
+        "T_k": 1536,
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 1024,
+        "window_left": null
+      },
+      "pass": true
+    },
+    "chunked_global_128_on_1408": {
+      "max_abs_diff": 0.0714111328125,
+      "mean_abs_diff": 0.01054123230278492,
+      "shape": {
+        "T_q": 128,
+        "ctx": 1408,
+        "T_k": 1536,
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 1024,
+        "window_left": null
+      },
+      "pass": false
+    },
+    "chunked_global_256_on_768": {
+      "max_abs_diff": 0.111328125,
+      "mean_abs_diff": 0.014269605278968811,
+      "shape": {
+        "T_q": 256,
+        "ctx": 768,
+        "T_k": 1024,
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 512,
+        "window_left": null
+      },
+      "pass": false
+    },
+    "decode_global_ctx2047": {
+      "max_abs_diff": 0.03558349609375,
+      "mean_abs_diff": 0.006441937759518623,
+      "shape": {
+        "T_q": 1,
+        "ctx": 2047,
+        "T_k": 2048,
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 1024,
+        "window_left": null
+      },
+      "pass": false
+    },
+    "decode_global_ctx4095": {
+      "max_abs_diff": 0.01812744140625,
+      "mean_abs_diff": 0.003275895956903696,
+      "shape": {
+        "T_q": 1,
+        "ctx": 4095,
+        "T_k": 4096,
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 1024,
+        "window_left": null
+      },
+      "pass": true
+    },
+    "decode_swa_ctx4095": {
+      "max_abs_diff": 0.0867919921875,
+      "mean_abs_diff": 0.016883954405784607,
+      "shape": {
+        "T_q": 1,
+        "ctx": 4095,
+        "T_k": 4096,
+        "Hq": 8,
+        "Hkv": 2,
+        "rel_extent": 512,
+        "window_left": 511
+      },
+      "pass": false
+    },
+    "chunked_swa_128_on_1408": {
+      "max_abs_diff": 0.1337890625,
+      "mean_abs_diff": 0.01789211854338646,
+      "shape": {
+        "T_q": 128,
+        "ctx": 1408,
+        "T_k": 1536,
+        "Hq": 8,
+        "Hkv": 2,
+        "rel_extent": 512,
+        "window_left": 511
+      },
+      "pass": false
+    }
+  },
+  "passed": 2,
+  "total": 7
+}

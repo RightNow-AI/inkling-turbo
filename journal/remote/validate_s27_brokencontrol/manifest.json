@@ -1,0 +1,59 @@
+{
+  "app": "inkling-e2e-bench",
+  "step": "validate",
+  "tag": "modal_h100x1_route_BROKENCONTROL",
+  "started_utc": "2026-07-25T01:00:21Z",
+  "gpu": "H100:1",
+  "vllm_pin": "850295881041754184717804104fcaadd2b2129e",
+  "vllm_wheel": "https://wheels.vllm.ai/850295881041754184717804104fcaadd2b2129e/vllm-0.23.1rc1.dev1237%2Bg850295881-cp38-abi3-manylinux_2_28_x86_64.whl",
+  "cuda_image": "nvidia/cuda:13.0.1-devel-ubuntu24.04",
+  "model": "NONE. Every harness builds random tensors.",
+  "env": {
+    "torch": "2.11.0+cu130",
+    "torch_cuda": "13.0",
+    "device_name": "NVIDIA H100 80GB HBM3",
+    "capability": [
+      9,
+      0
+    ],
+    "sm_count": 132,
+    "total_memory_gb": 85.0,
+    "device_count": 1,
+    "vllm": "0.23.1rc1.dev1237+g850295881.precompiled",
+    "nvidia_cutlass_dsl": "4.6.0"
+  },
+  "deploy": {
+    "tml_pkg": "/opt/vllm/vllm/third_party/tml_fa4",
+    "tml_source_tree_same": true,
+    "deployed": [
+      "flash_fwd.py:df489224",
+      "flash_fwd_sm90.py:940acf1f",
+      "interface.py:da53a2b9"
+    ],
+    "patch_set": "route",
+    "patch_order": [
+      "u2_serving_route.py"
+    ],
+    "patch_markers": {
+      "u2_serving_route": true
+    },
+    "patches_confirmed_absent": [
+      "u2_shear_relshearspec",
+      "u3_quantize_kv"
+    ]
+  },
+  "cost": {
+    "usd_per_hour": 4.5822,
+    "budget_usd": 200.0,
+    "prior_spend_usd_est": 40.51,
+    "hard_timeout_hours": 2.0,
+    "rates_quoted": "modal.com/pricing 2026-07-24"
+  },
+  "caveats": {
+    "fused_shear_env_var": "INKLING_TURBO_FUSED_SHEAR does NOT change what microbench_attn_day0.py measures. That harness calls tml-fa4 directly with rel_bias=<natural layout>, so ShearingBias still runs inside the timed region. The env var is read only by fa4_rel_attention.use_fused_shear, on the vLLM serving path, and it additionally requires _use_sheared_bias(), which is false on sm_90 unless u2_serving_route.py is applied (it is NOT applied here). Expect the fusion_on and fusion_off JSONs to agree within noise. The measurement that actually isolates the removed pre-kernel is the presheared_* section of the generated extra_microbench.py.",
+    "qkvr_writer_cost": "MEASURED by the writer_* section of extra_microbench.py. The fused writer emits rel_extent + 256 columns instead of rel_extent, so it is strictly more work than the natural writer and the fusion only pays if that extra cost is smaller than the ShearingBias launch it removes. The verdict on any shape is writer_*.writer_delta_us_per_iter against presheared_*.saved_us_per_iter_vs_natural. Quoting either section on its own overstates the fusion.",
+    "artifact_names": "microbench_attn_day0_*.json holds OUR numbers, not day-0 ones. The harness times whatever tml_fa4 resolves to, which here is our build. The actual day-0 baseline is microbench_attn_scoremod_*.json. The file name is historical and this repo has already published one wrong headline by confusing our own code for a baseline.",
+    "parity_fa4_rel_verdict": "parity_fa4_rel's PASS/FAIL is rc-based, and the harness counts every non-tuple result including SKIP as a failure across all 9 case x backend combinations. A red verdict there may be the abandoned relproj_v1 prototype rather than the real tml_fa4_rel_bias gate. Read logs/parity_fa4_rel.log before concluding anything from it.",
+    "split_kv": "sm_90 split-KV has never run on Hopper. Any splitkv_* result here is its first execution."
+  }
+}

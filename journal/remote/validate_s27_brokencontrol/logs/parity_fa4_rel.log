@@ -1,0 +1,10 @@
+device: NVIDIA H100 80GB HBM3, capability (9, 0)
+[global_short] tml_fa4_rel_bias: max_diff=7.8125e-03 mean=1.9751e-04 OK
+[global_short] score_mod: max_diff=7.8125e-03 mean=1.9751e-04 OK
+[global_short] relproj_v1: max_diff=1.5625e-02 mean=2.3806e-04 OK
+[global_beyond_extent] tml_fa4_rel_bias: max_diff=7.8125e-03 mean=6.8229e-05 OK
+[global_beyond_extent] score_mod: max_diff=7.8125e-03 mean=6.8229e-05 OK
+[global_beyond_extent] relproj_v1: max_diff=7.8125e-03 mean=8.2361e-05 OK
+[swa_512] tml_fa4_rel_bias: max_diff=7.8125e-03 mean=7.9852e-05 OK
+[swa_512] score_mod: max_diff=7.8125e-03 mean=7.9852e-05 OK
+[swa_512] relproj_v1: max_diff=7.8125e-03 mean=9.7831e-05 OK

@@ -1,0 +1,162 @@
+{
+  "steps": [
+    {
+      "step": "env_proof",
+      "verdict": "PASS",
+      "expect": "sm_90 (H100)",
+      "capability": [
+        9,
+        0
+      ],
+      "sm_90": true,
+      "nvidia_smi": "NVIDIA H100 80GB HBM3, 81559 MiB, 580.95.05",
+      "torch": "2.11.0+cu130",
+      "torch_cuda": "13.0",
+      "device_name": "NVIDIA H100 80GB HBM3",
+      "sm_count": 132,
+      "total_memory_gb": 85.0,
+      "device_count": 1,
+      "vllm": "0.23.1rc1.dev1237+g850295881.precompiled",
+      "nvidia_cutlass_dsl": "4.6.0"
+    },
+    {
+      "step": "setup",
+      "verdict": "PASS",
+      "tml_pkg": "/opt/vllm/vllm/third_party/tml_fa4",
+      "tml_source_tree_same": true,
+      "deployed": [
+        "flash_fwd.py:df489224",
+        "flash_fwd_sm90.py:940acf1f",
+        "interface.py:da53a2b9"
+      ],
+      "patch_set": "route",
+      "patch_order": [
+        "u2_serving_route.py"
+      ],
+      "patch_markers": {
+        "u2_serving_route": true
+      },
+      "patches_confirmed_absent": [
+        "u2_shear_relshearspec",
+        "u3_quantize_kv"
+      ]
+    },
+    {
+      "step": "parity_fa4_rel",
+      "cmd": "/usr/local/bin/python3 parity_fa4_rel.py",
+      "env": {},
+      "expect": "3/3 green for tml_fa4_rel_bias on the sm_90 native path (the harness also reports score_mod and our abandoned relproj prototype; it exits non-zero if any of the 9 case x backend checks fails)",
+      "verdict": "PASS",
+      "seconds": 99.0,
+      "rc": 0,
+      "lines_ok": 9,
+      "lines_fail": 0,
+      "lines_skip": 0
+    },
+    {
+      "step": "parity_rel_chunked_decode",
+      "cmd": "/usr/local/bin/python3 parity_rel_chunked_decode.py",
+      "env": {},
+      "expect": "7/7. control_full_prefill must pass either way; the chunked_* and decode_* cases FAIL before the n_block_max fix and pass after it. Before the fix, decode got bias on 1 of 512 KV blocks and it was the oldest one.",
+      "verdict": "FAIL",
+      "seconds": 31.7,
+      "rc": 1,
+      "lines_ok": 0,
+      "lines_fail": 5,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "parity_rel_chunked_decode_modal_h100x1_route_BROKENCONTROL.json": {
+          "device": null,
+          "compute_capability": null,
+          "torch_version": null,
+          "cuda_version": null,
+          "tol_max": null,
+          "tol_mean": null,
+          "cases": null,
+          "passed": null,
+          "total": null
+        }
+      },
+      "artifacts": [
+        "parity_rel_chunked_decode_modal_h100x1_route_BROKENCONTROL.json"
+      ]
+    },
+    {
+      "step": "parity_qkvr_prep",
+      "cmd": "/usr/local/bin/python3 parity_qkvr_prep.py",
+      "env": {},
+      "expect": "5/5. Regression gate: the DEFAULT qkvr_prep path must behave identically after u3 and u2 have both rewritten this file.",
+      "verdict": "PASS",
+      "seconds": 10.5,
+      "rc": 0,
+      "lines_ok": 5,
+      "lines_fail": 0,
+      "lines_skip": 0
+    },
+    {
+      "step": "microbench_attn_scoremod",
+      "cmd": "/usr/local/bin/python3 microbench_attn_scoremod.py",
+      "env": {},
+      "expect": "day-0 baseline. score_mod is the ONLY day-0 path; relproj and relprojT in this JSON are OUR abandoned prototypes.",
+      "verdict": "PASS",
+      "seconds": 68.4,
+      "rc": 0,
+      "lines_ok": 0,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "microbench_attn_scoremod_modal_h100x1_route_BROKENCONTROL.json": {
+          "prefill_global_8k": 4795.2,
+          "prefill_swa_8k": 953.9,
+          "decode_b32_global_kv8k": 305.3,
+          "decode_b32_global_kv64k": 2270.7,
+          "decode_b1_global_kv64k": 2342.6,
+          "decode_b1_plain_kv64k": 711.8,
+          "decode_b32_plain_kv64k": 738.0,
+          "relproj_prefill_global_8k": 15345.7,
+          "relproj_decode_b32_kv64k": 7541.6,
+          "relproj_decode_b1_kv64k": 7159.4,
+          "relprojT_decode_b1_kv64k": 5060.3,
+          "relprojT_decode_b32_kv64k": 5100.7,
+          "relprojT_prefill_global_8k": 10471.8
+        }
+      },
+      "artifacts": [
+        "microbench_attn_scoremod_modal_h100x1_route_BROKENCONTROL.json"
+      ]
+    },
+    {
+      "step": "microbench_ours_attn_shearfusion_OFF",
+      "cmd": "/usr/local/bin/python3 microbench_attn_day0.py",
+      "env": {
+        "INKLING_TURBO_FUSED_SHEAR": "0"
+      },
+      "expect": "reproduces session 25 (decode b1 64K 852.6, b32 64K 854.8, b32 8K 124.1, prefill global 3308.8, prefill SWA 1223.0 us/iter on one H100 SXM5)",
+      "verdict": "PASS",
+      "seconds": 31.4,
+      "rc": 0,
+      "lines_ok": 0,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "microbench_ours_attn_shearfusion_OFF_modal_h100x1_route_BROKENCONTROL.json": {
+          "prefill_global_8k": 3329.7,
+          "prefill_swa_8k": 1210.6,
+          "decode_b32_global_kv8k": 122.2,
+          "decode_b32_global_kv64k": 851.8,
+          "decode_b1_global_kv64k": 852.3,
+          "decode_32seqs_global_kv8k": 1784.8,
+          "decode_32seqs_global_kv64k": 13915.2,
+          "gate_select_T1": 4.0,
+          "gate_select_T4096": 22.0
+        }
+      },
+      "artifacts": [
+        "microbench_ours_attn_shearfusion_OFF_modal_h100x1_route_BROKENCONTROL.json"
+      ]
+    }
+  ],
+  "elapsed_hours": 0.079,
+  "spend_usd_est": 0.36,
+  "last": "microbench_ours_attn_shearfusion_OFF"
+}
