@@ -236,8 +236,10 @@ and `sm_120` and that `tune_sm80.py` would suppress every timing it tried to
 report. Form A's vestigial twin at `apply_rel_bias` has the same error, computing
 `ceil_div(..., self.tile_n)` and multiplying by 128.
 
-**Form B, in the working tree as this is written**, from a concurrent lane that
-found the same units error independently:
+**Form B, committed in `b5f0f7e`** ("Fix a units error I introduced in the
+shear-shift fix"), from a concurrent lane that found the same units error
+independently. It supersedes form A at all three sites, including the `sm_90` one,
+where it is a provable no-op because `tile_n == 128` is forced there:
 
 ```
     bias_tile_shift = padded_bias // self.tile_n - n_block_max

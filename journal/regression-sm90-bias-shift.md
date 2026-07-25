@@ -84,7 +84,7 @@ anywhere it was measured: no measurement looked at decode output.
 
 Real Inkling geometry from `harness/microbench_attn_day0.py:126-132`:
 `rel_extent = 1024`, so `padded = rel_extent + 256 = 1280`
-(`kernels/tml_fa4_modified/interface.py:713`) and
+(`kernels/tml_fa4_modified/interface.py:720`) and
 `bias_num_tiles = 1280 // 128 = 10`. Ten tiles is the whole extent, so ten KV
 blocks per query tile is the maximum that can ever carry bias.
 
@@ -100,7 +100,7 @@ The one block that did pass the guard did not get the right numbers either. With
 `m_block = 0` the shift is +9, so `n_block` 0 reads sheared tile 9, which is the
 band belonging to the newest KV block, and it is applied to the oldest one. Bias
 on the wrong block, with the wrong values, and none anywhere else.
-`u2_inkernel_shear.md:238-241` states the same conclusion independently.
+`u2_inkernel_shear.md:250-253` states the same conclusion independently.
 
 Decode is the shape serving spends most of its time in, and it was the shape
 that lost the most: at 64K of KV, 511 of 512 blocks got nothing.
@@ -108,7 +108,7 @@ that lost the most: at 64K of KV, 511 of 512 blocks got nothing.
 ### It is not only a decode defect
 
 The same document brute-forced `n_block_max(m_block) != m_block + 1` across 120
-configurations (`u2_inkernel_shear.md:224-232`, at `rel_extent = 512`):
+configurations (`u2_inkernel_shear.md:236-244`, at `rel_extent = 512`):
 
 | shape | rows where the published shift is wrong | worst error |
 |---|---|---|
@@ -134,7 +134,7 @@ brute-forced the index arithmetic against
 `block_info.py:26-93` over 120 configurations, 229,773,824 positions, and
 recorded the specialisation as a side finding it deliberately did not fix,
 because changing a green path was not that lane's decision to make
-(`u2_inkernel_shear.md:213-270`). The brute-force script is not committed, and
+(`u2_inkernel_shear.md:213-291`). The brute-force script is not committed, and
 that document says so.
 
 This is the exact inverse of the `n_block` regression, which is worth holding
