@@ -224,8 +224,21 @@ def main() -> None:
     print("\n=== winners ===")
     for name, (cfg, us) in best.items():
         print(f"  {name}: {cfg} @ {us} us")
-    out = Path.home() / "tune_sm80.json"
-    out.write_text(json.dumps({"results": results, "best": best}, indent=1))
+    # Next to this script, with the capability in the name, matching every other
+    # harness here. It used to write to Path.home(), which meant a remote runner
+    # collecting artifacts from the harness directory never found it, and the
+    # compute capability was nowhere in the file, so an sm_80 result and an
+    # sm_120 result were indistinguishable once copied.
+    cc = torch.cuda.get_device_capability(0)
+    out = Path(__file__).with_name(f"tune_sm80_sm{cc[0]}{cc[1]}.json")
+    out.write_text(json.dumps({
+        "device": torch.cuda.get_device_name(0),
+        "compute_capability": f"{cc[0]}.{cc[1]}",
+        "torch_version": torch.__version__,
+        "cuda_version": torch.version.cuda,
+        "results": results,
+        "best": best,
+    }, indent=1))
     print(f"saved: {out}")
 
 

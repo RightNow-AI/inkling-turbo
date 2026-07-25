@@ -238,7 +238,14 @@ USD_PER_H100_SEC = 0.001097  # $3.9492 per GPU-hour
 # VERIFY before spend, prices move. Erring high is the safe direction here,
 # because the ledger uses this to decide whether a container may start.
 USD_PER_H200_SEC = 0.001261  # $4.5396 per GPU-hour
-GPU_SEC_RATE = {"H100": USD_PER_H100_SEC, "H200": USD_PER_H200_SEC}
+USD_PER_A100_40_SEC = 0.000583  # $2.0988 per GPU-hour
+USD_PER_A100_80_SEC = 0.000772  # $2.7792 per GPU-hour
+GPU_SEC_RATE = {
+    "H100": USD_PER_H100_SEC,
+    "H200": USD_PER_H200_SEC,
+    "A100-40GB": USD_PER_A100_40_SEC,
+    "A100-80GB": USD_PER_A100_80_SEC,
+}
 USD_PER_CPU_CORE_SEC = 0.0000131
 USD_PER_GIB_MEM_SEC = 0.00000222
 
@@ -261,11 +268,26 @@ BUDGET_USD = 200.0
 # authorised $138 for a container whose expected work is about $70. The real
 # protection is not this number, it is the per-run timeout and the per-build
 # time allowance, both of which stop a single hang from eating the container.
-# 2.75h at the pinned H200 rate is a $101 worst case, against $145 remaining in
-# the ledger at the time this was set. Was 3.5h, which was sized for the cheaper
-# H100 rate and would have authorised $130 and left almost no margin. The real
-# protection is still the per-run timeout and the per-build allowance.
-BENCH_TIMEOUT_HOURS = 2.75
+# 1.75h at the pinned H200 rate bounds one container to about $62, against
+# $77.67 remaining in the ledger after the stock run. Was 2.75h ($101), sized
+# when $145 remained.
+#
+# The stock run cost $59.22 for a 28 minute model load plus 10 runs, and it did
+# NOT get to the ours build: the per-build allowance yielded correctly, then the
+# pre-build guard refused ours because it wanted run_reserve_s of 51 minutes plus
+# server_wait_s of 45 on top, and only 78 remained. The 51 came from
+# decode/conc1, where one run took about 32 minutes, because 16 prompts at
+# concurrency 1 is 16384 strictly sequential decode steps.
+#
+# So the matched A/B is bought by dropping conc1 rather than by buying more time:
+# BUILDS=ours CONCURRENCIES=8 is 6 runs against the 6 stock runs already on the
+# Volume at prefill/8 and decode/8.
+# 1.1h bounds one container to about $36 at the H200 rate, against $55 remaining
+# after the A100 validate run. Expected work is 28 minutes of model load plus five
+# 3.4 minute runs, about $29. The matrix deliberately still lists decode/conc1,
+# whose runs cost about 32 minutes each; the deadline and the forward-looking
+# reserve stop it from starting rather than a hand-maintained exclusion list.
+BENCH_TIMEOUT_HOURS = 1.1
 BENCH_TIMEOUT_S = int(BENCH_TIMEOUT_HOURS * 3600)
 DOWNLOAD_TIMEOUT_S = 6 * 3600  # CPU only at ~$0.63/hr, so at most ~$4
 # Leave room to stop the server, copy results and commit before Modal kills
@@ -287,6 +309,13 @@ GPU_RELEASE_SLEEP_S = 30
 # second-largest term in the rate, which is why it is not 256 GiB here.
 # --------------------------------------------------------------------------
 
+# The validate step runs parity gates and microbenchmarks, which build random
+# tensors and need no checkpoint, so it can target whichever architecture needs
+# evidence. sm_80 is the one with no correctness result at all for the code in
+# the tree, so it is worth a couple of dollars.
+#
+# A100-40GB rate read from modal.com/pricing on 2026-07-25; VERIFY before spend.
+VALIDATE_GPU_KIND = os.environ.get("VALIDATE_GPU", "H100").strip()
 VALIDATE_N_GPU = 1
 VALIDATE_CPU = 8.0
 VALIDATE_MEMORY_MIB = 32768
@@ -516,14 +545,15 @@ def _download_usd_per_hour() -> float:
 
 
 def _validate_usd_per_hour() -> float:
-    return _usd_per_hour(VALIDATE_N_GPU, VALIDATE_CPU, VALIDATE_MEMORY_MIB)
+    return _usd_per_hour(VALIDATE_N_GPU, VALIDATE_CPU, VALIDATE_MEMORY_MIB,
+                        VALIDATE_GPU_KIND)
 
 
 def _print_validate_cost_banner(where: str) -> None:
     rate = _validate_usd_per_hour()
     print(f"=== COST ESTIMATE, validate ({where}) ===")
     print(
-        f"H100 ${USD_PER_H100_SEC * 3600:.4f}/GPU-hr x {VALIDATE_N_GPU} GPU "
+        f"{VALIDATE_GPU_KIND} ${GPU_SEC_RATE[VALIDATE_GPU_KIND] * 3600:.4f}/GPU-hr x {VALIDATE_N_GPU} GPU "
         f"+ {VALIDATE_CPU:g} cores + {VALIDATE_MEMORY_MIB // 1024} GiB "
         f"= ${rate:.2f}/hr"
     )
@@ -2471,7 +2501,7 @@ def _run_harness(
 
 @app.function(
     image=bench_image,
-    gpu=f"H100:{VALIDATE_N_GPU}",
+    gpu=f"{VALIDATE_GPU_KIND}:{VALIDATE_N_GPU}",
     # Results Volume only. The model Volume is deliberately NOT mounted: no
     # part of this step reads the checkpoint, and leaving it unmounted makes
     # that structurally impossible instead of a promise.
@@ -2484,6 +2514,7 @@ def run_validate(
     budget_usd: float = BUDGET_USD,
     tag: str = VALIDATE_TAG,
     patches: str = "u3+shear",
+    gpu_kind: str = "H100",
 ) -> dict:
     """Parity gates + microbenches on one H100. Needs no model."""
     t0 = time.time()
@@ -2574,13 +2605,25 @@ def run_validate(
         env_info = {"probe_rc": probe.returncode, "stderr": probe.stderr[-2000:]}
 
     cap = tuple(env_info.get("capability") or ())
-    arch_ok = cap == (9, 0)
+    # Expect the capability that matches the GPU we asked for, not sm_90
+    # unconditionally. This step needs no checkpoint, so it is the cheap way to
+    # get correctness evidence on an architecture that has none, and sm_80 is
+    # exactly that case.
+    EXPECT_CAP = {
+        "H100": (9, 0),
+        "H200": (9, 0),
+        "A100-40GB": (8, 0),
+        "A100-80GB": (8, 0),
+    }
+    want = EXPECT_CAP.get(gpu_kind)
+    arch_ok = want is not None and cap == want
     env_record = {
         "step": "env_proof",
         "verdict": "PASS" if arch_ok else "FAIL",
-        "expect": "sm_90 (H100)",
+        "expect": f"{gpu_kind}, capability {want}",
+        "requested_gpu": gpu_kind,
         "capability": list(cap),
-        "sm_90": arch_ok,
+        "arch_matches_request": arch_ok,
         "nvidia_smi": smi.stdout.strip(),
         **{k: v for k, v in env_info.items() if k != "capability"},
     }
@@ -2594,7 +2637,7 @@ def run_validate(
         msg = (
             f"ABORT: device capability {cap or 'unknown'} is not sm_90. Every "
             "number this step exists to produce is arch-specific, and "
-            "publishing them under an H100 heading would be wrong. Nothing "
+            "publishing them under the requested heading would be wrong. Nothing "
             "else was run."
         )
         print(msg)
@@ -2857,6 +2900,39 @@ def run_validate(
                 f"{len(dropped)} shear/u3-dependent steps: {dropped}"
             )
 
+        # Architecture-specific extras. These gates are arch-agnostic Python but
+        # they exercise code paths that only exist per arch, and sm_80 has no
+        # correctness result at all for the generic kernel in the tree, so on an
+        # A100 they are the entire point of the run. The tile sweep is included
+        # because its own parity_ok now covers the shape family it times, which
+        # is the precondition for un-withdrawing the Ampere percentages.
+        EXTRA_BY_ARCH = {
+            "A100-40GB": [
+                ("parity_rel_varlen_batch", "parity_rel_varlen_batch.py",
+                 "11/12 expected, matching sm_120. The multi-sequence varlen "
+                 "crash was fixed by bounding the unpredicated bias copy; this "
+                 "is the first execution of that fix on sm_80."),
+                ("parity_rel_bias_coverage", "parity_rel_bias_coverage.py",
+                 "6/6. Its probe, not its oracle, is the discriminating check "
+                 "at decode depth."),
+                ("tune_sm80", "tune_sm80.py",
+                 "the tile sweep, with a parity_ok that now covers the "
+                 "seqlen_q != seqlen_k family it times. Green here is the "
+                 "precondition for un-withdrawing 10.1% and 18.2%."),
+            ],
+        }
+        for name, script, expect in EXTRA_BY_ARCH.get(gpu_kind, []):
+            if any(s[0] == name for s in steps):
+                continue
+            cc = "sm80" if gpu_kind.startswith("A100") else "sm90"
+            stem = script.replace(".py", "")
+            steps.append((
+                name, [py, script], {},
+                [(f"{stem}_{cc}.json", f"{stem}_{tag}.json")],
+                expect,
+            ))
+            print(f"{gpu_kind}: added step {name}")
+
         for name, argv, env_extra, artifacts, expect in steps:
             rec = _run_harness(
                 name, argv, env_extra, artifacts, expect, workdir, deadline
@@ -2970,8 +3046,13 @@ def main(
                 "'ours' build, so this run is the cheap health check that says "
                 "whether the expensive one is worth starting."
             )
-        tag = VALIDATE_TAG if patches == "u3+shear" else (
-            f"{VALIDATE_TAG}_{patches.replace('+', '')}"
+        # The tag names the hardware, because these artifacts get copied into
+        # journal/remote/ and read months later. A file called
+        # modal_h100x1_route holding sm_80 numbers is the same class of trap as
+        # the b200_first_contact logs that are all H100 sessions.
+        base = f"modal_{VALIDATE_GPU_KIND.lower().replace('-', '')}x{VALIDATE_N_GPU}"
+        tag = base if patches == "u3+shear" else (
+            f"{base}_{patches.replace('+', '')}"
         )
         # Lets a deliberately-broken control run land beside the real one
         # instead of overwriting it. Used to prove a new gate actually fails
@@ -2982,7 +3063,8 @@ def main(
             tag = f"{tag}_{re.sub(r'[^A-Za-z0-9_.-]', '', suffix)}"
             print(f"    tag suffix in effect: results land under {tag}")
         out = run_validate.remote(
-            budget_usd=budget_usd, tag=tag, patches=patches
+            budget_usd=budget_usd, tag=tag, patches=patches,
+            gpu_kind=VALIDATE_GPU_KIND,
         )
         print(json.dumps(out, indent=2))
         print()
