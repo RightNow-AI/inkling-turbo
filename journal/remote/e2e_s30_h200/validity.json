@@ -30,5 +30,11 @@
         " (  )\nA. Red, yellow, green B. Red, yellow, blue C. Red, green, blue\n\nANSWER -> B\n\nANALYSIS"
       ]
     }
-  }
+  },
+  "kv_pool_match": true,
+  "greedy_match": true,
+  "greedy_builds": [
+    "ours",
+    "stock"
+  ]
 }

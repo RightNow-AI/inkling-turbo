@@ -120,9 +120,17 @@ cannot differ under one tokenizer. **This is the first time in the project that 
 generated token has been compared between the two builds**, and they agree on all
 four prompts including a multiple-choice answer and two arithmetic continuations.
 
-The stored `kv_pool_match` and `greedy_match` flags read `None` because the
-`ours` container exited before its final validity write. The underlying per-build
-records are present and the equality above was computed from them directly.
+The stored `kv_pool_match` and `greedy_match` flags read `None` in the first
+fetch, because the `ours` container exited before its final validity write, and
+the equality above was computed from the per-build records directly. **The second
+container wrote them: both are now `true` in `validity.json`**, so the flags and
+the hand computation agree.
+
+One run is recorded as a failure rather than dropped. `ours/decode/conc1/run1`
+was killed at 914 s by the per-run timeout instead of being allowed to burn to
+the container cap, so it is `null` in the summary and decode at concurrency 1
+has no `ours` side. `failed_runs: 1` and `aborted_early: true` in
+`summary.json` are that run, not a kernel fault.
 
 ## What is missing from this run, stated plainly
 

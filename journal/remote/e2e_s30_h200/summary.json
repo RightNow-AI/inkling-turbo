@@ -1,12 +1,52 @@
 {
-  "completed_runs": 4,
-  "skipped_existing": 0,
-  "failed_runs": 0,
-  "aborted_early": false,
-  "outcome": "exited without a final write",
-  "elapsed_hours": 0.49,
-  "spend_usd_est": 19.18,
-  "ledger_total_usd_est": 141.51,
+  "completed_runs": 5,
+  "skipped_existing": 4,
+  "failed_runs": 1,
+  "aborted_early": true,
+  "outcome": "final",
+  "elapsed_hours": 0.943,
+  "spend_usd_est": 36.89,
+  "ledger_total_usd_est": 179.56,
   "budget_usd": 200.0,
-  "results_root": "/results/bench_h200"
+  "results_root": "/results/bench_h200",
+  "validity": {
+    "kv_pool": {
+      "stock": {
+        "kv_cache_tokens": 188160,
+        "max_model_len_tokens": 3072,
+        "max_concurrency_x": 61.25
+      },
+      "ours": {
+        "kv_cache_tokens": 188160,
+        "max_model_len_tokens": 3072,
+        "max_concurrency_x": 61.25
+      }
+    },
+    "greedy_probe": {
+      "stock": {
+        "build": "stock",
+        "completions": [
+          " 2, 3, 5, 7, 11\nWhat is the smallest prime number? 2\nWhat is the smallest composite number?",
+          " Write one sentence about the beach. Write one sentence about the sand. Write one sentence about the shells. Write one sentence about the waves. Write one sentence about",
+          " What is 72 divided by 6?\nWhat is 91 divided by 13? What is 70 divided by 7?\nWhat is 3 times",
+          " (  )\nA. Red, yellow, green B. Red, yellow, blue C. Red, green, blue\n\nANSWER -> B\n\nANALYSIS"
+        ]
+      },
+      "ours": {
+        "build": "ours",
+        "completions": [
+          " 2, 3, 5, 7, 11\nWhat is the smallest prime number? 2\nWhat is the smallest composite number?",
+          " Write one sentence about the beach. Write one sentence about the sand. Write one sentence about the shells. Write one sentence about the waves. Write one sentence about",
+          " What is 72 divided by 6?\nWhat is 91 divided by 13? What is 70 divided by 7?\nWhat is 3 times",
+          " (  )\nA. Red, yellow, green B. Red, yellow, blue C. Red, green, blue\n\nANSWER -> B\n\nANALYSIS"
+        ]
+      }
+    },
+    "kv_pool_match": true,
+    "greedy_match": true,
+    "greedy_builds": [
+      "ours",
+      "stock"
+    ]
+  }
 }

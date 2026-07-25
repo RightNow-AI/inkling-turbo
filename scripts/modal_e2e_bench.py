@@ -3090,7 +3090,11 @@ def main(
             "after EVERY step; a killed container costs at most one harness."
         )
         print()
-        print(f">>> step: validate (1x H100, no model), patches={patches!r}")
+        # Not "1x H100": this step targets any arch now, and a banner that names
+        # the wrong silicon is the same trap as the b200_first_contact logs that
+        # are all H100 sessions.
+        print(f">>> step: validate ({VALIDATE_N_GPU}x {VALIDATE_GPU_KIND}, "
+              f"no model), patches={patches!r}")
         if patches == "route":
             print(
                 "    'route' is EXACTLY what the 8x e2e bench deploys for its "
