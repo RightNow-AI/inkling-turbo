@@ -2947,24 +2947,29 @@ def run_validate(
             )
 
         # Architecture-specific extras. These gates are arch-agnostic Python but
-        # they exercise code paths that only exist per arch, and sm_80 has no
-        # correctness result at all for the generic kernel in the tree, so on an
-        # A100 they are the entire point of the run. The tile sweep is included
-        # because its own parity_ok now covers the shape family it times, which
-        # is the precondition for un-withdrawing the Ampere percentages.
+        # they exercise code paths that only exist per arch, and on an A100 they
+        # are the entire point of the run. Expectations updated after session 31
+        # (journal/remote/validate_a100x1_s31), which is what they are measured
+        # against now.
         EXTRA_BY_ARCH = {
             "A100-40GB": [
                 ("parity_rel_varlen_batch", "parity_rel_varlen_batch.py",
-                 "11/12 expected, matching sm_120. The multi-sequence varlen "
-                 "crash was fixed by bounding the unpredicated bias copy; this "
-                 "is the first execution of that fix on sm_80."),
+                 "12/12 expected. Session 31 scored 11/12 on sm_80, failing "
+                 "single_m_tail_chunked at mean 1.9666e-03, which is the "
+                 "pack_gqa shear-granularity defect. The guard for it is "
+                 "verified 12/12 on sm_120 and this is its first execution on "
+                 "sm_80. An 11/12 here means the guard does not cover Ampere."),
                 ("parity_rel_bias_coverage", "parity_rel_bias_coverage.py",
-                 "6/6. Its probe, not its oracle, is the discriminating check "
-                 "at decode depth."),
+                 "6/6, unchanged from session 31. Its probe, not its oracle, "
+                 "is the discriminating check at decode depth."),
                 ("tune_sm80", "tune_sm80.py",
-                 "the tile sweep, with a parity_ok that now covers the "
-                 "seqlen_q != seqlen_k family it times. Green here is the "
-                 "precondition for un-withdrawing 10.1% and 18.2%."),
+                 "the tile sweep, now with interleaved repeat rounds and a "
+                 "disjoint-interval rule. It will print NO WINNER on any shape "
+                 "where run-to-run spread exceeds the gap between configs, "
+                 "which session 31's two-run comparison says is most of them. "
+                 "That verdict is the result; a named winner is the surprise. "
+                 "Its parity geometry now comes from CASES, so this is also "
+                 "the first Ampere run of a bias gate at Hq=64 over Hkv=8."),
             ],
         }
         for name, script, expect in EXTRA_BY_ARCH.get(gpu_kind, []):
