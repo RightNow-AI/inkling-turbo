@@ -1,9 +1,75 @@
 # Inkling has no attention path on SM8x: the only non-Blackwell route is `score_mod`, which the cute backend hard-blocks on SM8x
 
-**Target tracker:** vllm-project/vllm
+**Target tracker:** vllm-project/vllm (issues enabled, verified 2026-07-25)
 **Severity:** medium. Support gap, not a wrong-output bug. The model cannot
 serve at all on A100-class hardware, and the failure arrives at the first
 attention call rather than at load.
+
+> **Review status, 2026-07-25: FILEABLE, with two additions made below.**
+> Tracker correct and issues enabled. Duplicate check run and empty for this
+> defect. All four vLLM-side line citations re-verified against our build base
+> (`850295881`): `fa4_rel_attention.py:19-22` and `:133-143`,
+> `attention.py:312`, `moe.py:73`. All four are correct as written.
+>
+> **And they hold at vLLM `main`, which is the important part for filing.**
+> `vllm/models/inkling/nvidia/ops/fa4_rel_attention.py` is **byte-identical**
+> between our build base and vLLM `main` as of 2026-07-25, so `_use_sheared_bias`
+> is still at `:20` and the router branch still at `:133`. A maintainer reading
+> `main` will find exactly what this report quotes. The reproducer's import,
+> `from vllm.models.inkling.nvidia.ops.fa4_rel_attention import
+> inkling_fa4_rel_attention`, also resolves on `main`; that module path was
+> confirmed present. The reproducer depends only on vLLM itself and on nothing
+> from our repository, which is what it needs to be for this tracker.
+>
+> **The report's own open item is now CLOSED.** It said of the score_mod SM8x
+> raise in the vllm-flash-attention copy: "Our notes record it at
+> `interface.py:722` in that copy. Confirm the current line number when filing."
+> Confirmed. At the pinned commit `caaa4eb5`, the file is
+> `flash_attn/cute/interface.py` and the raise is at **`:722`**, inside the
+> `elif score_mod is not None:` block that opens at `:720` with the arch test at
+> `:721`. Note also a **second** instance at `:1683`, in the backward path, which
+> this report does not need but which a maintainer will see. Note the upstream
+> path is `flash_attn/cute/`, not `vllm_flash_attn/cute/`; the latter is the
+> vendored name inside a built vLLM and does not exist in the upstream repo.
+>
+> **Context the filer should include, because it makes the report land better.**
+> The router this report quotes was written deliberately, and recently. vLLM PR
+> #48858, "[Model] Add Hopper FA4 relative attention for Inkling", merged
+> 2026-07-16, is what introduced `_use_sheared_bias()` and the `score_mod` else
+> branch. Its own description says it "adds architecture-routing and numerical
+> correctness coverage for the standard score-mod path", and its test file covers
+> routing for SM90, SM100, SM110 and SM120. **SM8x is not in that list.** So this
+> is not a case of nobody having thought about arch routing. It is a case of the
+> routing having been designed for four families and sm_80 falling through the
+> else branch into a backend that rejects it. Framing it that way is accurate,
+> is easy for a maintainer to confirm, and does not imply carelessness.
+>
+> **Duplicate check, commands run and their real output:**
+>
+> ```bash
+> gh repo view vllm-project/vllm --json hasIssuesEnabled   # {"hasIssuesEnabled":true}
+> gh search issues --repo vllm-project/vllm "Inkling Ampere"            # empty
+> gh search issues --repo vllm-project/vllm "Inkling unsupported GPU"   # empty
+> gh search issues --repo vllm-project/vllm "score_mod not supported"   # empty
+> gh search issues --repo vllm-project/vllm "score_mod SM8x"            # empty
+> gh search issues --repo vllm-project/vllm "inkling A100"              # empty
+> gh search issues --repo vllm-project/vllm "Inkling"                   # 4 hits, none is this
+> gh search prs    --repo vllm-project/vllm "Inkling" --limit 25        # 25 hits, none is this
+> ```
+>
+> Nothing covers the SM8x gap. Two adjacent open items were found and neither is
+> a duplicate, recorded so the filer is not blindsided:
+>
+> - **vLLM issue #49049**, open, "[Bug] Inkling on sm_121a (GB10): unclamped
+>   q-row in the rel-bias score-mod gather causes deterministic illegal address".
+>   That is a memory-safety defect in the score_mod **gather**, on sm_121a, with
+>   coredump evidence. Different architecture, different mechanism, and it is
+>   about the path working incorrectly rather than being unavailable. Not a
+>   duplicate. Worth reading before filing, because it is the closest existing
+>   report on this exact code and it shows the maintainers engage with
+>   hardware-evidence reports here.
+> - **vLLM PRs #48841 and #48954**, both open, add ROCm Inkling support. Adjacent
+>   support-matrix work, not SM8x, not a duplicate.
 
 ## Affected versions
 
@@ -186,18 +252,33 @@ one is withdrawn, and the distinction is `seqlen_q` against `seqlen_k`:
 
 - **Stands.** Sliding-window prefill 8K prefers `tile_n=64`, 9175.2 us against
   10565.6 us at 32, and global prefill 8K prefers 32, 10712.7 against 11124.1.
-  Both cases are 8192 query rows against 8192 keys.
+  Both cases are 8192 query rows against 8192 keys. **Read those two margins as
+  single samples, because that is what they are.** Repeated five times on a
+  verified A100, the sliding-window preference for 64 holds but at 1.3 percent
+  rather than 15, and global prefill becomes undecidable, because `tile_n=32`
+  swings 22 percent across rounds on that shape.
 - **Stands.** `tile_n=128` collapses on sm_80 shared-memory pressure, 362806.1 us
   against 10712.7 us on global prefill, a factor of 34. Do not select it.
-- **WITHDRAWN.** Our decode-shaped percentages, ~~10.1 percent~~ at batch 1 with
+- **WITHDRAWN, and the re-measurement it was pending has now happened and
+  reversed it.** Our decode-shaped percentages, ~~10.1 percent~~ at batch 1 with
   64K KV and ~~18.2 percent~~ on the 32-sequence case, and a ~~18.7 percent~~
   post-deploy re-run. Our own harness timed those at `T_q = 1` against
-  `T_k = 65536` while its parity gate ran `seqlen_q == seqlen_k`, and our generic
-  kernel carried a `seqlen_q == seqlen_k` specialisation in its sheared-bias
-  reader, so the tile size was selected under a reader addressing the bias
-  outside its own tile domain at the timed shapes. This was our defect, not
-  upstream's. Withdrawn rather than corrected, pending a re-measurement on an
-  A100: `journal/regression-ampere-tile-sweep.md`.
+  `T_k = 65536` while its parity gate ran `seqlen_q == seqlen_k` at
+  `Hq == Hkv`, and our generic kernel carried a `seqlen_q == seqlen_k`
+  specialisation in its sheared-bias reader plus a `pack_gqa` mismatch that only
+  bites at `Hq != Hkv`, so the tile size was selected under a reader addressing
+  the bias outside its own tile domain at the timed shapes and geometry. Both
+  were our defects, not upstream's.
+
+  Re-measured 2026-07-25 on a verified A100 with five interleaved rounds per
+  cell: on batch-1 decode at 64K, **`tile_n=64` is 9.7 percent faster than
+  `tile_n=32`**, the opposite of what we published, with the two sample intervals
+  spanning 0.03 and 0.07 percent of their medians. On the 32-sequence case
+  `tile_n=32` does win, by 3.3 percent rather than 18.2. **Nothing here asks
+  upstream to change the `FwdConfig(128, 64)` default**: it wins two of the three
+  shapes we can decide and we cannot decide the third.
+  `journal/regression-ampere-tile-sweep.md`,
+  `journal/remote/validate_a100x1_s32_packgqa/`.
 
 So the actionable part of this note for upstream is the first two bullets and the
 `# SM80, should tune` comment itself. Do not carry our decode percentages into a
