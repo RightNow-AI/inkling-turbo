@@ -54,8 +54,14 @@ D = 128
 DEV = "cuda"
 
 
-def reference(q, k, v, rel_logits, softmax_scale, ctx, window_left=None):
-    """(T_q, Hq, D) queries at absolute positions ctx .. ctx + T_q - 1."""
+def reference(q, k, v, rel_logits, softmax_scale, ctx, window_left=None,
+              with_bias=True):
+    """(T_q, Hq, D) queries at absolute positions ctx .. ctx + T_q - 1.
+
+    with_bias=False drops the relative-position term entirely. That variant is
+    not a second oracle, it is the yardstick for how much the bias moves this
+    shape's output at all. See SIGNAL_MARGIN below.
+    """
     T_q, Hq, _ = q.shape
     T_k, Hkv, _ = k.shape
     rel_extent = rel_logits.shape[-1]
@@ -69,12 +75,13 @@ def reference(q, k, v, rel_logits, softmax_scale, ctx, window_left=None):
     k_pos = torch.arange(T_k, device=q.device).view(1, -1)
     dist = q_pos - k_pos                                    # (T_q, T_k)
 
-    in_range = (dist >= 0) & (dist < rel_extent)
-    d_idx = dist.clamp(0, rel_extent - 1)
-    bias = rel_logits.float().permute(1, 0, 2).gather(
-        2, d_idx.unsqueeze(0).expand(Hq, T_q, T_k)
-    )
-    scores += bias * in_range
+    if with_bias:
+        in_range = (dist >= 0) & (dist < rel_extent)
+        d_idx = dist.clamp(0, rel_extent - 1)
+        bias = rel_logits.float().permute(1, 0, 2).gather(
+            2, d_idx.unsqueeze(0).expand(Hq, T_q, T_k)
+        )
+        scores += bias * in_range
 
     keep = dist >= 0
     if window_left is not None:
@@ -102,6 +109,8 @@ def run_case(name, T_q, ctx, Hq, Hkv, rel_extent, window_left, seed):
 
     scale = 1.0 / D
     ref = reference(q, k, v, rel_logits, scale, ctx, window_left)
+    ref_nobias = reference(q, k, v, rel_logits, scale, ctx, window_left,
+                           with_bias=False)
 
     cu_q = torch.tensor([0, T_q], dtype=torch.int32, device=DEV)
     cu_k = torch.tensor([0, T_k], dtype=torch.int32, device=DEV)
@@ -118,15 +127,33 @@ def run_case(name, T_q, ctx, Hq, Hkv, rel_extent, window_left, seed):
         out = out[0]
 
     diff = (out.float() - ref.float()).abs()
+    # signal_mean is how far the bias moves this shape's output, measured as
+    # mean|ref - ref_nobias|. It is an upper bound on what a kernel that DROPS
+    # the bias would score against ref, so it is the number that says whether
+    # TOL_MEAN can see a failure on this shape at all. Recorded per case so a
+    # later reader can check the gate had power on the shape it passed.
+    signal_mean = float((ref.float() - ref_nobias.float()).abs().mean())
     return {
         "max_abs_diff": float(diff.max()),
         "mean_abs_diff": float(diff.mean()),
-        "shape": {"T_q": T_q, "ctx": ctx, "T_k": T_k, "Hq": Hq, "Hkv": Hkv,
-                  "rel_extent": rel_extent, "window_left": window_left},
+        "signal_mean": signal_mean,
+        "signal_over_tol": signal_mean / TOL_MEAN,
+        "ref_absmax": float(ref.float().abs().max()),
+        "shape": {"name": name, "T_q": T_q, "ctx": ctx, "T_k": T_k, "Hq": Hq,
+                  "Hkv": Hkv, "rel_extent": rel_extent,
+                  "window_left": window_left, "seed": seed},
     }
 
 
 # Tolerances CALIBRATED against a deliberately broken control, not guessed.
+#
+# CAVEAT ON REPRODUCING THIS TABLE: it was measured while the per-case seed was
+# abs(hash(name)), which PYTHONHASHSEED randomises per process, so these exact
+# values came from tensors that no rerun could draw again. The seeds are fixed
+# constants now (see CASES). The separation these numbers establish is a
+# property of the defect and not of the draw, so the calibration conclusion
+# stands, but the individual figures should be refreshed on the next H100 run so
+# that they are reproducible from the file as it now stands.
 #
 # Both runs are on one H100. "fixed" is the n_block_max form, "broken" is the
 # 128*(m_block+1) form put back on purpose to prove this gate is a gate:
@@ -158,27 +185,69 @@ def run_case(name, T_q, ctx, Hq, Hkv, rel_extent, window_left, seed):
 TOL_MAX = 0.05
 TOL_MEAN = 5e-4
 
+# TOL_MEAN IS ABSOLUTE, AND THAT PUTS A CEILING ON HOW DEEP A GLOBAL DECODE CASE
+# MAY BE. A decode output is a near-uniform average of the attended value
+# vectors, so both its magnitude and the size of any perturbation to it fall off
+# like 1 / sqrt(number of attended keys). Dropping the bias entirely, computed
+# from the reference alone (no kernel, no GPU, global causal, rel_extent 1024):
+#
+#   ctx      mean|ref_nobias - ref|      vs TOL_MEAN 5e-4
+#   1023     1.26e-02                    12.6x   catchable
+#   4095     3.48e-03                     7.0x   catchable, deepest case here
+#   8191     1.45e-03                     2.9x   thin
+#   16383    8.95e-04                     1.8x   very thin
+#   32767    5.47e-04                     1.1x   effectively blind
+#   65535    2.24e-04                     0.4x   BLIND: bias absent still passes
+#
+# So this file's cases stop at ctx = 4095 deliberately. Do NOT add a deeper
+# global decode case here expecting it to mean anything: at 64K of KV, which is
+# the shape the withdrawn decode figures were measured on, a kernel with no
+# relative bias at all scores 2.24e-04 and passes. Sliding window is exempt,
+# because the window bounds the number of attended keys and stops the dilution:
+# at window 511 the same experiment gives 1.47e-02 at ctx 4095 and 1.55e-02 at
+# ctx 65535. Deep global decode needs a reference-free instrument instead, of
+# the kind in harness/parity_rel_bias_coverage.py.
+#
+# SIGNAL_MARGIN enforces that ceiling instead of trusting a comment. Every case
+# must satisfy mean|ref - ref_nobias| >= SIGNAL_MARGIN * TOL_MEAN, otherwise a
+# kernel that drops the bias could not have failed and a pass certifies nothing.
+# A case that violates it is reported as a defective CASE, and the fix is to
+# change the case or add a reference-free probe, never to lower TOL_MEAN.
+SIGNAL_MARGIN = 4.0
+
+# Seeds are explicit constants. They used to be abs(hash(name)), and str hashing
+# is salted by PYTHONHASHSEED, so every process drew a different tensor and none
+# of the max / mean values in the calibration table above could be reproduced by
+# rerunning. A gate whose evidence cannot be regenerated is not evidence.
 CASES = [
     # The control: seqlen_q == seqlen_k, which the old formula got RIGHT.
     # If this fails, something unrelated to the shear shift is broken.
     ("control_full_prefill", dict(T_q=1536, ctx=0, Hq=8, Hkv=1,
-                                  rel_extent=1024, window_left=None)),
+                                  rel_extent=1024, window_left=None,
+                                  seed=1001)),
     # Chunked prefill: a short scheduled chunk on top of cached context.
     ("chunked_global_128_on_1408", dict(T_q=128, ctx=1408, Hq=8, Hkv=1,
-                                        rel_extent=1024, window_left=None)),
+                                        rel_extent=1024, window_left=None,
+                                        seed=1002)),
     ("chunked_global_256_on_768", dict(T_q=256, ctx=768, Hq=8, Hkv=1,
-                                       rel_extent=512, window_left=None)),
+                                       rel_extent=512, window_left=None,
+                                       seed=1003)),
     # Decode: one query token against a long cache. This is the shape the old
     # formula degraded most, and the shape serving spends most of its time in.
+    # ctx stops at 4095 on purpose: see the dilution table above TOL_MEAN.
     ("decode_global_ctx2047", dict(T_q=1, ctx=2047, Hq=8, Hkv=1,
-                                   rel_extent=1024, window_left=None)),
+                                   rel_extent=1024, window_left=None,
+                                   seed=1004)),
     ("decode_global_ctx4095", dict(T_q=1, ctx=4095, Hq=8, Hkv=1,
-                                   rel_extent=1024, window_left=None)),
-    # Sliding window, where the extent and the window interact.
+                                   rel_extent=1024, window_left=None,
+                                   seed=1005)),
+    # Sliding window, where the extent and the window interact. The window caps
+    # the attended key count, so these keep their signal at any depth.
     ("decode_swa_ctx4095", dict(T_q=1, ctx=4095, Hq=8, Hkv=2,
-                                rel_extent=512, window_left=511)),
+                                rel_extent=512, window_left=511, seed=1006)),
     ("chunked_swa_128_on_1408", dict(T_q=128, ctx=1408, Hq=8, Hkv=2,
-                                     rel_extent=512, window_left=511)),
+                                     rel_extent=512, window_left=511,
+                                     seed=1007)),
 ]
 
 
@@ -190,14 +259,27 @@ def main() -> None:
 
     results = {}
     failures = 0
+    blind = 0
     for name, kw in CASES:
         try:
-            r = run_case(name, seed=abs(hash(name)) % (2**31), **kw)
-            ok = r["max_abs_diff"] <= TOL_MAX and r["mean_abs_diff"] <= TOL_MEAN
-            r["pass"] = ok
-            print(f"[{name}] {'OK' if ok else 'FAIL'}: "
-                  f"max={r['max_abs_diff']:.4e} mean={r['mean_abs_diff']:.4e}")
-            if not ok:
+            r = run_case(name, **kw)
+            within = (r["max_abs_diff"] <= TOL_MAX
+                      and r["mean_abs_diff"] <= TOL_MEAN)
+            informative = r["signal_over_tol"] >= SIGNAL_MARGIN
+            r["within_tolerance"] = within
+            r["informative"] = informative
+            r["pass"] = bool(within and informative)
+            if not informative:
+                blind += 1
+            print(f"[{name}] {'OK' if r['pass'] else 'FAIL'}: "
+                  f"max={r['max_abs_diff']:.4e} mean={r['mean_abs_diff']:.4e} "
+                  f"signal={r['signal_mean']:.3e} "
+                  f"({r['signal_over_tol']:.1f}x TOL_MEAN)"
+                  + ("" if informative else
+                     f"  <- CASE CANNOT FAIL: a kernel with no bias at all "
+                     f"would score about {r['signal_mean']:.3e}, under "
+                     f"TOL_MEAN={TOL_MEAN}. Fix the case, not the tolerance."))
+            if not r["pass"]:
                 failures += 1
         except Exception as exc:  # noqa: BLE001
             traceback.print_exc()
@@ -217,13 +299,20 @@ def main() -> None:
         "cuda_version": torch.version.cuda,
         "tol_max": TOL_MAX,
         "tol_mean": TOL_MEAN,
+        "signal_margin": SIGNAL_MARGIN,
         "cases": results,
         "passed": len(CASES) - failures,
         "total": len(CASES),
+        "uninformative": blind,
     }, indent=2), encoding="utf-8")
 
     print()
-    print(f"{len(CASES) - failures}/{len(CASES)} cases within tolerance")
+    print(f"{len(CASES) - failures}/{len(CASES)} cases pass "
+          f"(within tolerance AND able to have failed)")
+    if blind:
+        print(f"WARNING: {blind} case(s) could not have failed at "
+              f"TOL_MEAN={TOL_MEAN}. They certify nothing. Change the case or "
+              f"use a reference-free probe; do not lower the tolerance.")
     print(f"saved: {out}")
     raise SystemExit(1 if failures else 0)
 

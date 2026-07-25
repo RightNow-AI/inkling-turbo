@@ -914,9 +914,24 @@ class FlashAttentionForwardSm80(FlashAttentionForwardBase):
             gmem_thr_copy_Bias = gmem_tiled_copy_Bias.get_slice(tidx)
             tBgBias = gmem_thr_copy_Bias.partition_S(gBias_tiles)
             tBsBias = gmem_thr_copy_Bias.partition_D(sBias)
+            # n_block_max, NOT m_block + 1. The two are equal only when
+            # seqlen_q == seqlen_k, and this used to hardcode the latter, which
+            # is the seqlen_q == seqlen_k specialisation of the layout contract.
+            # On every chunked-prefill and decode shape the shift came out wrong
+            # by up to n_block_max - 1 tiles, and because the reader guards on
+            # the tile index being in range, the effect was that a single KV
+            # block received a bias tile and the rest received none.
+            #
+            # Same defect as flash_fwd_sm90.py had; see
+            # journal/regression-sm90-bias-shift.md. It survived here for the
+            # same reason: all three parity_fa4_rel cases pass
+            # cu_seqlens_q == cu_seqlens_k, so the suite only ever exercised the
+            # one shape family the formula got right. This is the sm_80 and
+            # sm_120 path. n_block_max is already in scope from line 844 and is
+            # absolute here, since the generic path does not support split-KV.
             bias_tile_shift = (
                 padded_bias // self.tile_n
-                - (128 * (m_block + 1)) // self.tile_n
+                - (128 * n_block_max) // self.tile_n
             )
             bias_k_min_tile = -bias_tile_shift
         else:
@@ -1347,16 +1362,45 @@ class FlashAttentionForwardSm80(FlashAttentionForwardBase):
     ):
         """Tile-level sheared-bias add: acc = acc*scale + bias[frag coords].
 
-        Sheared layout contract (verified): for global row i, kv k, the bias
-        lives at column k + padded - 128*(i//128 + 1). tile_m == 128 is
-        asserted at construction, so i//128 == m_block for every tile row.
+        VESTIGIAL. The shipped kernel calls apply_rel_bias_smem, not this. u2_v0
+        introduced this method, u2_v1 replaced the call site with the smem
+        version, and this body was left behind. It is kept because u2_v0 applied
+        on its own still installs a call to it, and it is corrected below rather
+        than left wrong, because dead code carrying a known-bad formula is a trap
+        for whoever reads it next. It has not been executed on any GPU since the
+        correction.
+
+        Sheared layout contract, GENERAL form: for global row i and kv index k
+        the bias lives at column k + padded - 128 * n_block_max(m_block).
+        tile_m == 128 is asserted at construction, so i//128 == m_block for
+        every tile row.
+
+        This previously read `128 * (m_block + 1)`, which is the
+        seqlen_q == seqlen_k specialisation and equals n_block_max only for full
+        prefill. See journal/regression-sm90-bias-shift.md for what that costs:
+        on decode shapes the bias lands on one KV block instead of the correct
+        span, and that block the oldest.
+
         Out-of-range columns contribute 0 (beyond-extent semantics); the
         tensor's -inf right-pad masks future positions inside the tile.
         """
         cS = cute.make_identity_tensor((self.tile_m, self.tile_n))
         tScS = thr_mma_qk.partition_C(cS)
         padded = mBias_cur.shape[1]
-        shift = n_block * self.tile_n + padded - 128 * (m_block + 1)
+        # n_block_max for the causal form, computed from seqlen rather than
+        # taken as an argument so this method stays self-contained. The bias
+        # path requires causal or a window equal to the extent, asserted in
+        # interface.py, so the causal expression is the only one needed.
+        n_block_max = cutlass.min(
+            cute.ceil_div(seqlen.seqlen_k, self.tile_n),
+            cute.ceil_div(
+                (m_block + 1) * self.tile_m
+                + seqlen.seqlen_k
+                - seqlen.seqlen_q,
+                self.tile_n,
+            ),
+        )
+        shift = n_block * self.tile_n + padded - 128 * n_block_max
         n_vals = cutlass.const_expr(cute.size(acc_S.shape))
         for i in cutlass.range(0, n_vals, 1, unroll_full=True):
             r_local = tScS[i][0]

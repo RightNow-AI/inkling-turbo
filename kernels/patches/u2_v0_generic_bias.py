@@ -18,6 +18,16 @@ to every tile element; softmax_scale_log2 switches to log2e-only mode.
 
 Usage: python3 u2_v0_generic_bias.py /path/to/vllm
 """
+#
+# PREDATES THE BIAS-SHIFT FIX. This script installs the shear shift in its
+# `128 * (m_block + 1)` form, which is the seqlen_q == seqlen_k specialisation
+# of the layout contract and is WRONG for every chunked-prefill and decode
+# shape. See journal/regression-sm90-bias-shift.md. The shipped sources in
+# kernels/tml_fa4_modified/ carry the corrected `n_block_max` form and are
+# authoritative for every architecture. Apply this only to reproduce the
+# historical state the journal describes, never to build something to serve
+# with.
+
 
 import sys
 from pathlib import Path

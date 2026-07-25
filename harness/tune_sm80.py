@@ -130,6 +130,49 @@ def parity_ok() -> tuple[bool, float]:
                            .view(T, Hq, D))
         diff = (out.float() - ref).abs().max().item()
         worst = max(worst, diff)
+
+    # The cases above all use ONE cu_seqlens for both q and k, so every one of
+    # them has seqlen_q == seqlen_k. The cases this file TIMES do not: they are
+    # decode shapes, T_q=1 against T_k=65536. So the gate that is supposed to
+    # stop a timing from being reported without green parity was checking a
+    # different shape family from the one it timed, and the generic kernel's
+    # shear shift was wrong on exactly the family it never checked. The Ampere
+    # tile-sweep percentages were selected under that hole.
+    # See journal/regression-sm90-bias-shift.md.
+    #
+    # Cover the timed family here. The reference lives in
+    # parity_rel_chunked_decode because it needs a query that starts partway
+    # into the sequence, and duplicating it invites the two copies to drift.
+    from vllm.third_party.tml_fa4 import flash_attn_varlen_func
+    import parity_rel_chunked_decode as prcd
+
+    for T_q, ctx, Hq, Hkv, ext, win in (
+        (1, 4095, 8, 8, 1024, None),
+        (1, 4095, 8, 8, 512, 511),
+        (128, 1408, 8, 8, 1024, None),
+    ):
+        torch.manual_seed(4321)
+        T_k = ctx + T_q
+        q = torch.randn(T_q, Hq, D, dtype=torch.bfloat16, device=dev)
+        k = torch.randn(T_k, Hkv, D, dtype=torch.bfloat16, device=dev)
+        v = torch.randn(T_k, Hkv, D, dtype=torch.bfloat16, device=dev)
+        rel = torch.randn(T_q, Hq, ext, dtype=torch.bfloat16, device=dev)
+        cu_q = torch.tensor([0, T_q], dtype=torch.int32, device=dev)
+        cu_k = torch.tensor([0, T_k], dtype=torch.int32, device=dev)
+        window = (None, None) if win is None else (win, 0)
+        out = flash_attn_varlen_func(
+            q=q, k=k, v=v, rel_bias=rel,
+            cu_seqlens_q=cu_q, cu_seqlens_k=cu_k,
+            max_seqlen_q=T_q, max_seqlen_k=T_k, softmax_scale=1.0 / D,
+            causal=True, window_size=window)
+        if isinstance(out, tuple):
+            out = out[0]
+        ref = prcd.reference(q, k, v, rel, 1.0 / D, ctx, win)
+        diff = (out.float() - ref.float()).abs().max().item()
+        print(f"    parity seqlen_q!=seqlen_k T_q={T_q} ctx={ctx} "
+              f"ext={ext} win={win}: max={diff:.3e}")
+        worst = max(worst, diff)
+
     return worst < 2e-2, worst
 
 
