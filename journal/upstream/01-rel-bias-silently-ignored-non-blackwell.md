@@ -1,4 +1,39 @@
-# `rel_bias` is accepted and silently dropped on every non-Blackwell arch, plain attention is returned as the biased result
+# `rel_bias` is accepted, the shear pre-kernel runs, and the bias never reaches the forward kernel on pre-Blackwell arches
+
+> **SCOPE CORRECTED 2026-07-26, after two independent adversarial verification passes. Read this before quoting the title.**
+>
+> The earlier title said "silently dropped on every non-Blackwell arch". That is wrong, and a maintainer would correct it in one reply. There are two `assert` statements inside the `rel_bias` block itself, at `interface.py:672-673`:
+>
+> ```python
+> assert tile_m == 128
+> assert tile_n == 128
+> ```
+>
+> They run on the already-resolved tile config, so the behaviour splits by architecture and head dimension:
+>
+> | arch | default tile | behaviour with `rel_bias` |
+> |---|---|---|
+> | `sm_80` | 128x64 unconditionally (`interface.py:520`) | **raises `AssertionError`.** Never silent. The public API does not expose `tile_mn`, so it cannot be reached at all. |
+> | `sm_120`, head_dim > 64 | 128x64 (`:518`) | **raises `AssertionError`.** Inkling's head_dim is 128, so this is Inkling's case. |
+> | `sm_120`, head_dim <= 64 | 128x128 (`:516`) | **silent**, bias dropped |
+> | `sm_90`, head_dim 97-128 | 128x128 (`:148`) | **silent**, bias dropped. head_dim 128 is the common case, so this is the real one. |
+> | `sm_90`, head_dim <= 96 | 192x128 (`:136`) | raises `AssertionError` |
+> | `sm_100` / `sm_11x` | n/a | **correct**, bias is applied |
+>
+> So the silent-wrong-answer path is **`sm_90` at head_dim 97-128**, plus `sm_120` at head_dim <= 64. Elsewhere the failure is loud. Note also that the correct path is `arch // 10 in (10, 11)`, which is **`sm_100` and `sm_11x`**, not sm_100 alone.
+>
+> **The arch breakdown above is read from source. The silent drop itself was MEASURED on sm_90**, in session 1 on a real H100 at head_dim 128, which is precisely the case the table calls silent. Two independent signatures, both in `journal/remote/h100-session1.md`, **journal-only** class:
+>
+> | | |
+> |---|---|
+> | `rel_bias=` max abs error vs a float32 reference | **0.90 to 1.63** |
+> | `score_mod=` on the same inputs | 7.8e-3 |
+> | `rel_bias=` cost, batch 1 at 64K KV | **739.6 us** |
+> | bias-free attention, same shape | **742.7 us** |
+>
+> The first says the returned tensor is not a biased attention output. The second says no bias work happened inside the timed region, since the biased call costs what the bias-free call costs. Those are exactly the two fingerprints of a dropped bias, and together they are stronger than either alone.
+>
+> What is **not** reproducible today: stock tml-fa4 no longer imports under nvidia-cutlass-dsl 4.6.0 (`utils.py:279`, `cute.core.ThrMma` was removed), so the 2026-07-26 verification passes could not re-execute it, and no Hopper was available to them. Quote the session-1 numbers as journal-only and offer to re-run on request.
 
 **Target tracker:** vllm-project/tml-fa4 (issues enabled, verified 2026-07-25)
 **Severity:** highest of this series. Silent numerical wrongness, no error, no warning.
@@ -19,8 +54,7 @@ commits: `flash_attn/cute/interface.py`, `flash_fwd_sm90.py` and
 between them, PR #3, did not touch those files. The `grep -ci bias` counts below
 are also identical at both. So this report is not describing a stale pin.
 
-Affected code paths: `arch // 10 in (8, 9, 12)`. The `arch // 10 in (10, 11)`
-Blackwell path is correct and is not affected.
+Affected code paths: the bias staging block runs for `arch // 10 in (8, 9, 12)`, but see the scope correction above for which of those are **silent** and which raise. The `arch // 10 in (10, 11)` path, covering sm_100 and sm_11x, is correct and is not affected.
 
 ## Scope, stated up front so this is not read as a live vLLM serving bug
 

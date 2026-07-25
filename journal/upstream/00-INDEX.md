@@ -153,7 +153,7 @@ by then, and a query restricted to open PRs cannot see a merged one. Use
 ### Step 3, per-report keyword searches, corrected syntax
 
 ```bash
-# 01, rel_bias silently dropped on non-Blackwell        ALL EMPTY 2026-07-25
+# 01, rel_bias never reaches the kernel pre-Blackwell   ALL EMPTY 2026-07-25
 gh search issues --repo vllm-project/tml-fa4 "rel_bias"
 gh search issues --repo vllm-project/tml-fa4 "sheared bias"
 gh search issues --repo vllm-project/tml-fa4 "ShearingBias"

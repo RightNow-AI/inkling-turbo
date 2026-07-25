@@ -1,5 +1,33 @@
 # Session 30: the first end-to-end serving A/B
 
+## Hardware provenance, stated first because `manifest.json` looks like it disagrees
+
+`manifest.json:8` reads `"gpu": "H100:8"`. **That is the Modal request string,
+not the device that ran.** Modal fulfils an `H100:8` request with H200s, which is
+how this session got them. The device observed in the container was **8x NVIDIA
+H200, 143771 MiB each**; an H100 reports 81559 MiB.
+
+That observation is **journal-only**: unlike the A100 sessions in
+[../validate_a100x1_s31/](../validate_a100x1_s31/), this run committed no
+`env_proof` with a `device_name` and no asserted compute capability. The
+arch-assertion machinery in `scripts/modal_e2e_bench.py` postdates it. So the
+device string rests on prose.
+
+Two committed facts corroborate it physically, and they are strong:
+
+1. **The KV pool is 188160 tokens**, in `validity.json`, identical on both
+   builds. At `--max-model-len 3072` that is a 61.25x concurrency ceiling. On
+   8x H100 80GB the same recipe holds **4379 tokens**, a 1.43x ceiling, which is
+   why the earlier 8x H100 attempt could not produce a batched comparison at all
+   (LEDGER.md notes this: "8x143GB holds 61 concurrent maximum-length requests
+   against 8x80GB holding 1.43"). 188160 tokens is not reachable on 8x80GB.
+2. **The billed rate is $39.1173/hr.** 8x H200 at $4.5396 is $36.3168, leaving
+   $2.80 for CPU and memory. 8x H100 at $3.9492 is $31.5936, which would leave
+   $7.52, far above what 8 cores and 32 GiB cost at the rates in the same file.
+
+So: H200 is well evidenced but not **asserted**, and this session is the reason
+the assertion now exists. Any future serving run must commit an `env_proof`.
+
 8x NVIDIA H200 143771 MiB, TP8, the real 592GB NVFP4 checkpoint. Two containers,
 one per build, $59.22 and $19.18. Ledger $141.51 of the $200 cap.
 

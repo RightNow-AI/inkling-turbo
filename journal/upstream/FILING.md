@@ -16,7 +16,7 @@ already fixed or already reported upstream.
 
 | Order | Item | Tracker | Type | Source document |
 |---|---|---|---|---|
-| 1 | `rel_bias` accepted and silently dropped on non-Blackwell | vllm-project/tml-fa4 | **Issue** | `01-rel-bias-silently-ignored-non-blackwell.md` |
+| 1 | `rel_bias` accepted, shear runs, bias never reaches the kernel pre-Blackwell; **silent on sm_90 head_dim 97-128, raises on sm_80** | vllm-project/tml-fa4 | **Issue** | `01-rel-bias-silently-ignored-non-blackwell.md` |
 | 2 | Hardware confirmation of `mDynamicCausal` on sm_120 | vllm-project/flash-attention | **Comment on PR #156** | `03-...md` status block, `journal/regression-sm120-varlen-illegal-address.md:84-102` |
 | 3 | Two surviving cutlass-dsl 4.6.0 items, nvvm branch keyed to CUDA version, and unmarshalable window ints | vllm-project/tml-fa4 | **Issue**, needs a rewrite to two items first | `02-cutlass-4.6.0-api-drift-cluster.md` |
 | 4 | Inkling has no attention path on SM8x | vllm-project/vllm | **Issue** | `05-no-sm8x-attention-path.md` |
@@ -39,7 +39,9 @@ already fixed or already reported upstream.
 | vllm-project/vllm | yes | issues are fine |
 | vllm-project/flash-attention | **no** | **PR or PR comment only.** Nothing can be filed as an issue here. |
 
-## 1. `rel_bias` silently dropped, to vllm-project/tml-fa4, as an issue
+## 1. `rel_bias` never reaches the forward kernel pre-Blackwell, to vllm-project/tml-fa4, as an issue
+
+**SCOPE CORRECTED 2026-07-26.** Do not file the older, broader wording. Two asserts at `interface.py:672-673` mean `sm_80` and `sm_120` at head_dim > 64 raise `AssertionError` rather than returning a wrong number. The silent path is `sm_90` at head_dim 97-128 and `sm_120` at head_dim <= 64. The correct path is `arch // 10 in (10, 11)`, so sm_100 **and** sm_11x. None of it was executed: stock tml-fa4 does not import under cutlass-dsl 4.6.0. See the table at the top of [01-rel-bias-silently-ignored-non-blackwell.md](01-rel-bias-silently-ignored-non-blackwell.md) and use its wording.
 
 File this first. It is the only item in the series where shipped code returns
 wrong numbers with no error, and it is the one whose evidence is strongest.
@@ -47,7 +49,9 @@ wrong numbers with no error, and it is the one whose evidence is strongest.
 > `flash_attn_varlen_func` accepts a `rel_bias` argument on every architecture,
 > and on sm_80, sm_90 and sm_120 it allocates the padded bias tensor, compiles and
 > launches the `ShearingBias` pre-kernel, then constructs the forward kernel with
-> no bias argument and returns plain attention. The three non-Blackwell forward
+> no bias argument. On sm_90 with head_dim 97-128 that returns plain
+> attention silently; on sm_80 and on sm_120 with head_dim > 64 the asserts
+> at interface.py:672-673 fire first. The three non-Blackwell forward
 > kernels contain no bias code at all: `grep -ci bias` returns 0 in
 > `flash_fwd_sm90.py`, `flash_fwd.py` and `flash_fwd_sm120.py`, against 236 in
 > `flash_fwd_sm100.py`. On an H100 we measured the `rel_bias=` path at 0.90 to
