@@ -1,5 +1,12 @@
 # Copyright (c) 2025, Jay Shah, Ganesh Bikshandi, Ying Zhang, Vijay Thakkar, Pradeep Ramani, Tri Dao.
 # [2025-07-04] Version in Cute-DSL, for Hopper and Blackwell. You'll need install nvidia-cutlass-dsl==4.2.0.
+# Modified from vllm-project/tml-fa4. Licensed BSD 3-Clause; the full licence
+# text, its conditions and its warranty disclaimer are retained verbatim in
+# LICENSES/tml-fa4-BSD-3-Clause.txt at the root of this repository. Clause 1
+# requires a source redistribution to keep the conditions and disclaimer, not
+# only the copyright line above, and the upstream checkout is not vendored here,
+# so that file is how they travel. Changes are described in NOTICE and in
+# journal/.
 
 import os
 import math

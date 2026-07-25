@@ -4,6 +4,13 @@
 # and https://github.com/Dao-AILab/flash-attention/blob/main/hopper/flash_fwd_kernel_sm90.h
 # from Cutlass C++ to Cute-DSL.
 # Built on Cute-DSL example: https://github.com/NVIDIA/cutlass/blob/main/examples/python/CuTeDSL/ampere/flash_attention_v2.py
+# Modified from vllm-project/tml-fa4. Licensed BSD 3-Clause; the full licence
+# text, its conditions and its warranty disclaimer are retained verbatim in
+# LICENSES/tml-fa4-BSD-3-Clause.txt at the root of this repository. Clause 1
+# requires a source redistribution to keep the conditions and disclaimer, not
+# only the copyright line above, and the upstream checkout is not vendored here,
+# so that file is how they travel. Changes are described in NOTICE and in
+# journal/.
 
 import math
 from types import SimpleNamespace

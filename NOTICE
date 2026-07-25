@@ -1,9 +1,45 @@
 Inkling-turbo
 Copyright 2026 Inkling-turbo contributors
 
-This product includes software developed as a derivative of vLLM
-(https://github.com/vllm-project/vllm), licensed under the Apache License 2.0.
+This product is licensed under the Apache License 2.0 (see LICENSE), except for
+the third-party derived sources listed below, which keep their original terms.
 
-Modified kernel sources under kernels/tml_fa4_modified/ are derived from
-vllm-project/tml-fa4 and vLLM's vendored attention code, both Apache 2.0.
-The pinned upstream commits are recorded in journal/day0-implementation.md.
+--------------------------------------------------------------------------------
+kernels/tml_fa4_modified/    BSD 3-Clause
+--------------------------------------------------------------------------------
+
+These three files are modified derivatives of vllm-project/tml-fa4:
+
+    kernels/tml_fa4_modified/flash_fwd.py
+    kernels/tml_fa4_modified/flash_fwd_sm90.py
+    kernels/tml_fa4_modified/interface.py
+
+    Copyright (c) 2025, Jay Shah, Ganesh Bikshandi, Ying Zhang, Vijay Thakkar,
+    Pradeep Ramani, Tri Dao.
+    Copyright (c) 2022, the respective contributors, as shown by the tml-fa4
+    AUTHORS file.
+
+tml-fa4 is BSD 3-Clause licensed, NOT Apache 2.0. An earlier version of this
+file said Apache 2.0, and that was wrong. The full BSD 3-Clause text, including
+the conditions and the warranty disclaimer that clause 1 requires a source
+redistribution to retain, is in:
+
+    LICENSES/tml-fa4-BSD-3-Clause.txt
+
+The upstream tml-fa4 and vLLM checkouts are not vendored into this repository,
+so that file is how the licence travels with these sources. The pinned upstream
+commits are recorded in journal/day0-implementation.md.
+
+Per BSD 3-Clause clause 3, neither the name of the copyright holders nor the
+names of the tml-fa4 or vLLM contributors are used to endorse or promote
+Inkling-turbo. Where this project reports a defect in upstream code it does so as
+a measurement with a reproducer, not as a claim about any contributor.
+
+--------------------------------------------------------------------------------
+Patch targets
+--------------------------------------------------------------------------------
+
+kernels/patches/ contains scripts that edit a local vLLM checkout in place. They
+quote short anchor strings from vLLM sources (Apache 2.0,
+https://github.com/vllm-project/vllm) in order to locate the text they replace.
+No vLLM source file is redistributed here.
