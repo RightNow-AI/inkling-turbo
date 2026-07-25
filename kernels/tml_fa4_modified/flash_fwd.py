@@ -978,11 +978,24 @@ class FlashAttentionForwardSm80(FlashAttentionForwardBase):
                 - (128 * n_block_max_128) // self.tile_n
             )
             bias_k_min_tile = -bias_tile_shift
+            # Upper bound on the shifted column tile, and it is NOT redundant.
+            # tBgBias has padded_bias // tile_n column tiles, the copy in
+            # compute_one_n_block is not predicated, and index
+            # padded_bias // tile_n reads a whole tile past the end of the
+            # sheared buffer. This bound equals (128 * n_block_max_128) //
+            # tile_n, which is >= this kernel's own n_block_max for every
+            # tile_n <= 128, so it never rejects a legitimate KV block. It
+            # bites only on a wasted varlen tile: there seqlen_k == 0 makes
+            # n_block_max_128 == 0, yet the mainloop's first iteration runs
+            # unconditionally with n_block == 0.
+            # journal/regression-sm120-varlen-illegal-address.md
+            bias_k_max_tile = (128 * n_block_max_128) // self.tile_n
         else:
             sBias = None
             tBgBias = None
             tBsBias = None
             bias_k_min_tile = Int32(0)
+            bias_k_max_tile = Int32(0)
         if const_expr(not self.Q_in_regs):
             sV = storage.sV.get_tensor(sV_layout)
         else:
@@ -1093,6 +1106,7 @@ class FlashAttentionForwardSm80(FlashAttentionForwardBase):
             tBgBias=tBgBias,
             tBsBias=tBsBias,
             bias_k_min_tile=bias_k_min_tile,
+            bias_k_max_tile=bias_k_max_tile,
             bias_tile_shift=bias_tile_shift,
             gmem_tiled_copy_Bias=gmem_tiled_copy_Bias,
             load_K=load_K,
@@ -1259,6 +1273,7 @@ class FlashAttentionForwardSm80(FlashAttentionForwardBase):
         tBgBias=None,
         tBsBias=None,
         bias_k_min_tile=None,
+        bias_k_max_tile=None,
         bias_tile_shift=None,
         gmem_tiled_copy_Bias=None,
     ):
@@ -1289,7 +1304,18 @@ class FlashAttentionForwardSm80(FlashAttentionForwardBase):
             cute.arch.cp_async_commit_group()
 
         if const_expr(self.has_bias and sBias is not None):
-            if n_block >= bias_k_min_tile:
+            # BOTH bounds. The upper one is what stops the illegal address: this
+            # copy is unpredicated, tBgBias has padded_bias // tile_n column
+            # tiles, and on a wasted varlen tile seqlen_k == 0 makes
+            # n_block_max_128 == 0 while the mainloop's first iteration still
+            # runs at n_block == 0, so the index lands a whole tile past the end
+            # of the sheared buffer.
+            #
+            # An earlier attempt computed bias_k_max_tile and threaded it all the
+            # way down to this function and then never used it, so the gate still
+            # scored 1 of 12 with cudaErrorIllegalAddress. Plumbing a bound is not
+            # applying it.
+            if n_block >= bias_k_min_tile and n_block < bias_k_max_tile:
                 cute.copy(
                     gmem_tiled_copy_Bias,
                     tBgBias[None, None, None, n_block + bias_tile_shift],
@@ -1344,7 +1370,11 @@ class FlashAttentionForwardSm80(FlashAttentionForwardBase):
                 acc_S,
                 softmax.softmax_scale,
                 sBias,
-                n_block >= bias_k_min_tile,
+                # Same both-bounds predicate as the copy above. A tile whose copy
+                # was skipped holds stale or unwritten smem, so applying it would
+                # trade an illegal address for a silently wrong bias, which is
+                # worse.
+                n_block >= bias_k_min_tile and n_block < bias_k_max_tile,
             )
         if const_expr(mask_fn is not None):
             mask_fn(acc_S, n_block=n_block)
