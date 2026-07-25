@@ -177,10 +177,10 @@ them does not stand.
 
 Found while writing this file, by reading. It is the reason the re-measurement
 recipe below starts with a code question rather than a GPU booking. Two forms of
-the ported fix exist as this is written, one committed and one in the working
-tree from a concurrent lane, and neither is the contract in general. What decides
-between them is stated at the end of the section, so the record stays useful
-whichever one survives.
+the ported fix exist in this branch's history, `9b63979` then `b5f0f7e`, and
+neither is the contract in general. `b5f0f7e` is what ships now. What decides
+between them, and what a correct third form would have to do, is stated at the end
+of the section.
 
 **Form A, committed in `9b63979`:**
 

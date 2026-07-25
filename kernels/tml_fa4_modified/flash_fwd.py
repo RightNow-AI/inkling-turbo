@@ -936,19 +936,47 @@ class FlashAttentionForwardSm80(FlashAttentionForwardBase):
             # one shape family the formula got right. This is the sm_80 and
             # sm_120 path. n_block_max is already in scope from line 844 and is
             # absolute here, since the generic path does not support split-KV.
-            # MIND THE UNITS. n_block_max counts tile_n-sized blocks, so the
-            # right-edge KEY INDEX is n_block_max * tile_n, and the shift in
-            # tile units is therefore just n_block_max. Writing
-            # (128 * n_block_max) // tile_n mixes the writer's fixed tile_m of
-            # 128 with a tile_n-unit count; it is right only at tile_n == 128,
-            # which sm_90 forces but this generic path does not: it selects 32,
-            # 64 or 128. The first port of this fix made exactly that mistake and
-            # was wrong by 12 tiles at tile_n=32, m_block=0.
+            # THE GRANULARITY IS THE WRITER'S, NOT THIS READER'S.
             #
-            # This form reproduces the original expression exactly for
-            # seqlen_q == seqlen_k at every tile_n in {32, 64, 128}, which is the
-            # family that was already green, and corrects the rest.
-            bias_tile_shift = padded_bias // self.tile_n - n_block_max
+            # ShearingBias builds its own BlockInfo(128, 128), hardcoded, at
+            # tml-fa4/flash_attn/cute/shearing_bias.py:311. So the block count in
+            # the layout contract is counted in 128s no matter what tile_n this
+            # kernel picked, and this path picks 32, 64 or 128.
+            #
+            # Two wrong forms were shipped before this one, and both looked right
+            # because both agree with the original on seqlen_q == seqlen_k, which
+            # was the only family any gate covered:
+            #   (128 * n_block_max) // tile_n   wrong at every tile_n != 128
+            #   n_block_max                     off by one tile whenever the
+            #                                   sequence length is not a multiple
+            #                                   of 128 and tile_n < 128, for
+            #                                   example seqlen 200 at tile_n=32
+            # Both use n_block_max at THIS kernel's tile_n. The contract wants it
+            # at 128.
+            #
+            # Recomputing it through a second BlockInfo, rather than deriving
+            # n_idx_right by hand, so the causal and windowed cases come from the
+            # same upstream code the writer used. Pure index arithmetic, no
+            # memory touched.
+            bias_block_info = BlockInfo(
+                128,
+                128,
+                self.is_causal,
+                self.is_local,
+                False,  # is_split_kv
+                window_size_left,
+                window_size_right,
+                qhead_per_kvhead_packgqa=(
+                    self.qhead_per_kvhead if const_expr(self.pack_gqa) else 1
+                ),
+            )
+            _, n_block_max_128 = bias_block_info.get_n_block_min_max(
+                seqlen, m_block
+            )
+            bias_tile_shift = (
+                padded_bias // self.tile_n
+                - (128 * n_block_max_128) // self.tile_n
+            )
             bias_k_min_tile = -bias_tile_shift
         else:
             sBias = None
@@ -1403,23 +1431,26 @@ class FlashAttentionForwardSm80(FlashAttentionForwardBase):
         cS = cute.make_identity_tensor((self.tile_m, self.tile_n))
         tScS = thr_mma_qk.partition_C(cS)
         padded = mBias_cur.shape[1]
-        # n_block_max for the causal form, computed from seqlen rather than
-        # taken as an argument so this method stays self-contained. The bias
+        # n_block_max for the causal form, at 128 and NOT at self.tile_n, because
+        # ShearingBias hardcodes BlockInfo(128, 128) (shearing_bias.py:311) and
+        # the contract counts in the writer's blocks. Computed from seqlen rather
+        # than taken as an argument so this method stays self-contained. The bias
         # path requires causal or a window equal to the extent, asserted in
         # interface.py, so the causal expression is the only one needed.
         n_block_max = cutlass.min(
-            cute.ceil_div(seqlen.seqlen_k, self.tile_n),
+            cute.ceil_div(seqlen.seqlen_k, 128),
             cute.ceil_div(
                 (m_block + 1) * self.tile_m
                 + seqlen.seqlen_k
                 - seqlen.seqlen_q,
-                self.tile_n,
+                128,
             ),
         )
-        # Key-index units throughout: n_block * tile_n is a key index, so the
-        # right-edge term must be n_block_max * tile_n and not 128 * n_block_max.
-        # See the units note in kernel() above.
-        shift = n_block * self.tile_n + padded - n_block_max * self.tile_n
+        # Key-index units throughout, at the WRITER's 128 granularity. See the
+        # note in kernel(): ShearingBias hardcodes BlockInfo(128, 128), so the
+        # contract counts blocks in 128s regardless of this kernel's tile_n.
+        # n_block_max here is computed at 128 for that reason.
+        shift = n_block * self.tile_n + padded - 128 * n_block_max
         n_vals = cutlass.const_expr(cute.size(acc_S.shape))
         for i in cutlass.range(0, n_vals, 1, unroll_full=True):
             r_local = tScS[i][0]
