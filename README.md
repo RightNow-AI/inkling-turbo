@@ -26,17 +26,22 @@ Five things. The speed number is deliberately last, because attention is a slice
 
 Read the claim as written. It is a kernel microbenchmark on one GPU. If you are about to quote "2.66x" without the word *attention* in the same sentence, the number does not support it. If you are about to quote "2.7x" or "2.8x" at all, that number is withdrawn and the figures and git history that still show it are superseded.
 
-**And here is the serving number, which is the one that matters and is 2.4x smaller.** Measured 2026-07-25 on 8x H200 at TP8 against the real 592GB checkpoint, prefill-heavy at offered concurrency 8, three runs of each build:
+**And here is the serving number, which is the one that matters and is 2.4x smaller.** Measured 2026-07-25 on 8x H200 at TP8 against the real 592GB checkpoint. Three runs of each build in every row, medians:
 
-| | stock day-0 | Inkling-turbo | change |
-|---|---|---|---|
-| output tok/s | 63.709 | **70.453** | **1.106x** |
-| TTFT p50 | 377.961 ms | **340.199 ms** | **1.111x better** |
-| TPOT p50 | 117.863 ms | **106.566 ms** | **1.106x** |
+| mix, offered concurrency | metric | stock day-0 | Inkling-turbo | change |
+|---|---|---|---|---|
+| prefill-heavy, 8 | output tok/s | 63.709 | **70.453** | **1.106x** |
+| prefill-heavy, 8 | TPOT p50 | 117.863 ms | **106.566 ms** | **1.106x** |
+| decode-heavy, 8 | output tok/s | 68.008 | **75.266** | **1.107x** |
+| decode-heavy, 8 | TPOT p50 | 117.350 ms | **106.048 ms** | **1.107x** |
+| prefill-heavy, 1 | output tok/s | 8.641 | **9.588** | **1.110x** |
+| prefill-heavy, 1 | TPOT p50 | 115.429 ms | **103.671 ms** | **1.113x** |
 
 **A 2.66x attention kernel buys about 10% end to end.** That is not a disappointment, it is the arithmetic: attention is a slice of serving time and the MoE layers and the big GEMMs dominate. This page said so for weeks while every throughput row in [LEDGER.md](LEDGER.md) was `null`. Those rows are filled now, and the honest headline is 1.10x rather than 2.66x.
 
-Two things about that run worth knowing before you cite it, both in [the record](journal/remote/e2e_s30_h200/): the two builds ran in separate containers, which is defensible only because both arrived at the identical KV budget of 188160 tokens with 0.0000% drift, and the decode-heavy mix is three runs against one, so it is labelled indicative. Also, for the first time in this project, **four of four greedy completions were byte-identical between the builds on real generated tokens**, not on the echoed prompt positions every earlier token claim here rested on.
+**Why six rows and not one.** Three independent matched comparisons, two mixes and two concurrencies, land at 1.106x, 1.107x and 1.110x. In every one of them the *slowest* `ours` run is faster than the *fastest* `stock` run on both metrics shown, so the ranges do not touch. That is the reason to read this as "about 10%" and not as a three-decimal figure.
+
+Two things before you cite it, both in [the record](journal/remote/e2e_s30_h200/). The two builds ran in separate containers, which is defensible only because both arrived at the identical KV budget of 188160 tokens with 0.0000% drift. And **TTFT is deliberately absent from that table**: the medians favour ours in all three comparisons, but a single cold-start run per build makes the ranges overlap, so it is recorded in [LEDGER.md](LEDGER.md) and not claimed here. Also, for the first time in this project, **four of four greedy completions were byte-identical between the builds on real generated tokens**, matching SHA-256, not the echoed prompt positions every earlier token claim here rested on.
 
 ## What is measured
 

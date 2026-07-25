@@ -15,12 +15,18 @@ and NOT a server batch size; see the note under the table.
 |---|---|---|---|---|
 | Output tok/s, prefill-heavy @ conc 8 | 63.709 | 70.453 | **1.106x** | 3 runs vs 3, [e2e_s30_h200](journal/remote/e2e_s30_h200/) |
 | Request/s, prefill-heavy @ conc 8 | 0.498 | 0.550 | **1.106x** | 3 runs vs 3, same |
-| TTFT p50, prefill-heavy @ conc 8 | 377.961 ms | 340.199 ms | **1.111x better** | 3 runs vs 3, same |
+| TTFT p50, prefill-heavy @ conc 8 | 377.961 ms | 340.199 ms | 1.111x, **not claimed** | 3 runs vs 3, same. The medians favour ours but the ranges overlap heavily, stock [369.979, 884.773] against ours [338.328, 862.342]: one cold-start run per build swamps the gap. See the note below the table |
 | TPOT p50, prefill-heavy @ conc 8 | 117.863 ms | 106.566 ms | **1.106x** | 3 runs vs 3, same |
 | p99 end-to-end, prefill-heavy @ conc 8 | 17492.6 ms | 15975.5 ms | **1.095x** | 3 runs vs 3, same |
-| Output tok/s, decode-heavy @ conc 8 | 68.008 | 75.266 | 1.107x, **indicative** | **3 runs vs 1**, same |
-| TPOT p50, decode-heavy @ conc 8 | 117.350 ms | 106.048 ms | 1.107x, **indicative** | **3 runs vs 1**, same |
-| Anything @ conc 1 | 3 runs each mix | **none** | null | `ours` never ran conc 1: one decode run there costs ~32 min, 16 prompts x 1024 tokens strictly sequential, and it was dropped to buy the matched conc-8 comparison |
+| Output tok/s, decode-heavy @ conc 8 | 68.008 | 75.266 | **1.107x** | 3 runs vs 3, same. Was 3-vs-1 and labelled indicative; the median did not move when the two missing runs landed |
+| Request/s, decode-heavy @ conc 8 | 0.066 | 0.074 | **1.107x** | 3 runs vs 3, same |
+| TPOT p50, decode-heavy @ conc 8 | 117.350 ms | 106.048 ms | **1.107x** | 3 runs vs 3, same |
+| p99 end-to-end, decode-heavy @ conc 8 | 120655.0 ms | 109170.6 ms | **1.105x** | 3 runs vs 3, same |
+| Output tok/s, prefill-heavy @ conc 1 | 8.641 | 9.588 | **1.110x** | 3 runs vs 3, same |
+| Request/s, prefill-heavy @ conc 1 | 0.068 | 0.075 | **1.110x** | 3 runs vs 3, same |
+| TPOT p50, prefill-heavy @ conc 1 | 115.429 ms | 103.671 ms | **1.113x** | 3 runs vs 3, same |
+| p99 end-to-end, prefill-heavy @ conc 1 | 14894.3 ms | 13630.8 ms | **1.093x** | 3 runs vs 3, same |
+| Anything decode-heavy @ conc 1 | 1 run | **none** | null | `ours` never ran decode at conc 1: one run costs ~32 min, 16 prompts x 1024 tokens strictly sequential, and the deadline refused it. The one stock run is not a comparison |
 | Throughput @ bs8 / bs32 / bs128 | null | null | null | **These rows cannot be filled from this data and the bs128 row cannot be filled on this hardware at all.** `--max-concurrency` is what the client offers, not the server's batch. The server reports its own ceiling as 61.25x here, so 8 is genuinely batched, but it is still a different quantity |
 
 **Read the size of the delta.** The attention kernel is 2.66x faster in isolation
@@ -35,6 +41,16 @@ servers profiled memory independently and arrived at the identical KV budget,
 188160 tokens and a 61.25x reported concurrency ceiling, drift 0.0000%. The KV
 pool is the thing that would otherwise confound this, and the harness refuses to
 publish a comparison whose pools drift more than 2%.
+
+**Every ours run beat every stock run, which is stronger than comparing medians.**
+On output tok/s and on TPOT p50, in all three matched comparisons, the slowest of
+the three `ours` runs is still faster than the fastest of the three `stock` runs.
+The intervals do not touch. The three ratios independently land at 1.106x, 1.107x
+and 1.110x across two mixes and two concurrencies, which is why this is quoted as
+"about 10%" rather than to three decimal places. Where the intervals **do** overlap
+the number is not claimed: TTFT is the case, at both concurrencies and in both
+mixes, because a cold-start outlier in one run of each build swamps the difference.
+TTFT p99 on `ours` at conc 1 spans 130 ms to 1103 ms across three runs.
 
 **Generated-token equivalence, for the first time in this project.** Four fixed
 prompts per build, temperature 0, `max_tokens=32`, `--ignore-eos` deliberately

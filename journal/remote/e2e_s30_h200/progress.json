@@ -1,10 +1,10 @@
 {
-  "completed": 4,
-  "skipped": 0,
+  "completed": 5,
+  "skipped": 4,
   "failed": 0,
-  "last": "ours/decode/conc8/run1",
+  "last": "ours/decode/conc8/run3",
   "last_rc": 0,
-  "last_seconds": 457.6,
-  "elapsed_hours": 0.416,
-  "spend_usd_est": 16.26
+  "last_seconds": 460.3,
+  "elapsed_hours": 0.679,
+  "spend_usd_est": 26.55
 }

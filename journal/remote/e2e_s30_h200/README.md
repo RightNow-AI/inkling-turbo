@@ -26,10 +26,58 @@ Prefill-heavy, 2048 in / 128 out, concurrency 8, **3 runs against 3**, median:
 | p99 TPOT | 128.235 ms | **115.677** | **1.109x** |
 | p99 end to end | 17492.6 ms | **15975.5** | **1.095x** |
 
-Decode-heavy, 512 in / 1024 out, concurrency 8, **3 runs against 1**, so
-indicative rather than a matched median: output throughput 68.008 to 75.266,
-median TPOT 117.350 to 106.048, both 1.107x. The `ours` container died after its
-first decode run, so that row is one sample and is labelled as one sample.
+### Completed 2026-07-25: decode-heavy is now 3 against 3, and conc 1 exists
+
+A second `ours` container finished the two decode runs and the three
+concurrency-1 prefill runs that the first one's deadline refused. All 14
+pre-existing run files are **byte-identical** between the two fetches, so this is
+a superset and not a re-measurement.
+
+Decode-heavy, 512 in / 1024 out, concurrency 8, **3 runs against 3**:
+
+| metric | stock day-0 | Inkling-turbo | change |
+|---|---|---|---|
+| output throughput | 68.008 tok/s | **75.266** | **1.107x** |
+| request throughput | 0.066 req/s | **0.074** | **1.107x** |
+| median TPOT | 117.350 ms | **106.048** | **1.107x** |
+| p99 end to end | 120655.0 ms | **109170.6** | **1.105x** |
+
+The medians did not move when the two missing runs landed. What changed is the
+evidence class: this was labelled indicative on one sample and is now a matched
+median.
+
+Prefill-heavy at concurrency 1, **3 runs against 3**, which had no `ours` side at
+all before:
+
+| metric | stock day-0 | Inkling-turbo | change |
+|---|---|---|---|
+| output throughput | 8.641 tok/s | **9.588** | **1.110x** |
+| request throughput | 0.068 req/s | **0.075** | **1.110x** |
+| median TPOT | 115.429 ms | **103.671** | **1.113x** |
+| p99 end to end | 14894.3 ms | **13630.8** | **1.093x** |
+
+**The intervals do not touch.** In all three matched comparisons, on output
+throughput and on median TPOT, the slowest `ours` run beats the fastest `stock`
+run:
+
+| comparison | metric | stock range | ours range |
+|---|---|---|---|
+| prefill, conc 1 | out tok/s | [8.630, 8.651] | [9.557, 9.655] |
+| prefill, conc 8 | out tok/s | [61.684, 66.784] | [67.772, 73.790] |
+| decode, conc 8 | out tok/s | [67.712, 68.013] | [74.477, 75.289] |
+| prefill, conc 1 | TPOT p50 ms | [115.414, 115.584] | [103.269, 103.931] |
+| prefill, conc 8 | TPOT p50 ms | [117.656, 119.377] | [106.277, 108.067] |
+| decode, conc 8 | TPOT p50 ms | [117.342, 117.562] | [105.805, 106.164] |
+
+Three independent ratios at 1.106x, 1.107x and 1.110x across two mixes and two
+concurrencies is why this is quoted as "about 10%".
+
+**TTFT is not claimed, in any comparison.** Its medians favour ours everywhere,
+by 1.065x to 1.111x, but one cold-start run per build makes the ranges overlap in
+every case. The worst is TTFT p99 for `ours` at conc 1, which spans 130.073 ms to
+1103.033 ms across three runs against a stock range of [143.702, 148.714]. A
+median that flatters us inside a range that overlaps is not a result, and the
+table above omits TTFT for that reason rather than reporting the flattering half.
 
 **Read the size of this number, because it is the honest one.** The attention
 kernel is 2.66x faster at batch-1 64K decode in isolation. End to end it buys
@@ -78,11 +126,13 @@ records are present and the equality above was computed from them directly.
 
 ## What is missing from this run, stated plainly
 
-- Decode-heavy is 3 runs against 1. Not a matched median.
-- Concurrency 1 has stock only, 3 runs of each mix, no `ours` counterpart. The
-  `conc1` decode config costs about 32 minutes per run, because 16 prompts at
-  concurrency 1 is 16384 strictly sequential decode steps, and it was dropped to
-  buy the matched `conc8` comparison instead.
+- ~~Decode-heavy is 3 runs against 1.~~ **Closed**, it is 3 against 3.
+- ~~Concurrency 1 has stock only.~~ **Partly closed**: prefill at concurrency 1
+  is 3 against 3. Decode at concurrency 1 still has one stock run and no `ours`
+  counterpart, so there is no comparison there and none is claimed. That config
+  costs about 32 minutes per run, because 16 prompts at concurrency 1 is 16384
+  strictly sequential decode steps, and the deadline refused it twice.
+- **TTFT, at every concurrency and in both mixes.** Ranges overlap; see above.
 - No `bs8 / bs32 / bs128` row is filled, and none can be from this data.
   `--max-concurrency 8` is the offered client concurrency. The server's own
   reported ceiling is 61.25x here, so 8 is genuinely batched rather than queued,
