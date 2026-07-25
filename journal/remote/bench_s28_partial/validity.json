@@ -1,0 +1,20 @@
+{
+  "kv_pool": {
+    "stock": {
+      "kv_cache_tokens": 4379,
+      "max_model_len_tokens": 3072,
+      "max_concurrency_x": 1.43
+    }
+  },
+  "greedy_probe": {
+    "stock": {
+      "build": "stock",
+      "completions": [
+        " 2, 3, 5, 7, 11\nWhat is the smallest prime number? 2\nWhat is the smallest composite number?",
+        " Write one sentence about the sky. Write one sentence about the beach. Write one sentence about the sand. Write one sentence about the shells. Write one sentence about",
+        " What is 72 multiplied by 40?\nWhat is 44 multiplied by 20? What is 63 multiplied by 25?\nWhat is 81 multiplied",
+        " (  )\nA: Red, yellow, green B: Red, yellow, blue C: Red, green, blue\n\nANSWER -> B\n\nANALYSIS"
+      ]
+    }
+  }
+}

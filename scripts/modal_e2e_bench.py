@@ -1253,6 +1253,23 @@ def run_bench(
     completed, skipped, failed, aborted = 0, 0, 0, False
     kv_facts: dict = {}
     probes: dict = {}
+    # Carry forward validity evidence from an earlier container. Resume skips
+    # runs that already exist, so a build finished in a previous container is
+    # never re-measured here, and without this its KV pool would drop out of the
+    # comparison entirely. A cross-container stock-vs-ours comparison is only
+    # defensible if the pools are shown equal, so load them rather than assume.
+    _prior_validity = Path(RESULTS_ROOT) / "validity.json"
+    if _prior_validity.exists():
+        try:
+            _pv = json.loads(_prior_validity.read_text(encoding="utf-8"))
+            kv_facts.update(_pv.get("kv_pool") or {})
+            probes.update(_pv.get("greedy_probe") or {})
+            print(
+                f"carried forward validity evidence for builds "
+                f"{sorted(kv_facts)} from a previous container"
+            )
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"WARN: prior validity.json unreadable ({exc})")
     # aborted  = the matrix is incomplete, so say so in the summary.
     # hard_stop = out of budget or time for real, so stop the whole matrix.
     # Yielding at the end of one build's allowance sets the first, not the
