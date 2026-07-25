@@ -216,7 +216,8 @@ implements is the arithmetic `ShearingBias` implements.
 `flash_fwd.py`, the sm_80 / sm_120 generic kernel, where the same defect was
 live. `harness/parity_rel_chunked_decode.py` is the gate that covers it and
 scores 7/7 on an H100 at `e9857de`, with a deliberately broken control run
-scoring 1/7 on the same gate. Write-up:
+scoring 2/7 on the same gate as the artifact records it, and 1/7 on a replay
+under the tightened `TOL_MEAN` of 5e-4. Write-up:
 `journal/regression-sm90-bias-shift.md`. Artifacts:
 `journal/remote/validate_s27_decodefix/` and
 `journal/remote/validate_s27_brokencontrol/`.

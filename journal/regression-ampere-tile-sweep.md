@@ -18,10 +18,10 @@ depended on a percentage. It does pick up a caveat, stated at the end.
 
 | withdrawn | as published | evidence class | where it appeared |
 |---|---|---|---|
-| `tile_n=32` against untuned `tile_n=64`, batch-1 decode 64K KV | 5350.1 us against 5953.7 us, "10.1% faster" | strong, JSON | README, LEDGER, upstream report 05, `interface.py` comment |
-| same, 32-sequence decode 64K KV | 60801.4 us against 74356.6 us, "18.2% faster" | strong, JSON | README, LEDGER, upstream report 05, `interface.py` comment |
-| post-deploy re-run, 32-sequence decode 64K KV | 60977.5 us against 75013.4 us, "18.7% faster" | **journal-only**, session 27, no JSON | README, LEDGER, METHODOLOGY, `journal/remote/README.md`, upstream report 05 |
-| the code comment that summarised them | "decode-shaped calls run 10-18 percent faster at `tile_n=32`" | derived from the above | `kernels/tml_fa4_modified/interface.py:537` |
+| `tile_n=32` against untuned `tile_n=64`, batch-1 decode 64K KV | 5350.1 us against 5953.7 us, ~~"10.1% faster"~~ | strong, JSON | README, LEDGER, upstream report 05, `interface.py` comment |
+| same, 32-sequence decode 64K KV | 60801.4 us against 74356.6 us, ~~"18.2% faster"~~ | strong, JSON | README, LEDGER, upstream report 05, `interface.py` comment |
+| post-deploy re-run, 32-sequence decode 64K KV | 60977.5 us against 75013.4 us, ~~"18.7% faster"~~ | **journal-only**, session 27, no JSON | README, LEDGER, METHODOLOGY, `journal/remote/README.md`, upstream report 05 |
+| the code comment that summarised them | ~~"decode-shaped calls run 10-18 percent faster at `tile_n=32`"~~ | derived from the above | `kernels/tml_fa4_modified/interface.py`, the `arch // 10 == 8` branch |
 
 Artifact: [remote/tune_sm80_a100.json](remote/tune_sm80_a100.json). It is not
 deleted and not edited. The four timings per configuration are real timings of a
@@ -49,7 +49,8 @@ the whole point of stating the mechanism precisely.
   shared-memory pressure, no bias addressing error explains a factor of 34, and
   nothing here disturbs the conclusion that 128 must never be selected on that
   architecture.
-- Consequence for the shipped selection rule, `interface.py:541-544`, which picks
+- Consequence for the shipped selection rule, the `arch // 10 == 8` branch of
+  `interface.py`, which picks
   `tile_n=32` when `max_seqlen_q <= 32` and 64 otherwise: **the "otherwise 64"
   half still has measured support** from the sliding-window prefill row. The
   decode half, the reason the rule exists at all, does not. The shipped default
@@ -124,14 +125,15 @@ is the arithmetic rather than an analogy.
 means the bias tile is **not fetched** and the score tile gets no bias. Omission.
 
 The generic kernel's guard is **lower bound only**,
-`if n_block >= bias_k_min_tile` at `flash_fwd.py:1255`, with
-`bias_k_min_tile = -bias_tile_shift` at `:943`. When the defective shift came out
+`if n_block >= bias_k_min_tile` (`flash_fwd.py:1264`), with
+`bias_k_min_tile = -bias_tile_shift` (`:952`). When the defective shift came out
 positive, `bias_k_min_tile` came out negative, the guard passed for every
-`n_block`, and the copy at `:1258` fetched bias tile `n_block + shift` for every
-KV block in the range.
+`n_block`, and the copy at `:1267` fetched bias tile `n_block + shift` for every
+KV block in the range. Line numbers here are as of 2026-07-25 and that file is
+under concurrent edit, so anchor on the expressions rather than on the numbers.
 
 At the swept decode shapes, `rel_extent = 1024` so `padded = 1280`
-(`interface.py:720`). The correct shift comes from the writer's granularity,
+(`interface.py:730`). The correct shift comes from the writer's granularity,
 which is 128 columns and not `tile_n` (see the next section):
 `padded - 128 * n_block_max_128` columns, with `n_block_max_128 = 65536 / 128 =
 512`, so `1280 - 65536 = -64256` columns.
@@ -205,12 +207,12 @@ KV block regardless of what the attention kernel later chooses for `tile_n`.
 `128 * n_block_max_128` is the quantity the contract names, and
 `128 * n_block_max_tile_n` is not it.
 
-`sm_90` is safe. `interface.py:517-520` forces `tile_mn = (128, 128)` whenever
+`sm_90` is safe. `interface.py:523-527` forces `tile_mn = (128, 128)` whenever
 `rel_bias is not None` on arch 9, so there the two counts coincide and the
 validated fix is correct as written.
 
-The generic path never selects 128 for Inkling. `interface.py:541-544` picks 32
-or 64 on arch 8. `interface.py:527-534` picks 64 on arch 12 for `head_dim > 64`,
+The generic path never selects 128 for Inkling. `interface.py:558-561` picks 32
+or 64 on arch 8. `interface.py:536-542` picks 64 on arch 12 for `head_dim > 64`,
 and Inkling's head dim is 128. So on both architectures the generic kernel
 actually serves, the ported fix is off by a factor of `128 / tile_n`.
 
@@ -296,7 +298,10 @@ either a suppressed sweep or another number selected under a broken reader.
    covered.
 3. **`harness/parity_rel_chunked_decode.py`**, the first `seqlen_q != seqlen_k`
    gate this project has. It has run on `sm_90` only, 7 of 7, plus a broken
-   control at 1 of 7. On `sm_80` it has never run.
+   control that the artifact records at **2 of 7**, one of the two passes being
+   a defective case that slipped the then-current `TOL_MEAN` of 5e-3; under the
+   tightened 5e-4 a replay of the same per-case numbers gives 1 of 7. On
+   `sm_80` it has never run.
 4. **The three gates written for families nothing has reached**, none of which
    has run on any GPU: `harness/parity_rel_bias_coverage.py`,
    `harness/parity_rel_paged.py`, `harness/parity_rel_varlen_batch.py`. The paged

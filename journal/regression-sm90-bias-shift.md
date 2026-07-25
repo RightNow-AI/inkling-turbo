@@ -279,11 +279,17 @@ gives 7 of 7 on the fix and 1 of 7 on the broken kernel, the 1 being the control
 Every number in that paragraph is re-derivable from the per-case `mean_abs_diff`
 fields in the two JSON files.
 
-## The same specialisation is still live in the generic kernel
+## The same specialisation was live in the generic kernel
 
-Found while writing this file, and **not fixed**.
+Found while writing this file. Fixed the same day in `9b63979`, on no hardware,
+and that fix has since been found wrong in a second way and is still unrun. The
+Ampere consequence, the withdrawal of the tile-sweep percentages, and the units
+error in the port all have their own record:
+[regression-ampere-tile-sweep.md](regression-ampere-tile-sweep.md). What follows
+is the defect as it stood.
+
 `kernels/tml_fa4_modified/flash_fwd.py`, the generic path that serves `sm_80`
-and `sm_120`, carries the identical expression in two places:
+and `sm_120`, carried the identical expression in two places:
 
 - `:917-919`, the smem-staged reader, with `bias_k_min_tile = -bias_tile_shift`
   at `:921` and a **lower-bound-only** guard at `:1233`
@@ -299,15 +305,17 @@ What this touches, stated conservatively:
   `harness/parity_fa4_rel.py` is `seqlen_q == seqlen_k`, where the shift is
   correct, so 3/3 green remains a true statement about that family, and remains
   silent about every other family, exactly as on Hopper.
-- The A100 **tile-sweep timings** are decode shapes (`harness/tune_sm80.py:48-49`
-  time `T_q = 1` against `T_k = 65536`) while that harness's parity gate runs
-  `cu_seqlens_q == cu_seqlens_k` (`:105-106`). So the 10.1%, 18.2% and 18.7%
-  tile-tuning figures were measured with the bias gather largely absent on both
-  sides of the comparison. They are self-comparisons rather than comparisons
-  against a differently-behaving baseline, so they are not "kernel doing less
-  work than its baseline" the way the Hopper decode ratios were. What they need
-  is re-checking, because a tile size chosen while most of the bias work was
-  being skipped is not necessarily the tile size that wins once it is not.
+- The A100 **tile-sweep percentages are withdrawn**, and this is the sharpest
+  case in the whole incident. `harness/tune_sm80.py:48-49` time `T_q = 1` against
+  `T_k = 65536` while that harness's `parity_ok()` built one `cu_seqlens` and
+  passed it as both `cu_seqlens_q` and `cu_seqlens_k` (`:102`, `:105-106`), so it
+  verified `seqlen_q == seqlen_k`. This is the harness this project cites as the
+  one place a code rule and not a habit enforces parity before a timing is
+  reported. The rule fired, went green, and was green about the wrong family. Do
+  not reason about the sm_80 failure mode by analogy with sm_90: that guard is
+  two-sided and omits, the generic guard is lower bound only and read outside its
+  own bias tile domain instead. Full record, with the arithmetic and with what a
+  re-measurement takes: [regression-ampere-tile-sweep.md](regression-ampere-tile-sweep.md).
 - The `sm_120` relative timings carry the same caveat, and they were already
   labelled relative-only and journal-only.
 - The behaviour of the smem-staged reader under a wrong shift is **not**

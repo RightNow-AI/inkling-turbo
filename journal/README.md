@@ -39,6 +39,14 @@ It is roughly 30 appended entries. The shape of the story:
    had been wrong before it started. Parity 3/3 the same day.
 7. **Sessions 25 to 28.** Reproduction on a second machine and a different
    software stack, A100 support, tile tuning, and the full-model gate on 8x H100.
+   Session 27's tile-tuning percentages are **withdrawn**; the A100 support result
+   is not. [Why](regression-ampere-tile-sweep.md).
+
+Two regression write-ups sit outside that sequence and are the shortest route to
+how this project checks itself: [regression-sm90-bias-shift.md](regression-sm90-bias-shift.md),
+the shear-shift defect and the three gates that missed it, and
+[regression-ampere-tile-sweep.md](regression-ampere-tile-sweep.md), what the same
+defect did to the one set of numbers measured off the generic kernel.
 
 The end of session 28 records a serving benchmark that was lost to a watchdog
 race. That was our own orchestration bug. It is written up rather than quietly

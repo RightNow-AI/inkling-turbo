@@ -27,6 +27,18 @@ arbitrarily fast and it means nothing. `harness/tune_sm80.py` enforces this
 directly: it refuses to report a configuration's timing unless that
 configuration's own parity run was green.
 
+**And that is not enough, which this repository learned the expensive way.** The
+parity run has to cover **the shape family the timing is taken on**. The same
+`tune_sm80.py` timed decode shapes, `T_q=1` against `T_k=65536`, while its
+`parity_ok()` built one `cu_seqlens` and passed it as both `cu_seqlens_q` and
+`cu_seqlens_k`, so it verified `seqlen_q == seqlen_k`. The kernel was wrong on
+exactly the family the gate never exercised, and the Ampere tile-tuning
+percentages it released are withdrawn as a result. An enforced gate aimed at the
+wrong shape family is more dangerous than no gate, because it gets cited, and
+this paragraph is the citation. If you add a case to a timing harness, add the
+matching parity case in the same commit.
+[The record](journal/regression-ampere-tile-sweep.md).
+
 **Numbers are measured or `null`.** No estimates, no roofline arithmetic standing
 in for a measurement, no vendor figure quoted as if we ran it. If the gate has
 not run, the cell stays `null`.
