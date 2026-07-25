@@ -1263,10 +1263,19 @@ class FlashAttentionForwardSm90(FlashAttentionForwardBase):
                 _, n_block_max_bias = block_info.get_n_block_min_max(
                     seqlen, m_block, split_idx, batch_idx, absolute=True
                 )
-                bias_tile_shift = (
-                    padded_bias // self.tile_n
-                    - (128 * n_block_max_bias) // self.tile_n
-                )
+                # n_block_max counts tile_n-sized blocks, so the shift in tile
+                # units is n_block_max itself. Writing
+                # (128 * n_block_max) // tile_n mixes the writer's fixed tile_m
+                # of 128 with a tile_n-unit count and is right only at
+                # tile_n == 128. interface.py:524-527 forces tile_mn to
+                # (128, 128) whenever rel_bias is set on arch 9, so the two
+                # forms are identical on every path that reaches here today and
+                # this change cannot alter the validated H100 result. It is
+                # written the dimensionally correct way so an explicit tile_mn
+                # override cannot silently reintroduce the defect. The generic
+                # kernel does select 32 and 64, and the first port of this fix
+                # into flash_fwd.py made exactly that mistake.
+                bias_tile_shift = padded_bias // self.tile_n - n_block_max_bias
                 bias_num_tiles = padded_bias // self.tile_n
                 score_mod_fn = partial(
                     self.apply_rel_bias_sm90,

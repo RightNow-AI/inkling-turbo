@@ -936,10 +936,19 @@ class FlashAttentionForwardSm80(FlashAttentionForwardBase):
             # one shape family the formula got right. This is the sm_80 and
             # sm_120 path. n_block_max is already in scope from line 844 and is
             # absolute here, since the generic path does not support split-KV.
-            bias_tile_shift = (
-                padded_bias // self.tile_n
-                - (128 * n_block_max) // self.tile_n
-            )
+            # MIND THE UNITS. n_block_max counts tile_n-sized blocks, so the
+            # right-edge KEY INDEX is n_block_max * tile_n, and the shift in
+            # tile units is therefore just n_block_max. Writing
+            # (128 * n_block_max) // tile_n mixes the writer's fixed tile_m of
+            # 128 with a tile_n-unit count; it is right only at tile_n == 128,
+            # which sm_90 forces but this generic path does not: it selects 32,
+            # 64 or 128. The first port of this fix made exactly that mistake and
+            # was wrong by 12 tiles at tile_n=32, m_block=0.
+            #
+            # This form reproduces the original expression exactly for
+            # seqlen_q == seqlen_k at every tile_n in {32, 64, 128}, which is the
+            # family that was already green, and corrects the rest.
+            bias_tile_shift = padded_bias // self.tile_n - n_block_max
             bias_k_min_tile = -bias_tile_shift
         else:
             sBias = None
@@ -1407,7 +1416,10 @@ class FlashAttentionForwardSm80(FlashAttentionForwardBase):
                 self.tile_n,
             ),
         )
-        shift = n_block * self.tile_n + padded - 128 * n_block_max
+        # Key-index units throughout: n_block * tile_n is a key index, so the
+        # right-edge term must be n_block_max * tile_n and not 128 * n_block_max.
+        # See the units note in kernel() above.
+        shift = n_block * self.tile_n + padded - n_block_max * self.tile_n
         n_vals = cutlass.const_expr(cute.size(acc_S.shape))
         for i in cutlass.range(0, n_vals, 1, unroll_full=True):
             r_local = tScS[i][0]
