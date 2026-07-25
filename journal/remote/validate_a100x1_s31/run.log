@@ -1,20 +1,26 @@
+# REDACTION NOTICE, and it is the only edit to this file.
+# The launcher's mount banner printed the absolute path of the local
+# checkout 7 times. Every occurrence is replaced by <repo>. Nothing
+# else is changed: no GPU output, no number, no error text. The rest of
+# this file is the session transcript verbatim.
+#
 Note that running a local entrypoint in detached mode only keeps the last triggered Modal function alive after the parent process has been killed or disconnected.
 ✓ Initialized. View run at 
 https://modal.com/apps/rightnow-ai/main/ap-lGTnjd4OGmXLWQU11eVtnu
 ✓ Created objects.
 ├── 🔨 Created mount 
-│   C:\Users\jaber\RightNow-Full\inkling\scripts\modal_e2e_bench.py
+│   <repo>\scripts\modal_e2e_bench.py
 ├── 🔨 Created mount 
-│   C:\Users\jaber\RightNow-Full\inkling\kernels\patches\u2_shear_fusion.py
+│   <repo>\kernels\patches\u2_shear_fusion.py
 ├── 🔨 Created mount 
-│   C:\Users\jaber\RightNow-Full\inkling\kernels\patches\u3_fp8_kv.py
+│   <repo>\kernels\patches\u3_fp8_kv.py
 ├── 🔨 Created mount 
-│   C:\Users\jaber\RightNow-Full\inkling\kernels\relproj_score_mod.py
+│   <repo>\kernels\relproj_score_mod.py
 ├── 🔨 Created mount 
-│   C:\Users\jaber\RightNow-Full\inkling\kernels\patches\u2_serving_route.py
+│   <repo>\kernels\patches\u2_serving_route.py
 ├── 🔨 Created mount 
-│   C:\Users\jaber\RightNow-Full\inkling\kernels\tml_fa4_modified
-├── 🔨 Created mount C:\Users\jaber\RightNow-Full\inkling\harness
+│   <repo>\kernels\tml_fa4_modified
+├── 🔨 Created mount <repo>\harness
 ├── 🔨 Created function download_model.
 ├── 🔨 Created function run_bench.
 └── 🔨 Created function run_validate.
