@@ -1,10 +1,46 @@
 # U2 shear fusion: folding ShearingBias into qkvr_prep
 
-Status: written, compiles, index math verified by simulation, and
-**correctness-gated on `sm_120` only**: `harness/parity_shear_fusion.py`
-returned 16/16 cases on an RTX 5090. It has **never run on `sm_90` or
-`sm_100`**, and **no performance number below has been measured on any
-hardware**. Every performance number below is projected and labelled as such.
+> **Correction banner added 2026-07-25. This document is the design record and it
+> is now out of date in two ways that matter, so read this first and then read the
+> rest as history.**
+>
+> **1. The central projection was measured and it is refuted.** The headline below
+> says the fusion should turn the sliding-window prefill loss into a win, from
+> 1223.0 us to roughly 759.4 us. Session 26 measured it on an H100 and the fused
+> writer is a **net loss on both prefill shapes**: global prefill 1312.1 to 2336.1,
+> so +1019.4 us, and sliding-window prefill 685.9 to 1251.6, so +561.1 us. It
+> saves 4.7 us on batch-32 decode. The writer has to emit `rel_extent + 256`
+> columns into a larger buffer, and that costs more than the `ShearingBias` launch
+> it removes. The feature ships **off** by default. The projection is left in place
+> below rather than deleted, per the rule in
+> [docs/METHODOLOGY.md](../../docs/METHODOLOGY.md#failure-records), and it is
+> recorded as a correction in [LEDGER.md](../../LEDGER.md). Measured numbers:
+> `journal/remote/validate_s26_h100x1/`.
+>
+> **2. Three ratios in the projection table are withdrawn, for a separate
+> reason.** The `today vs score_mod` column carries 2.45x, 2.80x and 2.73x on the
+> three decode rows, and the `projected vs score_mod` column carries 2.66x, 2.83x
+> and 2.74x. Every one of those divides a kernel that was applying the
+> relative-position bias to one KV block instead of ten by a baseline that gathered
+> every score. **The decode ratios in both columns are withdrawn**, along with every
+> other pre-fix decode ratio in this repository. The absolute timings stand as
+> timings. The two prefill rows are unaffected, because at `seqlen_q == seqlen_k`
+> the defective shift is an identity.
+> [Full account](../../journal/regression-sm90-bias-shift.md).
+>
+> **3. The `sm_90` status line below is stale.** The gate has since run on Hopper
+> and scored **14/16**, not "never run": all 14 writer cases are bit-exact and both
+> attention cases failed on an unbound `n_block` in `flash_fwd_sm90.py`, a defect
+> since fixed with the gate not re-run. The `sm_120` 16/16 remains
+> **journal-only**; its only record is commit `7375849`.
+
+Status, as originally written and kept for the record: written, compiles, index
+math verified by simulation, and **correctness-gated on `sm_120` only**:
+`harness/parity_shear_fusion.py` returned 16/16 cases on an RTX 5090. It has
+**never run on `sm_90` or `sm_100`**, and **no performance number below has been
+measured on any hardware**. Every performance number below is projected and
+labelled as such. Points 1 to 3 above supersede the second and third sentences of
+that paragraph.
 
 The gate now writes `harness/parity_shear_fusion_sm<cc>.json`. The RTX 5090 run
 predates that change, so the JSON artifact for it is being regenerated and is
@@ -265,15 +301,22 @@ totals.
 
 | workload | today | projected | today vs score_mod | projected vs score_mod |
 |---|---|---|---|---|
-| prefill_swa_8k | 1223.0 | 759.4 | 0.78x (we lose) | 1.26x |
-| prefill_global_8k | 3308.8 | 2479.0 | 1.45x | 1.94x |
-| decode_b32_global_kv8k | 124.1 | 114.3 | 2.45x | 2.66x |
-| decode_b32_global_kv64k | 854.8 | 845.1 | 2.80x | 2.83x |
-| decode_b1_global_kv64k | 852.6 | 849.1 | 2.73x | 2.74x |
+| prefill_swa_8k | 1223.0 | ~~759.4~~ **REFUTED, measured 1251.6** | 0.78x (we lose) | ~~1.26x~~ **REFUTED** |
+| prefill_global_8k | 3308.8 | ~~2479.0~~ **REFUTED, the writer alone costs +1019.4** | 1.45x | ~~1.94x~~ **REFUTED** |
+| decode_b32_global_kv8k | 124.1 | 114.3 | ~~2.45x~~ **WITHDRAWN** | ~~2.66x~~ **WITHDRAWN** |
+| decode_b32_global_kv64k | 854.8 | 845.1 | ~~2.80x~~ **WITHDRAWN** | ~~2.83x~~ **WITHDRAWN** |
+| decode_b1_global_kv64k | 852.6 | 849.1 | ~~2.73x~~ **WITHDRAWN** | ~~2.74x~~ **WITHDRAWN** |
 
-The headline is the SWA prefill case: **projected 759.4us against score_mod's
-956.5us, turning the one workload we lose into a win.** Everything else is
-incremental.
+The headline was the SWA prefill case: ~~**projected 759.4us against score_mod's
+956.5us, turning the one workload we lose into a win.**~~ **That headline is
+refuted.** An H100 measured the fused writer at 1251.6 us against 685.9 us for
+the writer plus `ShearingBias` it replaces, so the fusion makes this case worse
+by 561.1 us rather than better by 464 us. The arithmetic below was sound and its
+premise was not: it assumed the attention kernel unchanged and the pre-kernel
+simply gone, and did not price the extra 256 columns the fused writer has to
+emit. Point 1 of the banner at the top of this file has the measured numbers. The
+projection is kept because a refuted projection that is still legible is what
+makes the refutation checkable.
 
 The cost that is *not* in that table: at rel_extent=512 the fused rel store
 writes 768 columns per (token, head) row instead of 512, so qkvr_prep's rel

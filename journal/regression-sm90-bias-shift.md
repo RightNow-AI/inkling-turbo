@@ -408,7 +408,10 @@ accordingly in the ledger.
 - `prefill_swa_8k`, ours 1223.0, 1221.4 and 1224.5 against 956.5, 863.2 and
   965.4, so 1.27x to 1.41x slower, which is the case we lose;
 - per-op parity 3/3 on `sm_90`, `sm_80` and `sm_120`, within its family;
-- the `sm_80` support claim, which is that no day-0 path runs there at all;
+- the `sm_80` support claim, which is that no day-0 path runs there at all.
+  Unaffected by this defect, and narrowed on 2026-07-25 for a separate reason: it
+  is a single-sequence claim, because multi-sequence varlen batching on the
+  generic path faults. [That defect](regression-sm120-varlen-illegal-address.md);
 - the 8x H100 memory recipe and the fact that the model serves;
 - the shear-fusion result, which is a writer-side comparison in which attention
   consumes an identical buffer either way, so its decode row is a comparison

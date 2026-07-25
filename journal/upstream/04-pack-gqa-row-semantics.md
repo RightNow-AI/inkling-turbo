@@ -1,9 +1,71 @@
 # `pack_gqa` redefines what a score-tile row means, and nothing in the kernel API surfaces that to row-indexed features
 
-**Target tracker:** vllm-project/tml-fa4
+**Target tracker:** vllm-project/tml-fa4 (issues enabled, verified 2026-07-25)
 **Severity:** medium. Not a defect in shipped behavior. It is a contract hazard
 that costs a new contributor a very long time, and the existing handling is
 implicit in three separate places.
+
+> **Review status, 2026-07-25: FILEABLE AS WRITTEN.** Tracker correct, issues
+> enabled, duplicate check run and empty, reproducer standalone with one caveat
+> noted below. Every line number in this report was re-verified against the
+> pinned stock tree and is correct, including `interface.py:246-248`,
+> `pack_gqa.py:15-30`, `interface.py:432`, and `flash_fwd_sm100.py:868`, which is
+> the `mBias` packing line. Also re-verified live at tml-fa4 `main`
+> (`b206834606`): `interface.py` is byte-identical between our pin and `main`, so
+> every `interface.py` line cited here holds at both.
+>
+> **Duplicate check, commands run and their real output:**
+>
+> ```bash
+> gh issue list --repo vllm-project/tml-fa4 --state all --limit 200   # EMPTY, zero issues
+> gh pr list --repo vllm-project/tml-fa4 --state all --limit 200      # 3 PRs, none about pack_gqa
+> gh search issues --repo vllm-project/tml-fa4 "pack_gqa"             # empty
+> gh search prs    --repo vllm-project/tml-fa4 "pack_gqa"             # empty
+> ```
+>
+> **One caveat on the reproducer, stated because this report is honest about it
+> already and should stay that way.** The reproducer is not standalone in the way
+> 01's is, and it cannot be: this report has no crash, its observable is a parity
+> flip, and seeing the flip requires a row-indexed bias kernel on sm_90, which
+> only exists in our tree. The report says exactly that ("There is no crash to
+> reproduce. The observable is the parity flip"). That is the right framing for a
+> documentation-and-assertion request, and it should be filed as such rather than
+> dressed up as a reproducible defect. A maintainer can verify the *claim* from
+> the source alone, via the three implicit handling sites this report names,
+> without running anything.
+
+## A second instance, and it is ours rather than upstream's
+
+Added 2026-07-25, because it is the strongest available evidence that this is a
+real hazard and not a hypothetical one, and because being clear about whose bug it
+is matters more than the rhetorical value.
+
+`pack_gqa` bit us a second time, in a different place, 25 days after the first.
+Our port hardcodes `pack_gqa=False` when it constructs the generic `sm_80` and
+`sm_120` forward kernels, commented "generic path never packs tensors", while
+still passing the heuristic value to the `ShearingBias` pre-kernel that writes the
+layout those kernels read. Writer and reader then evaluated the same correct shear
+contract at two different `m_block` granularities, 128 packed rows against 128
+tokens, and the bias landed 128 columns off for every query sub-group before the
+last whenever `(seqlen_k - seqlen_q) % 128 != 0`. 14 of 29 measured shapes were
+wrong, including the production `Hq=64` over `Hkv=8` geometry.
+[Our write-up](../regression-pack-gqa-shear-granularity.md).
+
+**Stock does not have this defect and this report does not claim it does.** Stock
+passes one `pack_gqa` value to both the pre-kernel and the forward kernel
+(`interface.py:1125` for the `sm_80` branch), so the two cannot disagree, and in
+any case stock's generic path drops `rel_bias` entirely, which is report
+[01](01-rel-bias-silently-ignored-non-blackwell.md). The divergence was introduced
+by our port and fixed in our port.
+
+What it argues for is exactly the request this report already makes. The hazard is
+that `pack_gqa` silently redefines what a row of the score tile means, and nothing
+in the API surface says so. A downstream author who adds any row-indexed feature
+has to discover that from three implicit handling sites. We wrote the shear
+contract, brute-forced it against 20,100 positions, fixed one `pack_gqa` row-
+semantics bug in it, and then introduced a second one in the same subsystem. An
+assertion or a docstring at the point where `pack_gqa` changes the row meaning
+would have caught both.
 
 ## Affected versions
 

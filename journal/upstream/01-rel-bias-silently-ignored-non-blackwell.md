@@ -1,6 +1,6 @@
 # `rel_bias` is accepted and silently dropped on every non-Blackwell arch, plain attention is returned as the biased result
 
-**Target tracker:** vllm-project/tml-fa4
+**Target tracker:** vllm-project/tml-fa4 (issues enabled, verified 2026-07-25)
 **Severity:** highest of this series. Silent numerical wrongness, no error, no warning.
 
 ## Affected versions
@@ -11,8 +11,39 @@
 | vllm-project/vllm | fork base `850295881` | our build base |
 | nvidia-cutlass-dsl | `4.6.0` | `requirements/cuda.txt:28` in the vLLM tree |
 
+**Also verified live at tml-fa4 `main`.** Re-checked 2026-07-25 against
+`b206834606ed5b5f21f8eed6b0683f528ea9cf7d`, which is current `main` and is also
+the tml-fa4 pin on vLLM `main`. Every line number below is valid at **both**
+commits: `flash_attn/cute/interface.py`, `flash_fwd_sm90.py` and
+`flash_fwd_sm120.py` are byte-identical between the two, because the only change
+between them, PR #3, did not touch those files. The `grep -ci bias` counts below
+are also identical at both. So this report is not describing a stale pin.
+
 Affected code paths: `arch // 10 in (8, 9, 12)`. The `arch // 10 in (10, 11)`
 Blackwell path is correct and is not affected.
+
+## Scope, stated up front so this is not read as a live vLLM serving bug
+
+This is a defect in tml-fa4's own public API contract, reachable by any direct
+caller. It is **not**, today, reachable through vLLM's Inkling serving path on
+sm_90.
+
+vLLM PR #48858, "[Model] Add Hopper FA4 relative attention for Inkling", merged
+2026-07-16, deliberately routes everything that is not Blackwell to `score_mod`
+plus `aux_tensors`, and keeps the tml-fa4 sheared-bias path for
+capability major 10 and 11 only. So vLLM does not pass `rel_bias` on sm_90.
+Our own notes recorded that from the first day we measured it
+(`journal/remote/h100-session1.md:56-57`, "NOT a vLLM production path (vLLM uses
+score_mod on Hopper), but it accepts the input and returns wrong attention
+silently").
+
+The report stands on its own terms regardless: `flash_attn_varlen_func` is a
+public entry point, it documents and accepts `rel_bias`, it does measurable work
+to honour it, and then returns a result that does not contain it, on three of the
+four architecture branches it dispatches (`arch // 10 == 8`, `== 9`, `in (10, 11)`,
+`== 12`; all but the Blackwell branch). A caller has no way to find that out
+except by having an oracle. We think that is worth a guard even though vLLM's own
+router currently steps around it.
 
 ## Summary
 
@@ -25,8 +56,11 @@ the following and then throws the result away:
 4. returns plain, bias-free attention as if it were the requested result.
 
 The bias tensor is even returned by the internal entry point
-(`interface.py:1434`) and then dropped by the public wrapper. Callers get
-plausible-looking output that is numerically wrong.
+(`interface.py:1434`, `return out, lse, logits_max, bias, cu_total_m_blocks_bias,
+blocks_to_batch_idx`) and then discarded by both public wrappers, which unpack it
+into a throwaway: `out, lse, logits_max, *_ = _flash_attn_fwd(...)` at
+`interface.py:1471` and `:1543`. Callers get plausible-looking output that is
+numerically wrong.
 
 ## Root cause
 
@@ -67,6 +101,24 @@ There is no guard anywhere that rejects `rel_bias` on these arches.
 
 Tested on 1x H100 SXM5 (sm_90), torch 2.11.0+cu129, nvidia-cutlass-dsl 4.6.0.
 
+**Self-contained.** The script below needs nothing from our repository: two
+imports, `torch` and `flash_attn.cute`, and no helper files, no reference
+implementation, no harness. Copy it into a file and run it.
+
+**Preconditions, so it reaches the defect instead of an assert.** Needs an
+sm_90 device and `head_dim = 128`, which is what the script uses, so that the
+default config is `(tile_m, tile_n) = (128, 128)` and the two asserts at
+`interface.py:672-673` pass. `rel_extent` must be a multiple of 128; the script
+uses 1024. On sm_80, and on sm_120 above head_dim 64, add
+`tile_mn=(128, 128)` to force past the tile assert, and see the
+per-architecture table above for why.
+
+**One caveat on item 2 of the mechanism, if you run this against the pinned
+tree on a cu129 torch build.** You may hit an unrelated `fmax()` TypeError from
+`flash_attn/cute/utils.py:352` before reaching this defect. That is a separate
+issue, reported separately, and it is not part of this one. A cu130 build does
+not take that branch.
+
 ```bash
 uv venv --python 3.12 && source .venv/bin/activate
 uv pip install "nvidia-cutlass-dsl[cu13]==4.6.0" torch==2.11.0
@@ -102,15 +154,12 @@ print("max |biased - plain| =", (out_bias - out_plain).abs().max().item())
 Alternatively, the call raises `NotImplementedError` on an arch that cannot
 consume the bias.
 
-### Actual
+### What we actually measured, and what we are inferring
 
-`max |biased - plain|` is approximately 0, on an input where `rel_bias` is
-random normal. The bias never reached the kernel.
+Keeping these apart, because they are not the same strength of claim.
 
-### Measured, on the same box
-
-Our float32 reference implementation of the documented Inkling relative
-attention semantics is the oracle. Numbers from
+**Measured on 1x H100 SXM5 (sm_90).** A float32 reference implementation of the
+documented Inkling relative attention semantics is the oracle. From
 `journal/remote/h100-session1.md`, sessions 3 and 4:
 
 | Path | max abs error vs fp32 reference | mean abs error |
@@ -118,7 +167,11 @@ attention semantics is the oracle. Numbers from
 | `rel_bias=` on sm_90 | 0.90 to 1.63 across 3 parity cases | 0.02 to 0.06 |
 | `score_mod=` on sm_90, same inputs | 7.8e-3 | n/a |
 
-Timing on the same shapes confirms no bias work is performed:
+The mean being far below the max means scattered wrong positions rather than a
+uniform offset, which is what a missing additive bias term looks like.
+
+**Measured on the same box.** Per-op timing of the `rel_bias=` path is
+indistinguishable from bias-free attention:
 
 | Case | `rel_bias=` path | plain attention, no bias |
 |---|---|---|
@@ -128,16 +181,63 @@ Timing on the same shapes confirms no bias work is performed:
 For comparison, a correct native sm_90 bias implementation on the same box
 costs 905.6 us at decode b1 64K KV, about 21 percent over plain attention
 (`journal/u2-hopper-design.md`, session 24). A path that applies the bias
-cannot be free.
+cannot be free. The `rel_bias=` path is free, to within noise.
 
-### Note on SM8x and SM120
+**Inferred, not separately measured.** That `max |out_bias - out_plain|` is
+approximately 0 is what the reproducer above will print, and it follows directly
+from the static path: the kernel is constructed with no bias argument and
+contains no bias code, so the bias cannot affect the output. We did not run that
+exact two-call subtraction and print it. Our evidence is the oracle comparison
+and the timing, both above. A maintainer running the reproducer gets the
+subtraction as the one-line demonstration, and it is the cheapest way to see it,
+which is why it is written that way. It is labelled here so nobody cites it as
+one of our measurements.
 
-The missing-bias kernel is selected on those arches too, but with default tile
-sizes the assertion `assert tile_n == 128` at `interface.py:673` fires first,
-so those users get a loud failure rather than a silent one. Forcing
-`tile_mn=(128, 128)` reaches the same silent path. Our measured
-silent-wrong-output evidence is sm_90 only. The static defect, a kernel with
-no bias code receiving a bias request, is common to all three.
+### Observed versus inferred, per architecture
+
+The static defect, a kernel with no bias code receiving a bias request, is
+common to all three non-Blackwell families and is established by reading the
+pinned tree. Whether a given user hits it **silently** depends on the default
+tile size for their arch, because `assert tile_n == 128` at `interface.py:673`
+guards the bias path and fires before anything else when it does not hold.
+
+The bias path requires **both** `assert tile_m == 128` (`interface.py:672`) and
+`assert tile_n == 128` (`:673`). Whichever fails, fails loudly. So the silent
+case is exactly the case where the arch's default config is `(128, 128)`.
+
+At `head_dim = 128`, which is Inkling's head dim and the shape we tested:
+
+| Arch | Default `(tile_m, tile_n)` at head_dim 128 | Silent with default tiles? | Our evidence |
+|---|---|---|---|
+| sm_90 | `(128, 128)`, `interface.py:148` | **Yes** | **Observed.** Wrong output against an fp32 oracle on H100, numbers above. |
+| sm_120 | `(128, 64)`, `interface.py:518` | No, `:673` fires | Inferred from the tree. Loud failure. |
+| sm_80 | `(128, 64)`, `interface.py:520` | No, `:673` fires | Inferred from the tree. Loud failure. |
+
+The head-dim dependence matters and is worth stating, because it means the loud
+failure is not a reliable backstop:
+
+- **sm_120 at `head_dim <= 64`** takes `interface.py:516`, which is
+  `FwdConfig(128, 128, True, True)`. Both asserts pass and the silent path is
+  reached with **no user action at all**.
+- **sm_80** is `FwdConfig(128, 64, ...)` for every head_dim, so it is the one
+  family that always fails loudly on defaults. Forcing `tile_mn=(128, 128)`
+  reaches the silent path there too.
+- **sm_90 below head_dim 96** actually fails loudly for the *other* reason:
+  `_tile_size_fwd_sm90` returns `tile_m = 192` there (`interface.py:136`, `:144`,
+  `:146`), so `:672` fires, not `:673`.
+
+Two corrections to the earlier draft of this report, recorded rather than quietly
+dropped. It claimed that on SM8x and SM120 "with default tile sizes the
+assertion `assert tile_n == 128` fires first, so those users get a loud failure
+rather than a silent one." That is right for sm_80, right for sm_120 at
+head_dim > 64, and **wrong** for sm_120 at head_dim <= 64. It also named only the
+`tile_n` assert, when on sm_90 at small head_dim it is the `tile_m` assert that
+guards.
+
+Our measured silent-wrong-output evidence is **sm_90 at head_dim 128 only**.
+Everything said about sm_80 and sm_120 is read off the pinned source and is
+labelled as such. We have no non-Blackwell hardware result for the silent path
+other than H100.
 
 ## Suggested fix
 
@@ -163,9 +263,54 @@ implementations and are happy to upstream them.
 Design notes and the failure history behind those kernels are in
 `journal/u2-hopper-design.md` in the same repository.
 
+## Duplicate-work check, run 2026-07-25
+
+Commands actually executed, with their real results. `gh search issues` and
+`gh search prs` do **not** accept `--state all`; omitting `--state` searches all
+states, which is what these do.
+
+```bash
+gh repo view vllm-project/tml-fa4 --json hasIssuesEnabled
+#   {"hasIssuesEnabled":true,"name":"tml-fa4"}   -> an issue is the right route
+
+gh issue list --repo vllm-project/tml-fa4 --state all --limit 200
+#   EMPTY. The tracker has zero issues, open or closed.
+
+gh pr list --repo vllm-project/tml-fa4 --state all --limit 200
+#   3 PRs total, none about rel_bias on non-Blackwell:
+#     #3 Migrate deprecated CuTe DSL APIs for cutlass-dsl 4.6   MERGED 2026-07-17
+#     #2 Fix forward argument handling on pre-Blackwell GPUs    MERGED 2026-07-16
+#     #1 Add Blackwell plain FP8 attention support              CLOSED
+
+gh search issues --repo vllm-project/tml-fa4 "rel_bias"      # empty
+gh search issues --repo vllm-project/tml-fa4 "sheared bias"  # empty
+gh search issues --repo vllm-project/tml-fa4 "ShearingBias"  # empty
+gh search issues --repo vllm-project/tml-fa4 "silently"      # empty
+gh search prs    --repo vllm-project/tml-fa4 "rel_bias"      # empty
+gh search issues --repo vllm-project/vllm "rel_bias silently"       # empty
+gh search issues --repo vllm-project/vllm "rel_bias non-Blackwell"  # empty
+gh search issues --repo vllm-project/vllm "ShearingBias"            # empty
+gh search issues --repo vllm-project/vllm "rel_bias NotImplementedError"  # empty
+gh search prs    --repo vllm-project/flash-attention "rel_bias"     # empty
+gh search prs    --repo vllm-project/flash-attention "sheared"      # empty
+```
+
+**Nothing covers this defect.** Two adjacent things were found and neither is a
+duplicate, recorded so the filer is not surprised by them:
+
+- **tml-fa4 PR #2**, merged, is the change that *created* the non-Blackwell
+  `else` branches this report cites at `interface.py:1320-1341` and
+  `:1397-1417`. Its diff adds those branches and passes no bias argument in
+  either. It is upstream's most recent touch of this exact code and it did not
+  add bias threading. That is context supporting the report, not a fix of it.
+- **vLLM PR #48858**, merged 2026-07-16, routes non-Blackwell Inkling to
+  `score_mod`, which is why this is not a live vLLM serving bug. See the scope
+  section at the top.
+
 ## Disclosure
 
 This report was prepared with AI assistance. Per the vLLM contribution policy
-in `AGENTS.md`, this is stated up front. The duplicate-work check was run
-against this tracker before filing. A human submitter reviewed the report and
-will review and defend every line of any follow-up PR.
+in `AGENTS.md`, this is stated up front. The duplicate-work check above was run
+against this tracker on 2026-07-25, immediately before this report was marked
+filing-ready. A human submitter reviewed the report and will review and defend
+every line of any follow-up PR.

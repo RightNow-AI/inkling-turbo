@@ -126,3 +126,35 @@ what the corrected shift is supposed to select.
 Root-cause the fault before claiming anything about `sm_80` or `sm_120` serving.
 The 128-multiple correlation gives a concrete first hypothesis and the repro is
 six lines of shapes, runs on a laptop, and costs nothing.
+
+The reproducer is committed as
+`harness/repro_sm120_varlen_illegal_address.py`. It isolates sequence count
+against `rel_bias` presence for the `[256, 137, 64]` case and runs each probe in
+its own subprocess, because a 700 poisons the CUDA context and every later probe
+in one process would fault as a cascade regardless of its own inputs. Start
+there rather than from the full gate.
+
+## What this narrowed, and where that is written down
+
+This defect cost no published number. Every parity case and every timing in this
+repository was taken with one sequence in the batch, so single-sequence results
+are unaffected and the `sm_90` numbers are untouched. What it cost is the
+**scope** of the `sm_80` support claim, which is now stated as single-sequence
+and explicitly not a serving claim, in:
+
+- [README.md](../README.md) claim 1, the "only working attention kernel on
+  Ampere" row of "Everything else that was gated", the "What is not measured"
+  list, and both generic-path rows of the architecture table;
+- [LEDGER.md](../LEDGER.md), the `sm_80` kernel-gate row, the Ampere tile-sweep
+  incident row, and a Reproducibility-incidents row of its own;
+- [docs/METHODOLOGY.md](../docs/METHODOLOGY.md), the capability row of the
+  claim-class table, the paragraph under it on call-shape scope, and the `sm_80`
+  and `sm_120` per-architecture sections;
+- [regression-ampere-tile-sweep.md](regression-ampere-tile-sweep.md), which now
+  carries this as its second caveat on the support claim;
+- `docs/figures/fig3_status.png`, which gained a multi-sequence varlen row and a
+  *ran, and faults* status distinct from *not done*.
+
+`journal/upstream/05-no-sm8x-attention-path.md` states the same support claim and
+has **not** been updated, because another lane owns that directory. Its evidence
+list at `:129-134` is the place the single-sequence qualifier belongs.

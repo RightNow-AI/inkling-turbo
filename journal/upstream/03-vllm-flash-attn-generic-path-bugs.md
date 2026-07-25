@@ -1,6 +1,81 @@
-# Generic SM80-family forward path is broken on sm_120: three defects that no H100 or B200 CI job can reach
+# RETIRED, DO NOT FILE. Generic SM80-family forward path is broken on sm_120: three defects that no H100 or B200 CI job can reach
 
-**Target tracker:** vllm-project/flash-attention for defects 1 and 2.
+> ## STATUS: RETIRED AS A DUPLICATE, 2026-07-25
+>
+> **Defects 1 and 2 are a duplicate of vllm-project/flash-attention PR #156.**
+> Do not file them, in any form. The duplicate check that should have caught this
+> was never run against that tracker. It has now been run, and this is what it
+> found.
+>
+> PR #156, "[Bugfix] Fix two SM80/SM120 forward kernel bugs: missing
+> is_split_kv default, mDynamicCausal NameError", by tgmerritt, opened
+> 2026-06-30, still OPEN and unmerged as of 2026-07-25. One file,
+> `flash_attn/cute/flash_fwd.py`, +14/-0.
+> <https://github.com/vllm-project/flash-attention/pull/156>
+>
+> It fixes both of our defects 1 and 2, and it found them the same way we did,
+> on consumer Blackwell. Verified with:
+>
+> ```bash
+> gh pr view 156 --repo vllm-project/flash-attention
+> gh pr diff 156 --repo vllm-project/flash-attention
+> ```
+>
+> Its diff adds `self.is_split_kv = False` in `FlashAttentionForwardSm80.__init__`
+> and `mDynamicCausal = None` immediately before the read in `kernel()`. Note
+> that #156 fixes defect 2 in a **broader** place than we proposed: we suggested
+> defaulting it in the sm_120 shim constructor, #156 defaults it in the
+> SM80-family base constructor, which also covers literal sm_80. Its placement is
+> the better one.
+>
+> **That tracker cannot take issues at all.** A PR is the only route:
+>
+> ```bash
+> gh repo view vllm-project/flash-attention --json hasIssuesEnabled
+> #   {"hasIssuesEnabled":false, ...}
+> gh issue list --repo vllm-project/flash-attention --state all --limit 200
+> #   the 'vllm-project/flash-attention' repository has disabled issues
+> ```
+>
+> So this report named a tracker that could never have received it.
+>
+> **What we still have that is worth contributing: a hardware confirmation.**
+> On 2026-07-25, on a local RTX 5090 Laptop (sm_120), every no-bias probe in
+> `harness/parity_rel_varlen_batch.py` failed with
+> `NameError in __call__: cannot access local variable 'mDynamicCausal'`.
+> That was found by accident, as the control arm of an unrelated investigation,
+> which is why it is credible and not confirmation-seeking. Recorded at
+> `journal/regression-sm120-varlen-illegal-address.md:84-102`. Both defects are
+> still live at flash-attention `main` (`ed4b7342`, which is also the current
+> vLLM pin): `mDynamicCausal` is a launcher parameter at
+> `flash_attn/cute/flash_fwd.py:681` and is read in the kernel body at `:840`,
+> and `FlashAttentionForwardSm80.__init__` still does not set
+> `self.is_split_kv`, which the shared code reads at `:365`, `:381`, `:408` and
+> `:413`. This belongs as a comment on #156, adding a second architecture and a
+> second Python version to its evidence. It does not belong as a new report.
+>
+> **A correction this report needs on the way out.** Defects 1 and 2 name the
+> file as `vllm_flash_attn/cute/flash_fwd.py`. That is the **vendored** path
+> inside a built vLLM, not the upstream path. In vllm-project/flash-attention
+> the file is `flash_attn/cute/flash_fwd.py`. Confirmed: the path
+> `vllm_flash_attn/cute` returns HTTP 404 from the contents API at our pin.
+> Anything written for that tracker must use the upstream path.
+>
+> **Defect 3 survives and is still fileable, on a different tracker.** It is a
+> vllm-project/tml-fa4 defect, that tracker has issues enabled, and its
+> duplicate check came back empty. Defect 3 is re-verified live at tml-fa4
+> `main` (`b206834`) as well as at our pin, at identical line numbers. See the
+> per-defect status table below. Defect 3 is carried forward into
+> `journal/upstream/FILING.md` as its own item.
+
+| Defect | Tracker | Status as of 2026-07-25 |
+|---|---|---|
+| 1, `mDynamicCausal` NameError | vllm-project/flash-attention | **DUPLICATE of PR #156.** Do not file. Contribute a hardware confirmation comment on #156 instead. |
+| 2, `is_split_kv` never set | vllm-project/flash-attention | **DUPLICATE of PR #156.** Do not file. #156's fix site is better than ours. |
+| 3a, `pack_gqa` declared without packing | vllm-project/tml-fa4 | **STILL FILEABLE.** Live at pin and at main `b206834`. Dup check empty. |
+| 3b, `use_tma_O` on with `tma_atom_O` always `None` | vllm-project/tml-fa4 | **STILL FILEABLE.** Live at pin and at main `b206834`. Dup check empty. |
+
+**Original target tracker, as filed in this document:** vllm-project/flash-attention for defects 1 and 2.
 Defect 3 is in vllm-project/tml-fa4 and is marked as such below.
 
 **Severity:** medium. Every RTX 50-series (sm_120) user hits these on the first
@@ -203,11 +278,31 @@ This report was prepared with AI assistance. Per the vLLM contribution policy
 in `AGENTS.md`, this is stated up front. A human submitter reviewed the report
 and will review and defend every line of any follow-up PR.
 
-**Duplicate-work check: not complete for this report.** The 2026-07-21 sweep
-covered vllm-project/vllm and vllm-project/tml-fa4 and found nothing. It did
-**not** cover vllm-project/flash-attention, which is the tracker defects 1 and
-2 belong to, and no query has been run there on that date or since. The check
-required by the contribution policy must be run against
-vllm-project/flash-attention and its result recorded, including an empty
-result, before this report is filed. The commands are in
-`journal/upstream/00-INDEX.md`.
+**Duplicate-work check: RUN 2026-07-25, and it found a duplicate.** The check
+this report was blocked on has now been executed. Recording what it found,
+rather than editing away the fact that it went unrun for four days.
+
+The 2026-07-21 sweep covered vllm-project/vllm and vllm-project/tml-fa4 and
+found nothing. It did **not** cover vllm-project/flash-attention, which is the
+tracker defects 1 and 2 belong to. On 2026-07-25 the following were run:
+
+```bash
+gh repo view vllm-project/flash-attention --json hasIssuesEnabled
+#   {"hasIssuesEnabled":false,...}  -> issues disabled, PR is the only route
+gh pr list --repo vllm-project/flash-attention --state all --limit 200
+#   173 PRs listed. #156 is our defects 1 and 2, open since 2026-06-30.
+gh pr view 156 --repo vllm-project/flash-attention
+gh pr diff 156 --repo vllm-project/flash-attention
+#   +14/-0 in flash_attn/cute/flash_fwd.py, fixes both.
+```
+
+Result: defects 1 and 2 are a duplicate of PR #156 and are retired. Defect 3
+targets vllm-project/tml-fa4, and its check there came back empty, see
+`journal/upstream/00-INDEX.md` for the exact commands and output. Defect 3
+remains fileable.
+
+The lesson, recorded because it is the reusable part: the keyword searches this
+repository had written down would **not** have caught #156 even if they had run.
+They were `gh search issues`, and #156 is a PR. On a tracker with issues
+disabled, only a PR query can find anything. The full `gh pr list --state all`
+listing is what found it.

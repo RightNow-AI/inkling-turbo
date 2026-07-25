@@ -5,12 +5,30 @@
 
 Device: NVIDIA H100 80GB HBM3, capability (9, 0). torch 2.11 / cu130.
 
+> **Withdrawal notice added 2026-07-25, after the fact, because this file had
+> none.** Everything here predates the sheared-bias shift fix. The `n_block`
+> hoist that this session verified is a different defect from the shift, so the
+> `n_block` answer stands, and so does every **prefill** row. But the three
+> **decode** ratios below, 2.81x, 2.75x and 2.45x, were measured on a kernel that
+> was applying Inkling's relative-position bias to one KV block instead of ten
+> while the `score_mod` baseline it is divided by gathered every score. **They are
+> withdrawn**, together with every other pre-fix decode ratio in this repository.
+> They are struck through below rather than deleted. The decode *timings* stand as
+> timings; what does not stand is dividing them by anything. The like-for-like
+> re-measurement is 2.66x / 2.75x / 2.10x in `../validate_s27_decodefix/`, and the
+> proximity is luck rather than vindication.
+> [Full account](../../regression-sm90-bias-shift.md).
+
 This run exists to answer two questions that a static reading could not settle:
 
 1. Does the `n_block` hoist actually fix the sm_90 regression on silicon?
 2. Do the published speedups still reproduce from the fixed code?
 
-Yes to both.
+Yes to the first. **Read the second one narrowly, and it is the reason for the
+notice above**: what reproduced was that the same code produces the same
+timings, to within 2%. Reproducibility was never the problem with those decode
+numbers. A kernel can be reproducible to a tenth of a percent while doing the
+wrong amount of work, and that is what this run measured three times.
 
 ## Configuration
 
@@ -34,9 +52,12 @@ gates that need those patches were dropped rather than run and reported red.
 `max_diff=7.8125e-03` on all three parity cases, identical to `score_mod` on
 the same inputs, which is the bf16 quantum at these magnitudes.
 
-## The published numbers reproduce
+## The published timings reproduce
 
-Against session 25, on a different machine and a different container:
+This heading read "The published numbers reproduce" until 2026-07-25. That was
+too strong in exactly the way that mattered: the timings reproduced and the
+comparison they fed was unsound. Against session 25, on a different machine and a
+different container:
 
 | workload | session 25 | session 26b | delta |
 |---|---|---|---|
@@ -56,11 +77,15 @@ cross-session or cross-toolchain gap to argue about.
 
 | workload | ours | day-0 `score_mod` | ratio |
 |---|---|---|---|
-| decode, batch 1, 64K KV | 859.6 | 2412.1 | **2.81x faster** |
-| decode, batch 32, 64K KV | 866.3 | 2382.5 | **2.75x faster** |
-| decode, batch 32, 8K KV | 124.1 | 303.6 | **2.45x faster** |
-| prefill, 8K, global | 3306.9 | 4841.2 | **1.46x faster** |
-| prefill, 8K, sliding window | 1221.4 | 863.2 | **0.71x, we lose** |
+| decode, batch 1, 64K KV | 859.6 | 2412.1 | ~~**2.81x faster**~~ **WITHDRAWN** |
+| decode, batch 32, 64K KV | 866.3 | 2382.5 | ~~**2.75x faster**~~ **WITHDRAWN** |
+| decode, batch 32, 8K KV | 124.1 | 303.6 | ~~**2.45x faster**~~ **WITHDRAWN** |
+| prefill, 8K, global | 3306.9 | 4841.2 | **1.46x faster**, stands |
+| prefill, 8K, sliding window | 1221.4 | 863.2 | **0.71x, we lose**, stands |
+
+The two prefill rows are unaffected because at `seqlen_q == seqlen_k` the
+defective shift is an identity, so the fixed kernel computes the same value. The
+three decode rows are not, for the reason in the notice at the top of this file.
 
 Reference points from the same file, which are **not** baselines: biasless
 attention 736.2 / 736.6 us (the floor this feature can approach and never
