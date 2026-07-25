@@ -62,9 +62,13 @@ It is roughly 30 appended entries. The shape of the story:
     prefill. Session 31 measured chunked prefill and decode at **7 of 7** with
     6.7x to 37.7x headroom, and observed the `pack_gqa` defect there. Session 32
     ran the fix: **12 of 12**. Session 31 also re-ran the tile sweep and
-    **refuted** the withdrawn Ampere percentages rather than restoring them: the
-    same configuration moved by up to 27.6% between runs while the configurations
-    differ by at most 7.2%. [Artifacts](remote/validate_a100x1_s31/).
+    **refuted** the withdrawn Ampere percentages rather than restoring them.
+    Session 32 then re-ran it with five interleaved rounds and found the
+    published figure had the **wrong sign**: `tile_n=64` is 9.7% faster than
+    `tile_n=32` on batch-1 decode at 64K, where the withdrawn number claimed
+    `tile_n=32` faster by 10.1%.
+    [Artifacts](remote/validate_a100x1_s31/) and
+    [session 32](remote/validate_a100x1_s32_packgqa/).
 
 Four regression write-ups sit outside that sequence and are the shortest route to
 how this project checks itself: [regression-sm90-bias-shift.md](regression-sm90-bias-shift.md),

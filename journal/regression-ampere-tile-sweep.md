@@ -14,6 +14,15 @@ own parity gate was checking a different shape family from the one it timed.
 The `sm_80` **support** claim is not affected and is not withdrawn. It never
 depended on a percentage. It does pick up a caveat, stated at the end.
 
+**Update, later the same day.** Both of the objections in this file were then
+answered by measurement, and the answer was worse for the original numbers than
+the objections were. Session 32 re-ran the sweep with five interleaved rounds on a
+verified A100 and found the headline percentage had **the wrong sign**: `tile_n=64`
+beats `tile_n=32` by 9.7% on batch-1 decode at 64K, where the published figure
+claimed `tile_n=32` ahead by 10.1%. Jump to
+[Re-measured on real Ampere](#re-measured-on-real-ampere-the-same-day-refuted-not-restored)
+if that is what you came for.
+
 ## What is withdrawn
 
 | withdrawn | as published | evidence class | where it appeared |
@@ -37,9 +46,13 @@ the whole point of stating the mechanism precisely.
   both 8192 against 8192 (`harness/tune_sm80.py:46-47`), so `seqlen_q ==
   seqlen_k` with `window_right` absent, which is exactly the family in which the
   defective shift is an identity. Those timings were taken with the bias landing
-  where it belongs. So `tile_n=64` beating `tile_n=32` on sliding-window prefill,
-  9175.2 us against 10565.6 us, still stands, and so does `tile_n=32` on global
-  prefill, 10712.7 against 11124.1.
+  where it belongs. So the **direction** of `tile_n=64` beating `tile_n=32` on
+  sliding-window prefill still stands, and it survived the repeat measurement in
+  session 32. The **margin** did not: 9175.2 us against 10565.6 us is 15%, and
+  five interleaved rounds put it at 1.3%. `tile_n=32` on global prefill, 10712.7
+  against 11124.1, is the shape session 32 declares **NO WINNER** on, because
+  `tile_n=32` swings 22% across rounds there. Treat every margin in this bullet as
+  a single sample, which is what it is.
 - **The `tile_n=128` collapse survives, and the cleanest evidence for it is the
   prefill half.** `prefill_global_8k` goes from 10712.7 us at `tile_n=32` to
   362806.1 us at 128, a factor of 34 on a shape family the defect does not touch.
@@ -291,37 +304,51 @@ asserted, for **$0.99**. Full record and provenance in
 the cost figure this file said did not exist anywhere in the repository, so the
 "Cost: unpriced" note below is now closed at $2.0988/GPU-hr.
 
-**The percentages do not come back, and the reason is new.** The parity hole was
-closed and the gate went green on the timed family, so the original objection was
-answered. The numbers still fail, because of something the single-sample harness
-could not see. Against the earlier artifact, on an **unchanged** configuration:
+**The percentages do not come back, and the headline one had the wrong sign.**
+The parity hole was closed and the gate went green on the timed family, so the
+original objection was answered. `harness/tune_sm80.py` was then rewritten with
+interleaved repeat rounds, raw samples kept in the JSON, and **no winner reported
+unless the winner's worst sample beats the runner-up's best sample**, and session
+32 ran it on a verified A100.
 
-| config | prefill_global | prefill_swa | decode_b1 | decode_32seqs |
-|---|---|---|---|---|
-| `tile_n=32`, old to new | 0.93x | 1.01x | 0.87x | 0.85x |
-| `tile_n=64`, old to new | 0.94x | 1.14x | 0.73x | 0.72x |
+| shape | `tile_n=32` median [lo, hi] | `tile_n=64` median [lo, hi] | verdict |
+|---|---|---|---|
+| `prefill_global_8k` | 9037.8 [8926.4, 10889.9] | 9495.0 [9426.1, 9542.7] | **NO WINNER**, ranges overlap |
+| `prefill_swa_8k` | 8532.0 [8520.4, 8541.7] | 8420.4 [8397.8, 8435.7] | `tile_n=64` by 1.3%, disjoint |
+| `decode_b1_global_kv64k` | 3693.4 [3692.5, 3695.1] | 3366.5 [3365.8, 3366.8] | **`tile_n=64` by 9.7%**, disjoint |
+| `decode_32seqs_global_kv64k` | 53326.1 [52377.0, 53487.2] | 55064.4 [54345.2, 55209.3] | `tile_n=32` by 3.3%, disjoint |
 
-Run-to-run drift on the same config and the same shape reaches **27.6%**. The
-largest difference **between** configs in the new run is 7.2%. The noise is about
-four times the signal, so this sweep cannot rank tile sizes at all, and 10.1%,
-18.2% and 18.7% were single samples read off it. They are now **refuted rather
-than suspected**, and they are not coming back.
+The withdrawn claim was "`tile_n=32` is 10.1% faster than `tile_n=64` on batch-1
+decode at 64K KV". On that exact shape, with five interleaved rounds,
+**`tile_n=64` is 9.7% faster**, and it is the cleanest cell in the table: the two
+intervals span 0.03% and 0.07% of their medians and are nowhere near each other.
+The second figure, 18.2% for `tile_n=32` on the 32-sequence decode, points the
+right way and is **5.5x too large**; the measured separation is 3.3%.
 
-Two things survive the second look. `tile_n=128` collapsing by a factor of 34 to
-50 reproduces in both runs and is far outside the noise. And the shipped
-`arch // 10 == 8` default of 64 is left exactly where it is, now for a stronger
-reason than before: nothing can distinguish it from 32.
+So the shipped `arch // 10 == 8` default of 64 wins two of the three decidable
+shapes, including the one it was most suspected on, and is left exactly where it
+is. That is now a measurement rather than an absence of one. `tile_n=128`
+collapsing by a factor of 37 to 52 reproduces across three independent runs.
 
-The old artifact records no device, capability or torch version, because it
-predates those fields being written, so it is named for an A100 and cannot be
-proven to be one. That is a confound. It cuts the same way, since the withdrawn
-claim was made from that file.
+**A correction to how this file first reported the re-measurement.** It said
+"run-to-run drift on an unchanged config reaches 27.6%, so the sweep cannot rank
+tile sizes at all", from comparing single samples across sessions. That was wrong
+twice. The configurations were **not** unchanged: the kernel differed between
+every pair of those runs, since the old artifact predates the shear-shift fix and
+session 31 predates the `pack_gqa` guard, and that guard changes `ShearingBias`'s
+grid factorisation while `ShearingBias` runs inside the timed region. A
+cross-session delta there conflates a code change with measurement noise and
+cannot be attributed to either. And the sweep **can** rank tile sizes: with
+repeats it decides three shapes of four. Within one session, seven of eight cells
+repeat to within 2.2% and three to within 0.5%; the one erratic cell is
+`tile_n=32` on global prefill at 22%, and it is the sole reason that shape has no
+winner.
 
-`harness/tune_sm80.py` was rewritten after this run: interleaved repeat rounds,
-raw samples kept in the JSON, and **no winner reported unless the winner's worst
-sample beats the runner-up's best sample**. Fed the two real samples per config,
-it reports NO WINNER on `decode_b1`, which is the case that produced "10.1%
-faster".
+Also unchanged from the first version: the old artifact records no device,
+capability or torch version, because it predates those fields being written, so it
+is named for an A100 and cannot be proven to be one.
+
+Full record: [remote/validate_a100x1_s32_packgqa](remote/validate_a100x1_s32_packgqa/).
 
 ### The gate had a second hole on a second axis
 
@@ -476,12 +503,6 @@ at about $0.25 closes it.**
    straight through. Closing one axis of a coverage hole reads like closing the
    hole. Derivation is the only form of the fix that generalises, and it is now
    what the file does.
-6. **A sweep with no repeat measurement is not a measurement.** Every objection
-   above is about correctness, and correctness was not the only thing wrong. The
-   configurations differed by at most 7.2% and the same configuration differed
-   between runs by up to 27.6%. Even with a perfect kernel and a perfect gate,
-   the numbers were noise, and nothing in the harness could have said so because
-   it took one sample per cell.
 3. **Porting a fix is not the same as making the general form general.** The
    `sm_90` fix was derived, reviewed and validated on hardware. The same edit
    moved into the generic kernel introduced a new specialisation, `tile_n == 128`,
@@ -494,3 +515,16 @@ at about $0.25 closes it.**
    headline of this project, and the support claim they sat next to survives
    intact. The cost of withdrawing them is one section in a journal file. The
    cost of leaving them quotable is every other number in the repository.
+6. **A sweep with no repeat measurement is not a measurement, and it can be
+   confidently backwards rather than merely vague.** Every objection above is
+   about correctness, and correctness was not the only thing wrong. One sample per
+   cell published a 10.1% win for `tile_n=32` on batch-1 decode; five interleaved
+   rounds on the same shape put `tile_n=64` ahead by 9.7%, with the two intervals
+   spanning 0.03% and 0.07% of their medians. The single sample was not near the
+   truth with wide error bars, it was on the wrong side of it. Repeat before
+   ranking, interleave so that drift charges every configuration equally, and
+   publish the interval rather than the median.
+7. **Do not attribute a cross-session delta to noise when the code also changed.**
+   The first version of the re-measurement section above did exactly that. Two
+   runs of what it called "the same configuration" were two different kernels. The
+   correction is recorded in place rather than quietly edited out.

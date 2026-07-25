@@ -76,7 +76,8 @@ So this step failing is the support claim's own evidence wearing a red label.
 
 `rc=0`. The FAIL verdict comes from the runner's artifact check, which looks for
 `parity_rel_chunked_decode_sm90.json` on every architecture. That is a bug in
-`scripts/modal_e2e_bench.py`, not a result.
+`scripts/modal_e2e_bench.py`, not a result. **Fixed after this session**: the
+runner now matches any capability suffix, so session 32 reports this step as PASS.
 
 **Every one of the seven had power to fail**, 6.7x to 37.7x above `TOL_MEAN`, so
 these are certifications and not vacuous passes. This is the single most
@@ -94,14 +95,15 @@ architectures and not a local artifact.
 Root-caused and fixed the same day:
 [../../regression-pack-gqa-shear-granularity.md](../../regression-pack-gqa-shear-granularity.md).
 The shear writer was packing GQA heads while the generic reader was not. **This
-run predates the fix.** The fix has been verified 12/12 on `sm_120` and has not
-run on `sm_80`.
+run predates the fix.** [Session 32](../validate_a100x1_s32_packgqa/) ran it on
+this same architecture and scored **12/12**, with this case at max 4.8828e-04 and
+mean 4.1555e-05.
 
 Also of note: the varlen multi-sequence crash
 ([../../regression-sm120-varlen-illegal-address.md](../../regression-sm120-varlen-illegal-address.md))
 does not reproduce here, which is the first execution of that fix on Ampere.
 
-### `tune_sm80`: no tile size is selectable, and that is the finding
+### `tune_sm80`: what this session concluded, and what session 32 corrected
 
 Parity went green on all three configs. The timings:
 
@@ -127,6 +129,22 @@ difference between configs is 7.2%.** The noise is roughly four times the signal
 The sweep cannot rank tile sizes, and the withdrawn 10.1% / 18.2% / 18.7% were
 single samples read off exactly this noise. They stay withdrawn permanently. This
 is now a refutation and not a suspicion.
+
+> **CORRECTED a few hours later by [session 32](../validate_a100x1_s32_packgqa/),
+> and the paragraph above is left in place because that is this directory's rule.**
+> Two things in it are wrong. First, the configurations were **not** unchanged: the
+> kernel differed between every pair of those runs, since `tune_sm80_a100.json`
+> predates the shear-shift fix and this session predates the `pack_gqa` guard, and
+> that guard changes `ShearingBias`'s grid factorisation while `ShearingBias` runs
+> inside the timed region. A cross-session delta there conflates a code change
+> with noise. Second, the sweep **can** rank tile sizes: given five interleaved
+> rounds it decides three of the four shapes with disjoint intervals, and seven of
+> eight cells repeat to within 2.2%.
+>
+> The withdrawal stands and is stronger than this paragraph made it. On batch-1
+> decode at 64K, the shape the 10.1% claim was about, the repeat measurement puts
+> `tile_n=64` ahead of `tile_n=32` by **9.7%**. The published figure had the wrong
+> sign, not merely wide error bars.
 
 Caveat on the comparison: the old artifact records no device, capability or torch
 version, because it predates the fields being written. It is named for an A100

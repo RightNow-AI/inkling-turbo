@@ -1,0 +1,161 @@
+{
+  "device": "NVIDIA A100-SXM4-40GB",
+  "compute_capability": "8.0",
+  "torch_version": "2.11.0+cu130",
+  "cuda_version": "13.0",
+  "tol_max": 0.05,
+  "tol_mean": 0.0005,
+  "signal_margin": 4.0,
+  "cases": {
+    "control_full_prefill": {
+      "max_abs_diff": 0.0078125,
+      "mean_abs_diff": 6.816789391450584e-05,
+      "signal_mean": 0.01885782927274704,
+      "signal_over_tol": 37.71565854549408,
+      "ref_absmax": 3.15625,
+      "shape": {
+        "name": "control_full_prefill",
+        "T_q": 1536,
+        "ctx": 0,
+        "T_k": 1536,
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 1024,
+        "window_left": null,
+        "seed": 1001
+      },
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "chunked_global_128_on_1408": {
+      "max_abs_diff": 0.00048828125,
+      "mean_abs_diff": 3.713397745741531e-05,
+      "signal_mean": 0.00897105410695076,
+      "signal_over_tol": 17.94210821390152,
+      "ref_absmax": 0.138671875,
+      "shape": {
+        "name": "chunked_global_128_on_1408",
+        "T_q": 128,
+        "ctx": 1408,
+        "T_k": 1536,
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 1024,
+        "window_left": null,
+        "seed": 1002
+      },
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "chunked_global_256_on_768": {
+      "max_abs_diff": 0.0009765625,
+      "mean_abs_diff": 4.692172660725191e-05,
+      "signal_mean": 0.010627826675772667,
+      "signal_over_tol": 21.255653351545334,
+      "ref_absmax": 0.158203125,
+      "shape": {
+        "name": "chunked_global_256_on_768",
+        "T_q": 256,
+        "ctx": 768,
+        "T_k": 1024,
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 512,
+        "window_left": null,
+        "seed": 1003
+      },
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "decode_global_ctx2047": {
+      "max_abs_diff": 0.000244140625,
+      "mean_abs_diff": 2.856424544006586e-05,
+      "signal_mean": 0.006211983971297741,
+      "signal_over_tol": 12.423967942595482,
+      "ref_absmax": 0.0673828125,
+      "shape": {
+        "name": "decode_global_ctx2047",
+        "T_q": 1,
+        "ctx": 2047,
+        "T_k": 2048,
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 1024,
+        "window_left": null,
+        "seed": 1004
+      },
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "decode_global_ctx4095": {
+      "max_abs_diff": 0.000244140625,
+      "mean_abs_diff": 2.037029480561614e-05,
+      "signal_mean": 0.00334971584379673,
+      "signal_over_tol": 6.69943168759346,
+      "ref_absmax": 0.050537109375,
+      "shape": {
+        "name": "decode_global_ctx4095",
+        "T_q": 1,
+        "ctx": 4095,
+        "T_k": 4096,
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 1024,
+        "window_left": null,
+        "seed": 1005
+      },
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "decode_swa_ctx4095": {
+      "max_abs_diff": 0.00048828125,
+      "mean_abs_diff": 5.756027530878782e-05,
+      "signal_mean": 0.014963807538151741,
+      "signal_over_tol": 29.927615076303482,
+      "ref_absmax": 0.138671875,
+      "shape": {
+        "name": "decode_swa_ctx4095",
+        "T_q": 1,
+        "ctx": 4095,
+        "T_k": 4096,
+        "Hq": 8,
+        "Hkv": 2,
+        "rel_extent": 512,
+        "window_left": 511,
+        "seed": 1006
+      },
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "chunked_swa_128_on_1408": {
+      "max_abs_diff": 0.0009765625,
+      "mean_abs_diff": 6.358561222441494e-05,
+      "signal_mean": 0.017950717359781265,
+      "signal_over_tol": 35.90143471956253,
+      "ref_absmax": 0.2060546875,
+      "shape": {
+        "name": "chunked_swa_128_on_1408",
+        "T_q": 128,
+        "ctx": 1408,
+        "T_k": 1536,
+        "Hq": 8,
+        "Hkv": 2,
+        "rel_extent": 512,
+        "window_left": 511,
+        "seed": 1007
+      },
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    }
+  },
+  "passed": 7,
+  "total": 7,
+  "uninformative": 0
+}

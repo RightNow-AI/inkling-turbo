@@ -120,12 +120,14 @@ FOOTNOTES = [
     "echo=True, so it compared echoed prompt positions and never generated a "
     "token, and its logprob half is a recorded failure against its a-priori "
     "tolerance.",
-    "Ampere tile tuning is withdrawn and, since 2026-07-25, refuted. The sweep "
-    "timed decode shapes at Hq=64 over Hkv=8 while its parity gate checked full "
-    "prefill at Hq==Hkv, and the kernel was wrong on both of those axes. Re-run "
-    "on verified Ampere, the same configuration moved by up to 27.6% between "
-    "runs while the configurations differ by at most 7.2%, so one sample per "
-    "cell cannot rank them at all.",
+    "Ampere tile tuning is withdrawn and, since 2026-07-25, refuted by "
+    "measurement. The sweep timed decode shapes at Hq=64 over Hkv=8 while its "
+    "parity gate checked full prefill at Hq==Hkv, and the kernel was wrong on "
+    "both of those axes. Re-run on verified Ampere with five interleaved rounds, "
+    "the published figure turns out to have the wrong sign: tile_n=64 is 9.7% "
+    "faster than tile_n=32 on batch-1 decode at 64K, where the withdrawn number "
+    "claimed tile_n=32 faster by 10.1%. The shipped default of 64 wins two of "
+    "three decidable shapes and is left alone.",
     "Shear fusion splits into two rows because the writer is bit-exact on two "
     "architectures while the feature is measured a net loss on prefill, so "
     "correct and worth enabling are not the same claim.",

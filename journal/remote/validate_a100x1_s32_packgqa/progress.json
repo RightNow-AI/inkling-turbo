@@ -1,0 +1,258 @@
+{
+  "steps": [
+    {
+      "step": "env_proof",
+      "verdict": "PASS",
+      "expect": "A100-40GB, capability (8, 0)",
+      "requested_gpu": "A100-40GB",
+      "capability": [
+        8,
+        0
+      ],
+      "arch_matches_request": true,
+      "nvidia_smi": "NVIDIA A100-SXM4-40GB, 40960 MiB, 580.95.05",
+      "torch": "2.11.0+cu130",
+      "torch_cuda": "13.0",
+      "device_name": "NVIDIA A100-SXM4-40GB",
+      "sm_count": 108,
+      "total_memory_gb": 42.4,
+      "device_count": 1,
+      "vllm": "0.23.1rc1.dev1237+g850295881.precompiled",
+      "nvidia_cutlass_dsl": "4.6.0"
+    },
+    {
+      "step": "setup",
+      "verdict": "PASS",
+      "tml_pkg": "/opt/vllm/vllm/third_party/tml_fa4",
+      "tml_source_tree_same": true,
+      "deployed": [
+        "flash_fwd.py:739fb92a",
+        "flash_fwd_sm90.py:5490c64d",
+        "interface.py:d5e88990"
+      ],
+      "patch_set": "route",
+      "patch_order": [
+        "u2_serving_route.py"
+      ],
+      "patch_markers": {
+        "u2_serving_route": true
+      },
+      "patches_confirmed_absent": [
+        "u2_shear_relshearspec",
+        "u3_quantize_kv"
+      ]
+    },
+    {
+      "step": "parity_fa4_rel",
+      "cmd": "/usr/local/bin/python3 parity_fa4_rel.py",
+      "env": {},
+      "expect": "3/3 green for tml_fa4_rel_bias on the sm_90 native path (the harness also reports score_mod and our abandoned relproj prototype; it exits non-zero if any of the 9 case x backend checks fails)",
+      "verdict": "FAIL",
+      "seconds": 28.1,
+      "rc": 1,
+      "lines_ok": 3,
+      "lines_fail": 6,
+      "lines_skip": 0
+    },
+    {
+      "step": "parity_rel_chunked_decode",
+      "cmd": "/usr/local/bin/python3 parity_rel_chunked_decode.py",
+      "env": {},
+      "expect": "7/7. control_full_prefill must pass either way; the chunked_* and decode_* cases FAIL before the n_block_max fix and pass after it. Before the fix, decode got bias on 1 of 512 KV blocks and it was the oldest one.",
+      "verdict": "PASS",
+      "seconds": 44.4,
+      "rc": 0,
+      "lines_ok": 0,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "parity_rel_chunked_decode_modal_a10040gbx1_route_s32packgqa.json": {
+          "device": null,
+          "compute_capability": null,
+          "torch_version": null,
+          "cuda_version": null,
+          "tol_max": null,
+          "tol_mean": null,
+          "signal_margin": null,
+          "cases": null,
+          "passed": null,
+          "total": null,
+          "uninformative": null
+        }
+      },
+      "artifacts": [
+        "parity_rel_chunked_decode_modal_a10040gbx1_route_s32packgqa.json"
+      ]
+    },
+    {
+      "step": "parity_qkvr_prep",
+      "cmd": "/usr/local/bin/python3 parity_qkvr_prep.py",
+      "env": {},
+      "expect": "5/5. Regression gate: the DEFAULT qkvr_prep path must behave identically after u3 and u2 have both rewritten this file.",
+      "verdict": "PASS",
+      "seconds": 13.1,
+      "rc": 0,
+      "lines_ok": 5,
+      "lines_fail": 0,
+      "lines_skip": 0
+    },
+    {
+      "step": "microbench_attn_scoremod",
+      "cmd": "/usr/local/bin/python3 microbench_attn_scoremod.py",
+      "env": {},
+      "expect": "day-0 baseline. score_mod is the ONLY day-0 path; relproj and relprojT in this JSON are OUR abandoned prototypes.",
+      "verdict": "PASS",
+      "seconds": 9.5,
+      "rc": 0,
+      "lines_ok": 0,
+      "lines_fail": 13,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "microbench_attn_scoremod_modal_a10040gbx1_route_s32packgqa.json": {
+          "prefill_global_8k": null,
+          "prefill_swa_8k": null,
+          "decode_b32_global_kv8k": null,
+          "decode_b32_global_kv64k": null,
+          "decode_b1_global_kv64k": null,
+          "decode_b1_plain_kv64k": null,
+          "decode_b32_plain_kv64k": null,
+          "relproj_prefill_global_8k": null,
+          "relproj_decode_b32_kv64k": null,
+          "relproj_decode_b1_kv64k": null,
+          "relprojT_decode_b1_kv64k": null,
+          "relprojT_decode_b32_kv64k": null,
+          "relprojT_prefill_global_8k": null
+        }
+      },
+      "artifacts": [
+        "microbench_attn_scoremod_modal_a10040gbx1_route_s32packgqa.json"
+      ]
+    },
+    {
+      "step": "microbench_ours_attn_shearfusion_OFF",
+      "cmd": "/usr/local/bin/python3 microbench_attn_day0.py",
+      "env": {
+        "INKLING_TURBO_FUSED_SHEAR": "0"
+      },
+      "expect": "reproduces session 25 (decode b1 64K 852.6, b32 64K 854.8, b32 8K 124.1, prefill global 3308.8, prefill SWA 1223.0 us/iter on one H100 SXM5)",
+      "verdict": "PASS",
+      "seconds": 49.0,
+      "rc": 0,
+      "lines_ok": 0,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "microbench_ours_attn_shearfusion_OFF_modal_a10040gbx1_route_s32packgqa.json": {
+          "prefill_global_8k": 11499.6,
+          "prefill_swa_8k": 9969.8,
+          "decode_b32_global_kv8k": 631.8,
+          "decode_b32_global_kv64k": 4422.6,
+          "decode_b1_global_kv64k": 4660.3,
+          "decode_32seqs_global_kv8k": 7562.8,
+          "decode_32seqs_global_kv64k": 51743.2,
+          "gate_select_T1": 7.3,
+          "gate_select_T4096": 46.6
+        }
+      },
+      "artifacts": [
+        "microbench_ours_attn_shearfusion_OFF_modal_a10040gbx1_route_s32packgqa.json"
+      ]
+    },
+    {
+      "step": "parity_rel_varlen_batch",
+      "cmd": "/usr/local/bin/python3 parity_rel_varlen_batch.py",
+      "env": {},
+      "expect": "12/12 expected. Session 31 scored 11/12 on sm_80, failing single_m_tail_chunked at mean 1.9666e-03, which is the pack_gqa shear-granularity defect. The guard for it is verified 12/12 on sm_120 and this is its first execution on sm_80. An 11/12 here means the guard does not cover Ampere.",
+      "verdict": "PASS",
+      "seconds": 45.5,
+      "rc": 0,
+      "lines_ok": 0,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "parity_rel_varlen_batch_modal_a10040gbx1_route_s32packgqa.json": {
+          "device": null,
+          "compute_capability": null,
+          "torch_version": null,
+          "cuda_version": null,
+          "tol_max": null,
+          "tol_mean": null,
+          "signal_margin": null,
+          "kv_tile": null,
+          "cases": null,
+          "passed": null,
+          "ran": null,
+          "total": null,
+          "coverage_cases_without_power": null,
+          "cases_able_to_detect_dropped_bias": null,
+          "detection_note": null
+        }
+      },
+      "artifacts": [
+        "parity_rel_varlen_batch_modal_a10040gbx1_route_s32packgqa.json"
+      ]
+    },
+    {
+      "step": "parity_rel_bias_coverage",
+      "cmd": "/usr/local/bin/python3 parity_rel_bias_coverage.py",
+      "env": {},
+      "expect": "6/6, unchanged from session 31. Its probe, not its oracle, is the discriminating check at decode depth.",
+      "verdict": "PASS",
+      "seconds": 31.3,
+      "rc": 0,
+      "lines_ok": 6,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "parity_rel_bias_coverage_modal_a10040gbx1_route_s32packgqa.json": {
+          "device": null,
+          "compute_capability": null,
+          "torch_version": null,
+          "cuda_version": null,
+          "kv_tile": null,
+          "spike_amplitude": null,
+          "response_noise_factor": null,
+          "response_floor": null,
+          "tol_max": null,
+          "tol_mean": null,
+          "cases": null,
+          "passed": null,
+          "total": null
+        }
+      },
+      "artifacts": [
+        "parity_rel_bias_coverage_modal_a10040gbx1_route_s32packgqa.json"
+      ]
+    },
+    {
+      "step": "tune_sm80",
+      "cmd": "/usr/local/bin/python3 tune_sm80.py",
+      "env": {},
+      "expect": "the tile sweep, now with interleaved repeat rounds and a disjoint-interval rule. It will print NO WINNER on any shape where run-to-run spread exceeds the gap between configs, which session 31's two-run comparison says is most of them. That verdict is the result; a named winner is the surprise. Its parity geometry now comes from CASES, so this is also the first Ampere run of a bias gate at Hq=64 over Hkv=8.",
+      "verdict": "PASS",
+      "seconds": 199.0,
+      "rc": 0,
+      "lines_ok": 3,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "tune_sm80_modal_a10040gbx1_route_s32packgqa.json": {
+          "device": null,
+          "compute_capability": null,
+          "torch_version": null,
+          "cuda_version": null,
+          "repeats": null,
+          "results": null,
+          "best": null,
+          "verdicts": null
+        }
+      },
+      "artifacts": [
+        "tune_sm80_modal_a10040gbx1_route_s32packgqa.json"
+      ]
+    }
+  ],
+  "elapsed_hours": 0.132,
+  "spend_usd_est": 0.6,
+  "last": "tune_sm80"
+}

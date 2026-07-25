@@ -1,0 +1,208 @@
+{
+ "device": "NVIDIA A100-SXM4-40GB",
+ "compute_capability": "8.0",
+ "torch_version": "2.11.0+cu130",
+ "cuda_version": "13.0",
+ "repeats": 5,
+ "results": {
+  "tile128x32": {
+   "parity": 0.015625,
+   "samples": {
+    "prefill_global_8k": [
+     10889.898681640625,
+     8926.412963867188,
+     9004.441324869791,
+     9054.959106445312,
+     9037.824503580729
+    ],
+    "prefill_swa_8k": [
+     8532.036336263021,
+     8527.872212727865,
+     8541.661580403646,
+     8520.431009928385,
+     8538.863118489584
+    ],
+    "decode_b1_global_kv64k": [
+     3693.4313456217446,
+     3692.4756368001304,
+     3695.0698852539062,
+     3692.748769124349,
+     3694.7967529296875
+    ],
+    "decode_32seqs_global_kv64k": [
+     52376.985677083336,
+     53154.203287760414,
+     53326.0986328125,
+     53414.774576822914,
+     53487.20703125
+    ]
+   },
+   "timings": {
+    "prefill_global_8k": 9037.8,
+    "prefill_swa_8k": 8532.0,
+    "decode_b1_global_kv64k": 3693.4,
+    "decode_32seqs_global_kv64k": 53326.1
+   },
+   "stats": {
+    "prefill_global_8k": {
+     "median": 9037.8,
+     "lo": 8926.4,
+     "hi": 10889.9,
+     "n": 5
+    },
+    "prefill_swa_8k": {
+     "median": 8532.0,
+     "lo": 8520.4,
+     "hi": 8541.7,
+     "n": 5
+    },
+    "decode_b1_global_kv64k": {
+     "median": 3693.4,
+     "lo": 3692.5,
+     "hi": 3695.1,
+     "n": 5
+    },
+    "decode_32seqs_global_kv64k": {
+     "median": 53326.1,
+     "lo": 52377.0,
+     "hi": 53487.2,
+     "n": 5
+    }
+   }
+  },
+  "tile128x64": {
+   "parity": 0.015625,
+   "samples": {
+    "prefill_global_8k": [
+     9426.125081380209,
+     9487.701416015625,
+     9495.006306966146,
+     9524.838256835938,
+     9542.724609375
+    ],
+    "prefill_swa_8k": [
+     8420.352172851562,
+     8397.755940755209,
+     8420.010884602865,
+     8435.712178548178,
+     8427.451578776041
+    ],
+    "decode_b1_global_kv64k": [
+     3366.7755126953125,
+     3366.638946533203,
+     3366.3658142089844,
+     3365.8198038736978,
+     3366.5023803710938
+    ],
+    "decode_32seqs_global_kv64k": [
+     54345.182291666664,
+     55064.44091796875,
+     55023.750813802086,
+     55151.81884765625,
+     55209.3017578125
+    ]
+   },
+   "timings": {
+    "prefill_global_8k": 9495.0,
+    "prefill_swa_8k": 8420.4,
+    "decode_b1_global_kv64k": 3366.5,
+    "decode_32seqs_global_kv64k": 55064.4
+   },
+   "stats": {
+    "prefill_global_8k": {
+     "median": 9495.0,
+     "lo": 9426.1,
+     "hi": 9542.7,
+     "n": 5
+    },
+    "prefill_swa_8k": {
+     "median": 8420.4,
+     "lo": 8397.8,
+     "hi": 8435.7,
+     "n": 5
+    },
+    "decode_b1_global_kv64k": {
+     "median": 3366.5,
+     "lo": 3365.8,
+     "hi": 3366.8,
+     "n": 5
+    },
+    "decode_32seqs_global_kv64k": {
+     "median": 55064.4,
+     "lo": 54345.2,
+     "hi": 55209.3,
+     "n": 5
+    }
+   }
+  },
+  "tile128x128": {
+   "parity": 0.015625,
+   "samples": {
+    "prefill_global_8k": [
+     352141.50390625
+    ],
+    "prefill_swa_8k": [
+     350565.7877604167
+    ],
+    "decode_b1_global_kv64k": [
+     127665.55989583333
+    ],
+    "decode_32seqs_global_kv64k": [
+     2765807.5520833335
+    ]
+   },
+   "timings": {
+    "prefill_global_8k": 352141.5,
+    "prefill_swa_8k": 350565.8,
+    "decode_b1_global_kv64k": 127665.6,
+    "decode_32seqs_global_kv64k": 2765807.6
+   },
+   "stats": {
+    "prefill_global_8k": {
+     "median": 352141.5,
+     "lo": 352141.5,
+     "hi": 352141.5,
+     "n": 1
+    },
+    "prefill_swa_8k": {
+     "median": 350565.8,
+     "lo": 350565.8,
+     "hi": 350565.8,
+     "n": 1
+    },
+    "decode_b1_global_kv64k": {
+     "median": 127665.6,
+     "lo": 127665.6,
+     "hi": 127665.6,
+     "n": 1
+    },
+    "decode_32seqs_global_kv64k": {
+     "median": 2765807.6,
+     "lo": 2765807.6,
+     "hi": 2765807.6,
+     "n": 1
+    }
+   }
+  }
+ },
+ "best": {
+  "prefill_swa_8k": [
+   "tile128x64",
+   8420.4
+  ],
+  "decode_b1_global_kv64k": [
+   "tile128x64",
+   3366.5
+  ],
+  "decode_32seqs_global_kv64k": [
+   "tile128x32",
+   53326.1
+  ]
+ },
+ "verdicts": {
+  "prefill_global_8k": "NO WINNER: tile128x32 [8926.4, 10889.9] overlaps tile128x64 [9426.1, 9542.7]; run-to-run spread exceeds the difference between configs, so no tile size is selectable on this shape",
+  "prefill_swa_8k": "tile128x64 wins: [8397.8, 8435.7] is disjoint from tile128x32 [8520.4, 8541.7]",
+  "decode_b1_global_kv64k": "tile128x64 wins: [3365.8, 3366.8] is disjoint from tile128x32 [3692.5, 3695.1]",
+  "decode_32seqs_global_kv64k": "tile128x32 wins: [52377.0, 53487.2] is disjoint from tile128x64 [54345.2, 55209.3]"
+ }
+}

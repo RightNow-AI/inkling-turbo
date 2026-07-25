@@ -11,9 +11,11 @@ Legal space with bias: tile_m fixed at 128 (the shear contract bakes
 
 It also refuses to name a winner it cannot defend. Configs are timed in
 interleaved rounds and a winner has to beat the runner-up with a disjoint
-sample interval, because the first version of this file reported single
-samples and two A100 runs of it disagreed by up to 27.6% on an unchanged
-config while the configs themselves differed by at most 7.2%.
+sample interval, because the first version of this file reported one sample per
+cell, and one sample per cell got the ANSWER BACKWARDS: it released
+"tile_n=32 is 10.1% faster on batch-1 decode at 64K", and five interleaved
+rounds on the same shape put tile_n=64 ahead by 9.7% with the two intervals
+spanning 0.03% and 0.07% of their medians.
 
 Output: table + per-case verdicts + JSON with every raw sample.
 """
@@ -244,12 +246,16 @@ def time_case(fn, iters=15, warmup=5) -> float:
     return s.elapsed_time(e) * 1000 / iters  # us
 
 
-# Two A100 runs of the single-sample version of this file disagreed with each
-# other by up to 27.6% on the SAME config and the SAME shape, while the largest
-# difference BETWEEN configs was 7.2%. A sweep whose run-to-run noise is four
-# times its signal cannot rank anything, and the three Ampere percentages this
-# file once produced (10.1%, 18.2%, 18.7%) were single samples read off exactly
-# that noise. See journal/regression-ampere-tile-sweep.md.
+# The three Ampere percentages this file once produced (10.1%, 18.2%, 18.7%)
+# were one sample per cell, and on the headline shape the sign was wrong: five
+# interleaved rounds put tile_n=64 ahead of tile_n=32 by 9.7% on batch-1 decode
+# at 64K, where the published figure claimed tile_n=32 ahead by 10.1%.
+#
+# Repeatability is not the problem. Measured properly, seven of eight cells
+# repeat to within 2.2% and three to within 0.5%. ONE cell is erratic,
+# tile_n=32 on global 8K prefill at 22%, and it is the only reason that shape
+# has no winner. Interleaved rounds are what make one bad cell visible instead
+# of averaged in. See journal/remote/validate_a100x1_s32_packgqa/.
 #
 # So: repeat, interleave, and refuse to name a winner unless the intervals are
 # actually disjoint.
