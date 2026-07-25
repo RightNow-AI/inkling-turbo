@@ -35,9 +35,27 @@ parity run has to cover **the shape family the timing is taken on**. The same
 exactly the family the gate never exercised, and the Ampere tile-tuning
 percentages it released are withdrawn as a result. An enforced gate aimed at the
 wrong shape family is more dangerous than no gate, because it gets cited, and
-this paragraph is the citation. If you add a case to a timing harness, add the
-matching parity case in the same commit.
-[The record](journal/regression-ampere-tile-sweep.md).
+this paragraph is the citation.
+
+**A shape family is not one axis.** The fix for the above added
+`seqlen_q != seqlen_k` cases by hand and left them at `Hq == Hkv`, while every
+timed case runs `Hq=64` over `Hkv=8`. A second bias defect, exact at
+`qhead_per_kvhead == 1` by construction, then walked through the repaired gate on
+the same day. So the rule is not "add the matching parity case", it is **derive
+the parity shapes from the timed ones**: `tune_sm80.py` now takes
+`(Hq, Hkv, rel_extent, window)` from its own `CASES` list and varies only the
+depth, because a hand-written pair can diverge on an axis nobody was watching and
+did, twice. If your harness times a shape it cannot derive a parity case from,
+that is the bug.
+
+**And say what would have failed it.** A gate has to be able to fail. Record the
+margin between the signal it reads and the tolerance it reads it against, per
+case, and treat a margin below 1x as a failed gate rather than a passing one. One
+case in `parity_rel_varlen_batch.py` prints
+`<-- NO POWER: cannot fail on a dropped bias` about itself and is still counted
+separately from the 11 that can.
+[The record](journal/regression-ampere-tile-sweep.md), and
+[the second defect](journal/regression-pack-gqa-shear-granularity.md).
 
 **Numbers are measured or `null`.** No estimates, no roofline arithmetic standing
 in for a measurement, no vendor figure quoted as if we ran it. If the gate has
