@@ -17,7 +17,7 @@ and NOT a server batch size; see the note under the table.
 | Request/s, prefill-heavy @ conc 8 | 0.498 | 0.550 | **1.106x** | 3 runs vs 3, same |
 | TTFT p50, prefill-heavy @ conc 8 | 377.961 ms | 340.199 ms | 1.111x, **not claimed** | 3 runs vs 3, same. The medians favour ours but the ranges overlap heavily, stock [369.979, 884.773] against ours [338.328, 862.342]: one cold-start run per build swamps the gap. See the note below the table |
 | TPOT p50, prefill-heavy @ conc 8 | 117.863 ms | 106.566 ms | **1.106x** | 3 runs vs 3, same |
-| p99 end-to-end, prefill-heavy @ conc 8 | 17492.6 ms | 15975.5 ms | **1.095x** | 3 runs vs 3, same |
+| p99 end-to-end, prefill-heavy @ conc 8 | 17492.6 ms | 15975.5 ms | 1.095x, **not claimed** | 3 runs vs 3, same. Ranges overlap here, unlike the other two p99 rows: stock [15460.1, 18376.1] against ours [13906.2, 16625.8]. A p99 over a 3-minute run at concurrency 8 is one request's tail |
 | Output tok/s, decode-heavy @ conc 8 | 68.008 | 75.266 | **1.107x** | 3 runs vs 3, same. Was 3-vs-1 and labelled indicative; the median did not move when the two missing runs landed |
 | Request/s, decode-heavy @ conc 8 | 0.066 | 0.074 | **1.107x** | 3 runs vs 3, same |
 | TPOT p50, decode-heavy @ conc 8 | 117.350 ms | 106.048 ms | **1.107x** | 3 runs vs 3, same |
