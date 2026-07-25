@@ -1,0 +1,1020 @@
+{
+  "device": "NVIDIA GeForce RTX 5090 Laptop GPU",
+  "compute_capability": "12.0",
+  "torch_version": "2.11.0+cu130",
+  "cuda_version": "13.0",
+  "tol_max": 0.05,
+  "tol_mean": 0.0005,
+  "signal_margin": 4.0,
+  "kv_tile": 128,
+  "cases": {
+    "control_single_full_prefill": {
+      "max_abs_diff": 0.0078125,
+      "mean_abs_diff": 0.00011125339369755238,
+      "num_seqs": 1,
+      "bias_gain": 1.0,
+      "measurable_seqs": 1,
+      "signal_mean": 0.012139031663537025,
+      "signal_over_tol": 24.27806332707405,
+      "can_detect_dropped_bias": true,
+      "per_seq": [
+        {
+          "seq": 0,
+          "T_q": 512,
+          "ctx": 0,
+          "T_k": 512,
+          "offset_q": 0,
+          "max_abs_diff": 0.0078125,
+          "mean_abs_diff": 0.00011125339369755238,
+          "signal_mean": 0.012139031663537025,
+          "signal_max": 0.2447509765625,
+          "signal_over_tol": 24.27806332707405,
+          "kv_tiles": 4,
+          "seqlen_k_mod_128": 0,
+          "seqlen_q_mod_128": 0
+        }
+      ],
+      "shape": {
+        "T_q": [
+          512
+        ],
+        "ctx": [
+          0
+        ],
+        "T_k": [
+          512
+        ],
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 512,
+        "window_left": null
+      },
+      "role": "control",
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "multi_prefill_offset_only": {
+      "max_abs_diff": 0.0078125,
+      "mean_abs_diff": 0.00017623000092248083,
+      "num_seqs": 3,
+      "bias_gain": 1.0,
+      "measurable_seqs": 2,
+      "signal_mean": 0.0004880778433289379,
+      "signal_over_tol": 0.9761556866578758,
+      "can_detect_dropped_bias": false,
+      "per_seq": [
+        {
+          "seq": 0,
+          "T_q": 256,
+          "ctx": 0,
+          "T_k": 256,
+          "offset_q": 0,
+          "max_abs_diff": 0.0078125,
+          "mean_abs_diff": 0.00015033091767691076,
+          "signal_mean": 0.007836779579520226,
+          "signal_max": 0.167236328125,
+          "signal_over_tol": 15.673559159040451,
+          "kv_tiles": 2,
+          "seqlen_k_mod_128": 0,
+          "seqlen_q_mod_128": 0
+        },
+        {
+          "seq": 1,
+          "T_q": 137,
+          "ctx": 0,
+          "T_k": 137,
+          "offset_q": 256,
+          "max_abs_diff": 0.0078125,
+          "mean_abs_diff": 0.0001891358697321266,
+          "signal_mean": 0.0004880778433289379,
+          "signal_max": 0.0927734375,
+          "signal_over_tol": 0.9761556866578758,
+          "kv_tiles": 2,
+          "seqlen_k_mod_128": 9,
+          "seqlen_q_mod_128": 9
+        },
+        {
+          "seq": 2,
+          "T_q": 64,
+          "ctx": 0,
+          "T_k": 64,
+          "offset_q": 393,
+          "max_abs_diff": 0.0078125,
+          "mean_abs_diff": 0.0002521997084841132,
+          "signal_mean": 0.0,
+          "signal_max": 0.0,
+          "signal_over_tol": 0.0,
+          "kv_tiles": 1,
+          "seqlen_k_mod_128": 64,
+          "seqlen_q_mod_128": 64
+        }
+      ],
+      "shape": {
+        "T_q": [
+          256,
+          137,
+          64
+        ],
+        "ctx": [
+          0,
+          0,
+          0
+        ],
+        "T_k": [
+          256,
+          137,
+          64
+        ],
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 512,
+        "window_left": null
+      },
+      "role": "control",
+      "within_tolerance": true,
+      "informative": false,
+      "pass": true
+    },
+    "single_kv_tail_decode": {
+      "max_abs_diff": 0.00048828125,
+      "mean_abs_diff": 4.417123273015022e-05,
+      "num_seqs": 1,
+      "bias_gain": 1.0,
+      "measurable_seqs": 1,
+      "signal_mean": 0.008282831870019436,
+      "signal_over_tol": 16.56566374003887,
+      "can_detect_dropped_bias": true,
+      "per_seq": [
+        {
+          "seq": 0,
+          "T_q": 1,
+          "ctx": 1000,
+          "T_k": 1001,
+          "offset_q": 0,
+          "max_abs_diff": 0.00048828125,
+          "mean_abs_diff": 4.417123273015022e-05,
+          "signal_mean": 0.008282831870019436,
+          "signal_max": 0.03839111328125,
+          "signal_over_tol": 16.56566374003887,
+          "kv_tiles": 8,
+          "seqlen_k_mod_128": 105,
+          "seqlen_q_mod_128": 1
+        }
+      ],
+      "shape": {
+        "T_q": [
+          1
+        ],
+        "ctx": [
+          1000
+        ],
+        "T_k": [
+          1001
+        ],
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 512,
+        "window_left": null
+      },
+      "role": "coverage",
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "single_m_tail_chunked": {
+      "max_abs_diff": 0.00048828125,
+      "mean_abs_diff": 4.1567040170775726e-05,
+      "num_seqs": 1,
+      "bias_gain": 1.0,
+      "measurable_seqs": 1,
+      "signal_mean": 0.008931983262300491,
+      "signal_over_tol": 17.863966524600983,
+      "can_detect_dropped_bias": true,
+      "per_seq": [
+        {
+          "seq": 0,
+          "T_q": 200,
+          "ctx": 1000,
+          "T_k": 1200,
+          "offset_q": 0,
+          "max_abs_diff": 0.00048828125,
+          "mean_abs_diff": 4.1567040170775726e-05,
+          "signal_mean": 0.008931983262300491,
+          "signal_max": 0.08795166015625,
+          "signal_over_tol": 17.863966524600983,
+          "kv_tiles": 10,
+          "seqlen_k_mod_128": 48,
+          "seqlen_q_mod_128": 72
+        }
+      ],
+      "shape": {
+        "T_q": [
+          200
+        ],
+        "ctx": [
+          1000
+        ],
+        "T_k": [
+          1200
+        ],
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 512,
+        "window_left": null
+      },
+      "role": "coverage",
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "mixed_decode_batch_global": {
+      "max_abs_diff": 0.001953125,
+      "mean_abs_diff": 5.1433496082609054e-05,
+      "num_seqs": 4,
+      "bias_gain": 1.0,
+      "measurable_seqs": 4,
+      "signal_mean": 0.003515436314046383,
+      "signal_over_tol": 7.030872628092766,
+      "can_detect_dropped_bias": true,
+      "per_seq": [
+        {
+          "seq": 0,
+          "T_q": 1,
+          "ctx": 2047,
+          "T_k": 2048,
+          "offset_q": 0,
+          "max_abs_diff": 0.000244140625,
+          "mean_abs_diff": 3.065820783376694e-05,
+          "signal_mean": 0.006752649787813425,
+          "signal_max": 0.039154052734375,
+          "signal_over_tol": 13.50529957562685,
+          "kv_tiles": 16,
+          "seqlen_k_mod_128": 0,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 1,
+          "T_q": 1,
+          "ctx": 1000,
+          "T_k": 1001,
+          "offset_q": 1,
+          "max_abs_diff": 0.00048828125,
+          "mean_abs_diff": 4.456180613487959e-05,
+          "signal_mean": 0.012799992226064205,
+          "signal_max": 0.059814453125,
+          "signal_over_tol": 25.59998445212841,
+          "kv_tiles": 8,
+          "seqlen_k_mod_128": 105,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 2,
+          "T_q": 1,
+          "ctx": 137,
+          "T_k": 138,
+          "offset_q": 2,
+          "max_abs_diff": 0.001953125,
+          "mean_abs_diff": 0.00011105561861768365,
+          "signal_mean": 0.006976395845413208,
+          "signal_max": 0.04541015625,
+          "signal_over_tol": 13.952791690826416,
+          "kv_tiles": 2,
+          "seqlen_k_mod_128": 10,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 3,
+          "T_q": 1,
+          "ctx": 4095,
+          "T_k": 4096,
+          "offset_q": 3,
+          "max_abs_diff": 0.000244140625,
+          "mean_abs_diff": 1.945835174410604e-05,
+          "signal_mean": 0.003515436314046383,
+          "signal_max": 0.018798828125,
+          "signal_over_tol": 7.030872628092766,
+          "kv_tiles": 32,
+          "seqlen_k_mod_128": 0,
+          "seqlen_q_mod_128": 1
+        }
+      ],
+      "shape": {
+        "T_q": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "ctx": [
+          2047,
+          1000,
+          137,
+          4095
+        ],
+        "T_k": [
+          2048,
+          1001,
+          138,
+          4096
+        ],
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 1024,
+        "window_left": null
+      },
+      "role": "coverage",
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "mixed_decode_batch_swa": {
+      "max_abs_diff": 0.0009765625,
+      "mean_abs_diff": 7.818137964932248e-05,
+      "num_seqs": 4,
+      "bias_gain": 1.0,
+      "measurable_seqs": 4,
+      "signal_mean": 0.01063276082277298,
+      "signal_over_tol": 21.26552164554596,
+      "can_detect_dropped_bias": true,
+      "per_seq": [
+        {
+          "seq": 0,
+          "T_q": 1,
+          "ctx": 2047,
+          "T_k": 2048,
+          "offset_q": 0,
+          "max_abs_diff": 0.0009765625,
+          "mean_abs_diff": 6.705333362333477e-05,
+          "signal_mean": 0.01709791086614132,
+          "signal_max": 0.071533203125,
+          "signal_over_tol": 34.19582173228264,
+          "kv_tiles": 16,
+          "seqlen_k_mod_128": 0,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 1,
+          "T_q": 1,
+          "ctx": 1000,
+          "T_k": 1001,
+          "offset_q": 1,
+          "max_abs_diff": 0.00048828125,
+          "mean_abs_diff": 5.9952493757009506e-05,
+          "signal_mean": 0.01748637855052948,
+          "signal_max": 0.08362579345703125,
+          "signal_over_tol": 34.97275710105896,
+          "kv_tiles": 8,
+          "seqlen_k_mod_128": 105,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 2,
+          "T_q": 1,
+          "ctx": 137,
+          "T_k": 138,
+          "offset_q": 2,
+          "max_abs_diff": 0.0009765625,
+          "mean_abs_diff": 0.00012199010234326124,
+          "signal_mean": 0.01063276082277298,
+          "signal_max": 0.04736328125,
+          "signal_over_tol": 21.26552164554596,
+          "kv_tiles": 2,
+          "seqlen_k_mod_128": 10,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 3,
+          "T_q": 1,
+          "ctx": 4095,
+          "T_k": 4096,
+          "offset_q": 3,
+          "max_abs_diff": 0.00048828125,
+          "mean_abs_diff": 6.37295888736844e-05,
+          "signal_mean": 0.017404139041900635,
+          "signal_max": 0.090576171875,
+          "signal_over_tol": 34.80827808380127,
+          "kv_tiles": 32,
+          "seqlen_k_mod_128": 0,
+          "seqlen_q_mod_128": 1
+        }
+      ],
+      "shape": {
+        "T_q": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "ctx": [
+          2047,
+          1000,
+          137,
+          4095
+        ],
+        "T_k": [
+          2048,
+          1001,
+          138,
+          4096
+        ],
+        "Hq": 8,
+        "Hkv": 2,
+        "rel_extent": 512,
+        "window_left": 511
+      },
+      "role": "coverage",
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "mixed_chunked_and_decode_global": {
+      "max_abs_diff": 0.015625,
+      "mean_abs_diff": 0.00011595784286074734,
+      "num_seqs": 4,
+      "bias_gain": 1.0,
+      "measurable_seqs": 3,
+      "signal_mean": 0.005052626132965088,
+      "signal_over_tol": 10.105252265930176,
+      "can_detect_dropped_bias": true,
+      "per_seq": [
+        {
+          "seq": 0,
+          "T_q": 200,
+          "ctx": 0,
+          "T_k": 200,
+          "offset_q": 0,
+          "max_abs_diff": 0.015625,
+          "mean_abs_diff": 0.00016293447697535157,
+          "signal_mean": 0.005052626132965088,
+          "signal_max": 0.1875,
+          "signal_over_tol": 10.105252265930176,
+          "kv_tiles": 2,
+          "seqlen_k_mod_128": 72,
+          "seqlen_q_mod_128": 72
+        },
+        {
+          "seq": 1,
+          "T_q": 1,
+          "ctx": 900,
+          "T_k": 901,
+          "offset_q": 200,
+          "max_abs_diff": 0.00048828125,
+          "mean_abs_diff": 4.5761000365018845e-05,
+          "signal_mean": 0.010581783019006252,
+          "signal_max": 0.054443359375,
+          "signal_over_tol": 21.163566038012505,
+          "kv_tiles": 8,
+          "seqlen_k_mod_128": 5,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 2,
+          "T_q": 137,
+          "ctx": 1408,
+          "T_k": 1545,
+          "offset_q": 201,
+          "max_abs_diff": 0.00048828125,
+          "mean_abs_diff": 3.574745642254129e-05,
+          "signal_mean": 0.006755553185939789,
+          "signal_max": 0.06414794921875,
+          "signal_over_tol": 13.511106371879578,
+          "kv_tiles": 13,
+          "seqlen_k_mod_128": 9,
+          "seqlen_q_mod_128": 9
+        },
+        {
+          "seq": 3,
+          "T_q": 64,
+          "ctx": 63,
+          "T_k": 127,
+          "offset_q": 338,
+          "max_abs_diff": 0.00390625,
+          "mean_abs_diff": 0.0001419530453858897,
+          "signal_mean": 0.0,
+          "signal_max": 0.0,
+          "signal_over_tol": 0.0,
+          "kv_tiles": 1,
+          "seqlen_k_mod_128": 127,
+          "seqlen_q_mod_128": 64
+        }
+      ],
+      "shape": {
+        "T_q": [
+          200,
+          1,
+          137,
+          64
+        ],
+        "ctx": [
+          0,
+          900,
+          1408,
+          63
+        ],
+        "T_k": [
+          200,
+          901,
+          1545,
+          127
+        ],
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 512,
+        "window_left": null
+      },
+      "role": "coverage",
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "mixed_chunked_and_decode_swa": {
+      "max_abs_diff": 0.0234375,
+      "mean_abs_diff": 0.00015868363157073986,
+      "num_seqs": 4,
+      "bias_gain": 1.0,
+      "measurable_seqs": 3,
+      "signal_mean": 0.004930438008159399,
+      "signal_over_tol": 9.860876016318798,
+      "can_detect_dropped_bias": true,
+      "per_seq": [
+        {
+          "seq": 0,
+          "T_q": 200,
+          "ctx": 0,
+          "T_k": 200,
+          "offset_q": 0,
+          "max_abs_diff": 0.0234375,
+          "mean_abs_diff": 0.00022982966038398445,
+          "signal_mean": 0.004930438008159399,
+          "signal_max": 0.1571044921875,
+          "signal_over_tol": 9.860876016318798,
+          "kv_tiles": 2,
+          "seqlen_k_mod_128": 72,
+          "seqlen_q_mod_128": 72
+        },
+        {
+          "seq": 1,
+          "T_q": 1,
+          "ctx": 900,
+          "T_k": 901,
+          "offset_q": 200,
+          "max_abs_diff": 0.0009765625,
+          "mean_abs_diff": 6.307667354121804e-05,
+          "signal_mean": 0.018593939021229744,
+          "signal_max": 0.1240234375,
+          "signal_over_tol": 37.18787804245949,
+          "kv_tiles": 8,
+          "seqlen_k_mod_128": 5,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 2,
+          "T_q": 137,
+          "ctx": 1408,
+          "T_k": 1545,
+          "offset_q": 201,
+          "max_abs_diff": 0.0009765625,
+          "mean_abs_diff": 6.375560042215511e-05,
+          "signal_mean": 0.017863787710666656,
+          "signal_max": 0.133544921875,
+          "signal_over_tol": 35.72757542133331,
+          "kv_tiles": 13,
+          "seqlen_k_mod_128": 9,
+          "seqlen_q_mod_128": 9
+        },
+        {
+          "seq": 3,
+          "T_q": 64,
+          "ctx": 63,
+          "T_k": 127,
+          "offset_q": 338,
+          "max_abs_diff": 0.001953125,
+          "mean_abs_diff": 0.000141051466926001,
+          "signal_mean": 0.0,
+          "signal_max": 0.0,
+          "signal_over_tol": 0.0,
+          "kv_tiles": 1,
+          "seqlen_k_mod_128": 127,
+          "seqlen_q_mod_128": 64
+        }
+      ],
+      "shape": {
+        "T_q": [
+          200,
+          1,
+          137,
+          64
+        ],
+        "ctx": [
+          0,
+          900,
+          1408,
+          63
+        ],
+        "T_k": [
+          200,
+          901,
+          1545,
+          127
+        ],
+        "Hq": 8,
+        "Hkv": 2,
+        "rel_extent": 512,
+        "window_left": 511
+      },
+      "role": "coverage",
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "mixed_decode_batch_hq64": {
+      "max_abs_diff": 0.001953125,
+      "mean_abs_diff": 5.863111618964467e-05,
+      "num_seqs": 3,
+      "bias_gain": 1.0,
+      "measurable_seqs": 3,
+      "signal_mean": 0.0034857764840126038,
+      "signal_over_tol": 6.9715529680252075,
+      "can_detect_dropped_bias": true,
+      "per_seq": [
+        {
+          "seq": 0,
+          "T_q": 1,
+          "ctx": 4095,
+          "T_k": 4096,
+          "offset_q": 0,
+          "max_abs_diff": 0.000244140625,
+          "mean_abs_diff": 2.056991979770828e-05,
+          "signal_mean": 0.0034857764840126038,
+          "signal_max": 0.02374267578125,
+          "signal_over_tol": 6.9715529680252075,
+          "kv_tiles": 32,
+          "seqlen_k_mod_128": 0,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 1,
+          "T_q": 1,
+          "ctx": 2000,
+          "T_k": 2001,
+          "offset_q": 1,
+          "max_abs_diff": 0.00048828125,
+          "mean_abs_diff": 3.197906698915176e-05,
+          "signal_mean": 0.007180382497608662,
+          "signal_max": 0.0394287109375,
+          "signal_over_tol": 14.360764995217323,
+          "kv_tiles": 16,
+          "seqlen_k_mod_128": 81,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 2,
+          "T_q": 1,
+          "ctx": 129,
+          "T_k": 130,
+          "offset_q": 2,
+          "max_abs_diff": 0.001953125,
+          "mean_abs_diff": 0.00012334436178207397,
+          "signal_mean": 0.0038315276615321636,
+          "signal_max": 0.06396484375,
+          "signal_over_tol": 7.663055323064327,
+          "kv_tiles": 2,
+          "seqlen_k_mod_128": 2,
+          "seqlen_q_mod_128": 1
+        }
+      ],
+      "shape": {
+        "T_q": [
+          1,
+          1,
+          1
+        ],
+        "ctx": [
+          4095,
+          2000,
+          129
+        ],
+        "T_k": [
+          4096,
+          2001,
+          130
+        ],
+        "Hq": 64,
+        "Hkv": 8,
+        "rel_extent": 1024,
+        "window_left": null
+      },
+      "role": "coverage",
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "mixed_decode_batch_global_gain16": {
+      "max_abs_diff": 0.0078125,
+      "mean_abs_diff": 0.00014057185035198927,
+      "num_seqs": 4,
+      "bias_gain": 16.0,
+      "measurable_seqs": 4,
+      "signal_mean": 0.01556030660867691,
+      "signal_over_tol": 31.12061321735382,
+      "can_detect_dropped_bias": true,
+      "per_seq": [
+        {
+          "seq": 0,
+          "T_q": 1,
+          "ctx": 2047,
+          "T_k": 2048,
+          "offset_q": 0,
+          "max_abs_diff": 0.0078125,
+          "mean_abs_diff": 0.00018106726929545403,
+          "signal_mean": 0.5886167287826538,
+          "signal_max": 2.5838623046875,
+          "signal_over_tol": 1177.2334575653076,
+          "kv_tiles": 16,
+          "seqlen_k_mod_128": 0,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 1,
+          "T_q": 1,
+          "ctx": 1000,
+          "T_k": 1001,
+          "offset_q": 1,
+          "max_abs_diff": 0.0078125,
+          "mean_abs_diff": 0.00019333139061927795,
+          "signal_mean": 0.5658904314041138,
+          "signal_max": 3.678924560546875,
+          "signal_over_tol": 1131.7808628082275,
+          "kv_tiles": 8,
+          "seqlen_k_mod_128": 105,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 2,
+          "T_q": 1,
+          "ctx": 137,
+          "T_k": 138,
+          "offset_q": 2,
+          "max_abs_diff": 0.0078125,
+          "mean_abs_diff": 0.00010368973016738892,
+          "signal_mean": 0.01556030660867691,
+          "signal_max": 0.4375,
+          "signal_over_tol": 31.12061321735382,
+          "kv_tiles": 2,
+          "seqlen_k_mod_128": 10,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 3,
+          "T_q": 1,
+          "ctx": 4095,
+          "T_k": 4096,
+          "offset_q": 3,
+          "max_abs_diff": 0.0078125,
+          "mean_abs_diff": 8.419901132583618e-05,
+          "signal_mean": 0.6065007448196411,
+          "signal_max": 4.31005859375,
+          "signal_over_tol": 1213.0014896392822,
+          "kv_tiles": 32,
+          "seqlen_k_mod_128": 0,
+          "seqlen_q_mod_128": 1
+        }
+      ],
+      "shape": {
+        "T_q": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "ctx": [
+          2047,
+          1000,
+          137,
+          4095
+        ],
+        "T_k": [
+          2048,
+          1001,
+          138,
+          4096
+        ],
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 1024,
+        "window_left": null
+      },
+      "role": "coverage",
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "mixed_decode_batch_swa_gain16": {
+      "max_abs_diff": 0.015625,
+      "mean_abs_diff": 0.00014293845742940903,
+      "num_seqs": 4,
+      "bias_gain": 16.0,
+      "measurable_seqs": 4,
+      "signal_mean": 0.0034465491771698,
+      "signal_over_tol": 6.8930983543396,
+      "can_detect_dropped_bias": true,
+      "per_seq": [
+        {
+          "seq": 0,
+          "T_q": 1,
+          "ctx": 2047,
+          "T_k": 2048,
+          "offset_q": 0,
+          "max_abs_diff": 0.0078125,
+          "mean_abs_diff": 0.00014967843890190125,
+          "signal_mean": 0.603445291519165,
+          "signal_max": 4.7908935546875,
+          "signal_over_tol": 1206.89058303833,
+          "kv_tiles": 16,
+          "seqlen_k_mod_128": 0,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 1,
+          "T_q": 1,
+          "ctx": 1000,
+          "T_k": 1001,
+          "offset_q": 1,
+          "max_abs_diff": 0.00390625,
+          "mean_abs_diff": 0.00012373924255371094,
+          "signal_mean": 0.5213608741760254,
+          "signal_max": 3.15625,
+          "signal_over_tol": 1042.7217483520508,
+          "kv_tiles": 8,
+          "seqlen_k_mod_128": 105,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 2,
+          "T_q": 1,
+          "ctx": 137,
+          "T_k": 138,
+          "offset_q": 2,
+          "max_abs_diff": 0.015625,
+          "mean_abs_diff": 0.00014893710613250732,
+          "signal_mean": 0.0034465491771698,
+          "signal_max": 0.07421875,
+          "signal_over_tol": 6.8930983543396,
+          "kv_tiles": 2,
+          "seqlen_k_mod_128": 10,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 3,
+          "T_q": 1,
+          "ctx": 4095,
+          "T_k": 4096,
+          "offset_q": 3,
+          "max_abs_diff": 0.0078125,
+          "mean_abs_diff": 0.0001493990421295166,
+          "signal_mean": 0.6015833020210266,
+          "signal_max": 3.16650390625,
+          "signal_over_tol": 1203.1666040420532,
+          "kv_tiles": 32,
+          "seqlen_k_mod_128": 0,
+          "seqlen_q_mod_128": 1
+        }
+      ],
+      "shape": {
+        "T_q": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "ctx": [
+          2047,
+          1000,
+          137,
+          4095
+        ],
+        "T_k": [
+          2048,
+          1001,
+          138,
+          4096
+        ],
+        "Hq": 8,
+        "Hkv": 2,
+        "rel_extent": 512,
+        "window_left": 511
+      },
+      "role": "coverage",
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    },
+    "mixed_chunked_and_decode_global_gain16": {
+      "max_abs_diff": 0.015625,
+      "mean_abs_diff": 0.00014677837758037766,
+      "num_seqs": 4,
+      "bias_gain": 16.0,
+      "measurable_seqs": 3,
+      "signal_mean": 0.06731634587049484,
+      "signal_over_tol": 134.63269174098969,
+      "can_detect_dropped_bias": true,
+      "per_seq": [
+        {
+          "seq": 0,
+          "T_q": 200,
+          "ctx": 0,
+          "T_k": 200,
+          "offset_q": 0,
+          "max_abs_diff": 0.015625,
+          "mean_abs_diff": 0.00014479257515631616,
+          "signal_mean": 0.06731634587049484,
+          "signal_max": 5.6875,
+          "signal_over_tol": 134.63269174098969,
+          "kv_tiles": 2,
+          "seqlen_k_mod_128": 72,
+          "seqlen_q_mod_128": 72
+        },
+        {
+          "seq": 1,
+          "T_q": 1,
+          "ctx": 900,
+          "T_k": 901,
+          "offset_q": 200,
+          "max_abs_diff": 0.0078125,
+          "mean_abs_diff": 0.00014915317296981812,
+          "signal_mean": 0.5798244476318359,
+          "signal_max": 2.654052734375,
+          "signal_over_tol": 1159.6488952636719,
+          "kv_tiles": 8,
+          "seqlen_k_mod_128": 5,
+          "seqlen_q_mod_128": 1
+        },
+        {
+          "seq": 2,
+          "T_q": 137,
+          "ctx": 1408,
+          "T_k": 1545,
+          "offset_q": 201,
+          "max_abs_diff": 0.015625,
+          "mean_abs_diff": 0.00015170505503192544,
+          "signal_mean": 0.5800427794456482,
+          "signal_max": 4.3414306640625,
+          "signal_over_tol": 1160.0855588912964,
+          "kv_tiles": 13,
+          "seqlen_k_mod_128": 9,
+          "seqlen_q_mod_128": 9
+        },
+        {
+          "seq": 3,
+          "T_q": 64,
+          "ctx": 63,
+          "T_k": 127,
+          "offset_q": 338,
+          "max_abs_diff": 0.015625,
+          "mean_abs_diff": 0.00014240073505789042,
+          "signal_mean": 0.0,
+          "signal_max": 0.0,
+          "signal_over_tol": 0.0,
+          "kv_tiles": 1,
+          "seqlen_k_mod_128": 127,
+          "seqlen_q_mod_128": 64
+        }
+      ],
+      "shape": {
+        "T_q": [
+          200,
+          1,
+          137,
+          64
+        ],
+        "ctx": [
+          0,
+          900,
+          1408,
+          63
+        ],
+        "T_k": [
+          200,
+          901,
+          1545,
+          127
+        ],
+        "Hq": 8,
+        "Hkv": 1,
+        "rel_extent": 512,
+        "window_left": null
+      },
+      "role": "coverage",
+      "within_tolerance": true,
+      "informative": true,
+      "pass": true
+    }
+  },
+  "passed": 12,
+  "ran": 12,
+  "total": 12,
+  "coverage_cases_without_power": 0,
+  "cases_able_to_detect_dropped_bias": 11,
+  "detection_note": "signal_mean is mean|correct - bias_reaching_only_the_oldest_kv_tile| at this shape, which is what a kernel that dropped the bias would score against the reference. Below tol_mean the case cannot fail on a missing bias, only on a numerically wrong one. Count the detectors, not the passes."
+}

@@ -1,0 +1,107 @@
+{
+  "device": "NVIDIA GeForce RTX 5090 Laptop GPU",
+  "compute_capability": "12.0",
+  "torch_version": "2.11.0+cu130",
+  "cuda_version": "13.0",
+  "passed": 0,
+  "total": 16,
+  "summary": "0/16 cases bit-exact",
+  "cases": {
+    "prefill_global_multi": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    },
+    "prefill_swa_multi": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    },
+    "prefill_global_logscale": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    },
+    "chunked_global": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    },
+    "chunked_swa": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    },
+    "chunked_block_aligned_ctx": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    },
+    "ext128_global": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    },
+    "ext1024_swa": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    },
+    "throughput_path_global": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    },
+    "batched_form_global": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    },
+    "batched_form_swa": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    },
+    "fused_small_decode_global": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    },
+    "fused_small_decode_swa": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    },
+    "fused_tiled_mixed": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    },
+    "attention_consumes_global": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    },
+    "attention_consumes_swa": {
+      "pass": false,
+      "errors": [
+        "EXCEPTION ImportError: cannot import name 'RelShearSpec' from 'vllm.models.inkling.nvidia.ops.qkvr_prep' (/home/jaber/inkling-turbo/vllm/vllm/models/inkling/nvidia/ops/qkvr_prep.py)"
+      ]
+    }
+  }
+}

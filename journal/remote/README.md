@@ -4,7 +4,7 @@ Raw output from GPU sessions. Nothing here is edited after the fact. If a run
 failed, its artifact records the failure.
 
 Most numbers in [README.md](../../README.md) and [LEDGER.md](../../LEDGER.md)
-trace to a file in this directory. Five do not, and it is better to name them
+trace to a file in this directory. Six do not, and it is better to name them
 than to state a rule that is false:
 
 - the Nsight Compute percentages, because the `.ncu-rep` files are gitignored;
@@ -17,7 +17,21 @@ than to state a rule that is false:
   prose;
 - the `max 1.56e-2` per-op parity figure in LEDGER.md, journal session 25.
   `harness/parity_fa4_rel.py` prints its max error and writes no artifact, so
-  there is nothing here to re-parse.
+  there is nothing here to re-parse;
+- **every count from the local `sm_120` session of 2026-07-25**, which is
+  `local_sm120_s29/` below. That directory exists and its three files are
+  **zero bytes**. This is the worst shape a weak-class number can take, because
+  the directory looks like an artifact set from the outside and a reader who does
+  not open the files will cite it as strong class. It is named here so that
+  cannot happen quietly.
+
+  **Superseded the same day, and s29 is deliberately left as it is.**
+  `local_sm120_s30/` holds real 4 KB to 27 KB artifacts from a re-run on the same
+  laptop, so the `sm_120` counts are strong class from that directory onward. The
+  s29 directory keeps its empty files rather than being backfilled or deleted,
+  because the incident is the record: a `wsl.exe -- cat > file` redirection
+  reported success and wrote nothing, and a future reader checking whether this
+  list is honest should be able to see the empty blobs.
 
 Those are journal-only: a number read off a tool and written down, with no
 machine-readable record to re-parse. Everything else is here.
@@ -60,10 +74,13 @@ our kernel. The filename does not tell you which; the session column below does.
 | `microbench_attn_day0_native_sm90_session24.json` | 1x H100 SXM5 | Our kernel, session 24, torch cu129 | The first native `sm_90` result, superseded as the headline by session 25 |
 | `microbench_attn_scoremod_session24.json` | 1x H100 SXM5 | Day-0 baselines, session 24 | The session-24 comparison |
 | `microbench_attn_scoremod_gpu_1x_h100_sxm5.json` | 1x H100 SXM5 | Byte-identical duplicate of the line above | Nothing. Redundant copy. |
-| `tune_sm80_a100.json` | A100 SXM4 40GB | Tile sweep, three configurations. Parity-gated, but the gate ran `seqlen_q == seqlen_k` while the decode cases were timed at `T_q=1` against `T_k=65536`, and the generic kernel was wrong on the second family | The **decode** percentages it backed are **withdrawn**: [regression-ampere-tile-sweep.md](../regression-ampere-tile-sweep.md). It still backs the two prefill rows, which are 8192-on-8192 and unaffected, and the `tile_n=128` collapse. Note that all three configurations report the identical parity max diff to sixteen digits, `:4`, `:13`, `:22` |
+| `tune_sm80_a100.json` | A100 SXM4 40GB **claimed, unverifiable**: the file records no device, capability or torch version, because it predates those fields being written | Tile sweep, three configurations, one sample per cell. Parity-gated, but the gate ran `seqlen_q == seqlen_k` at `Hq == Hkv` while the decode cases were timed at `T_q=1` against `T_k=65536` at `Hq=64` over `Hkv=8`, and the generic kernel was wrong on both of those axes | The percentages it backed are **withdrawn, and as of 2026-07-25 refuted**: `validate_a100x1_s31/` re-ran it on verified Ampere and the same configuration moved by up to 27.6% between runs while the configurations differ by at most 7.2%, so one sample per cell cannot rank them. [regression-ampere-tile-sweep.md](../regression-ampere-tile-sweep.md). The `tile_n=128` collapse reproduces in both runs and survives. The identical parity max diff across all three configurations, `:4`, `:13`, `:22`, is now explained rather than merely noted: the output is bf16, so one ULP is ~6e-3 relative against a ~1e-6 reduction-order perturbation, and the metric saturates on output quantization |
 | `gate_logit_parity_8xh100.json` | 8x H100, TP8 | Full-model gate: 32 prompts, stock build against ours, plus both same-build controls. Read the `parity` block and the `batch_consistency` block as different measurements: `parity` ran `max_tokens=0` with `echo=True`, so its 2369 positions are echoed **prompt** tokens and nothing was generated, while each `batch_consistency` side ran `max_tokens=32`, so 128 of its 348 positions are generated tokens. The script in the working tree has since been rewritten to add a cross-build decode comparison and to emit `parity_prompt_echo` and `parity_decode` instead of `parity`; **this file predates that and no run of the new form exists** | The 32/32 token match **on prompt positions only**, and the logprob gate recorded as a fail |
 | `microbench_attn_day0_gpu_1x_h100_sxm5.json` | 1x H100 SXM5 | Session 1. Every attention case errored on a toolchain break; only `gate_select` produced a number | Nothing about attention. Kept as the record of the first drift failure. |
 | `microbench_attn_day0_sm100.json` | 1x H100 SXM5, **not sm_100** | Session 3, the `rel_bias` path before we knew it was silently returning plain attention | **Nothing. These numbers are retracted.** The correction is in [u2-hopper-design.md](../u2-hopper-design.md#correction-2026-07-18-post-static-analysis-supersedes-design-a). The filename is wrong and predates the correction. |
+| `validate_a100x1_s31/` | A100-SXM4-40GB, `sm_80` capability (8,0) **asserted**, Modal, 0.216 h, $0.99, 2026-07-25 | The first correctness result on Ampere for anything other than single-sequence full prefill. Nine steps: `parity_rel_chunked_decode` 7/7 with per-case power 6.7x to 37.7x `TOL_MEAN`, `parity_rel_bias_coverage` 6/6, `parity_rel_varlen_batch` 11/12, `parity_fa4_rel` 3/3 on our arm, `parity_qkvr_prep` 5/5, and the tile sweep. Includes `run.log`, the full 62 KB transcript | **Strong.** The Ampere support claim's shape-family and batch-shape scope, the refutation of the withdrawn tile percentages (run-to-run drift 27.6% against a 7.2% between-config gap), the A100 hourly rate, and a `vllm_flash_attn` `mDynamicCausal` failure on `sm_80` that is upstream and not ours. Three steps are labelled FAIL and two of those are not failures of this project's kernel; the directory README says which |
+| `local_sm120_s30/` | RTX 5090 Laptop, `sm_120` capability 12.0, local, torch 2.11.0+cu130, 2026-07-25, $0.00 | The `pack_gqa` fix. `parity_rel_varlen_batch` **12/12**, `parity_rel_chunked_decode` 7/7 bit-identical to s29, `parity_rel_bias_coverage` 6/6. Also `parity_shear_fusion` 0/16, which is an `ImportError` for `RelShearSpec` in the local vLLM checkout and not a kernel result. **Supersedes `local_sm120_s29/` and its zero-byte files** | **Strong**, and it makes the `sm_120` counts strong class from here on. `parity_fa4_rel` 3/3 and `parity_qkvr_prep` 5/5 ran in the same session and write no JSON, so those two remain journal-only |
+| `local_sm120_s29/` | RTX 5090 Laptop, `sm_120` capability 12.0, local, torch 2.11.0+cu130, 2026-07-25 | **Three zero-byte files.** `git ls-tree -l HEAD journal/remote/local_sm120_s29/` reports the empty blob `e69de29` for `parity_rel_bias_coverage_sm120.json`, `parity_rel_chunked_decode_sm120.json` and `parity_rel_varlen_batch_sm120.json`. The session those filenames belong to did run, and it is the first execution of the generic kernel's corrected shear shift on any silicon, but nothing it measured landed in these files. `parity_fa4_rel` and `parity_qkvr_prep` ran in the same session and wrote nothing at all | **Nothing, as artifacts.** The results themselves are real and are **journal-only**, recorded in [regression-sm120-varlen-illegal-address.md](../regression-sm120-varlen-illegal-address.md): `parity_rel_chunked_decode` 7/7 with per-case signal 7.5x to 37.8x above tolerance, `parity_fa4_rel` 3/3, `parity_rel_bias_coverage` 6/6, `parity_qkvr_prep` 5/5, `parity_rel_varlen_batch` 1/12 with `cudaErrorIllegalAddress`. Re-running the session is free, because it runs on a laptop, and that is the fix |
 
 ## Session logs
 
