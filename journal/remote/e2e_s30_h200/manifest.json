@@ -1,0 +1,59 @@
+{
+  "app": "inkling-e2e-bench",
+  "started_utc": "2026-07-25T12:34:00Z",
+  "vllm_pin": "850295881041754184717804104fcaadd2b2129e",
+  "vllm_wheel": "https://wheels.vllm.ai/850295881041754184717804104fcaadd2b2129e/vllm-0.23.1rc1.dev1237%2Bg850295881-cp38-abi3-manylinux_2_28_x86_64.whl",
+  "cuda_image": "nvidia/cuda:13.0.1-devel-ubuntu24.04",
+  "model_repo": "thinkingmachines/Inkling-NVFP4",
+  "gpu": "H100:8",
+  "serve": {
+    "tensor_parallel_size": 8,
+    "max_model_len": 3072,
+    "gpu_memory_utilization": 0.94,
+    "enforce_eager": true,
+    "seed": 0,
+    "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"
+  },
+  "matrix": {
+    "builds": [
+      "ours"
+    ],
+    "mixes": [
+      {
+        "name": "prefill",
+        "input_len": 2048,
+        "output_len": 128
+      },
+      {
+        "name": "decode",
+        "input_len": 512,
+        "output_len": 1024
+      }
+    ],
+    "concurrencies": [
+      8
+    ],
+    "order_cheapest_first": [
+      {
+        "mix": "prefill",
+        "concurrency": 8,
+        "num_prompts": 32
+      },
+      {
+        "mix": "decode",
+        "concurrency": 8,
+        "num_prompts": 32
+      }
+    ],
+    "runs": 3,
+    "min_prompts": 16
+  },
+  "cost": {
+    "usd_per_hour": 39.1173,
+    "budget_usd": 200.0,
+    "prior_spend_usd_est": 122.33,
+    "hard_timeout_hours": 1.75,
+    "rates_quoted": "modal.com/pricing 2026-07-24"
+  },
+  "flag_evidence": "Verified against the pinned fork @850295881 (repo path vllm/):\n  benchmarks/benchmark_serving.py is a deprecated shim that exits 1; the\n  real entrypoint is `vllm bench serve`\n  (vllm/entrypoints/cli/benchmark/serve.py, class name = \"serve\").\n  vllm bench serve, vllm/benchmarks/serve.py:\n    --backend            1488\n    --base-url           1495\n    --max-concurrency    1519\n    --model              1533\n    --save-result        1625\n    --result-dir         1649\n    --result-filename    1656\n    --ignore-eos         1665\n    --percentile-metrics 1681\n    --metric-percentiles 1691\n    --served-model-name  1768\n    result path = result_dir/result_filename (compute_result_filename,\n    vllm/benchmarks/serve.py:1468-1475)\n  dataset flags, vllm/benchmarks/datasets/datasets.py:\n    --seed 1607, --num-prompts 1609, --dataset-name 1615,\n    --random-input-len 1931, --random-output-len 1937\n  vllm serve, vllm/engine/arg_utils.py:\n    --enforce-eager 838, --gpu-memory-utilization 1163\n  GET /health readiness:\n    vllm/entrypoints/serve/instrumentator/health.py:22\n"
+}

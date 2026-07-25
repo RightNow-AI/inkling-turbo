@@ -1,0 +1,12 @@
+{
+  "completed_runs": 4,
+  "skipped_existing": 0,
+  "failed_runs": 0,
+  "aborted_early": false,
+  "outcome": "exited without a final write",
+  "elapsed_hours": 0.49,
+  "spend_usd_est": 19.18,
+  "ledger_total_usd_est": 141.51,
+  "budget_usd": 200.0,
+  "results_root": "/results/bench_h200"
+}
