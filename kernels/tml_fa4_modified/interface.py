@@ -540,11 +540,21 @@ def _flash_attn_fwd(
             else:
                 fwd_cfg = FwdConfig(128, 64, True, True)
         elif arch // 10 == 8:
-            # A100-tuned (parity-gated sweep, harness/tune_sm80.py):
-            # decode-shaped calls run 10-18 percent faster at tile_n=32
-            # (5350 vs 5954 us b1/kv64k; 60.8 vs 74.4 ms 32-seq batched);
-            # SWA prefill prefers 64 (9.2 vs 10.6 ms). 128x128 collapses
-            # ~30x on sm_80 smem pressure - never select it here.
+            # A100 sweep, harness/tune_sm80.py. Read the two halves separately.
+            #
+            # STANDS: SWA prefill prefers 64 (9.2 vs 10.6 ms) and global prefill
+            # prefers 32 (10.7 vs 11.1 ms), both measured at 8192-on-8192, and
+            # 128x128 collapses 34x on sm_80 smem pressure (362.8 vs 10.7 ms on
+            # global prefill) - never select it here.
+            #
+            # WITHDRAWN 2026-07-25: the decode-shaped percentages that this
+            # comment used to state, and that are the reason the tile_n=32 branch
+            # below exists. tune_sm80.py timed decode shapes (T_q=1 against
+            # T_k=65536) while its parity_ok() passed one cu_seqlens as both
+            # cu_seqlens_q and cu_seqlens_k, so the gate checked
+            # seqlen_q == seqlen_k and this kernel was wrong on the family it
+            # timed. The branch is left as it is because no measurement supports
+            # changing it either. See journal/regression-ampere-tile-sweep.md.
             if max_seqlen_q is not None and max_seqlen_q <= 32:
                 fwd_cfg = FwdConfig(128, 32, True, True)
             else:
