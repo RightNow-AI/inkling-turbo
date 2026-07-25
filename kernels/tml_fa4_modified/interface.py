@@ -503,7 +503,24 @@ def _flash_attn_fwd(
         # Hq*padded == +1 seq row). Unpacked rows restore the sm_120-proven
         # contract. Packed-bias addressing is the documented perf follow-up.
         pack_gqa = False
-    
+    if arch // 10 in [8, 12] and rel_bias is not None:
+        # The generic kernel is constructed with pack_gqa=False below (sm_80 and
+        # sm_120 sites), so its m_block spans 128 query TOKENS and it derives
+        # the shear offset from n_block_max at that granularity. ShearingBias
+        # with pack_gqa=True packs qhead_per_kvhead heads into the row
+        # dimension, so ITS m_block spans 128 / qhead_per_kvhead tokens and it
+        # writes a different n_block_max per sub-group. Reader and writer then
+        # disagree by one 128-column block on every token sub-group whose
+        # causal right edge lands in an earlier KV block than the enclosing
+        # 128-token m_block's, which is every sub-group before the last
+        # whenever (seqlen_k - seqlen_q) % 128 != 0. Measured on a 5090:
+        # T_q=200 on ctx=1000, Hq=8, Hkv=1 mis-sheared query tokens 0..15 and
+        # 128..143 by +128 columns, which is the single_m_tail_chunked case of
+        # harness/parity_rel_varlen_batch.py. The same expression at
+        # seqlen_q == seqlen_k is exact, which is why every earlier gate was
+        # green. Sibling of journal/regression-sm90-bias-shift.md.
+        pack_gqa = False
+
     if pack_gqa:
         q_sf_interleaved = False
     qhead_per_kvhead_packgqa = qhead_per_kvhead if pack_gqa else 1
