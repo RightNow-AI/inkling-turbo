@@ -1,0 +1,1063 @@
+Note that running a local entrypoint in detached mode only keeps the last triggered Modal function alive after the parent process has been killed or disconnected.
+✓ Initialized. View run at 
+https://modal.com/apps/rightnow-ai/main/ap-lGTnjd4OGmXLWQU11eVtnu
+✓ Created objects.
+├── 🔨 Created mount 
+│   C:\Users\jaber\RightNow-Full\inkling\scripts\modal_e2e_bench.py
+├── 🔨 Created mount 
+│   C:\Users\jaber\RightNow-Full\inkling\kernels\patches\u2_shear_fusion.py
+├── 🔨 Created mount 
+│   C:\Users\jaber\RightNow-Full\inkling\kernels\patches\u3_fp8_kv.py
+├── 🔨 Created mount 
+│   C:\Users\jaber\RightNow-Full\inkling\kernels\relproj_score_mod.py
+├── 🔨 Created mount 
+│   C:\Users\jaber\RightNow-Full\inkling\kernels\patches\u2_serving_route.py
+├── 🔨 Created mount 
+│   C:\Users\jaber\RightNow-Full\inkling\kernels\tml_fa4_modified
+├── 🔨 Created mount C:\Users\jaber\RightNow-Full\inkling\harness
+├── 🔨 Created function download_model.
+├── 🔨 Created function run_bench.
+└── 🔨 Created function run_validate.
+=== COST ESTIMATE, validate (local) ===
+A100-40GB $2.0988/GPU-hr x 1 GPU + 8 cores + 32 GiB = $2.73/hr
+hard timeout 2h => worst case $5.46 for one container
+expected 30-60 min, dominated by CuTe DSL JIT compiles rather than by the kernels: about $1.37 to $2.73. This is an ESTIMATE, not a measurement.
+HARD CAP $200 total, enforced by the same spend ledger
+rates read from modal.com/pricing on 2026-07-24. VERIFY before spend, prices move. Modal may also apply a per-GPU resource floor above the requested cpu/memory, which would raise the real rate.
+no model Volume is mounted: every harness builds random tensors and calls the kernels directly, so the 552GB checkpoint is not needed.
+budget cap in effect: $200.00 (ledger-enforced)
+artifacts are committed to the inkling-bench-results Volume after EVERY step; a killed container costs at most one harness.
+
+>>> step: validate (1x H100, no model), patches='route'
+    'route' is EXACTLY what the 8x e2e bench deploys for its 'ours' build, so this run is the cheap health check that says whether the expensive one is worth starting.
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.0.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+=== COST ESTIMATE, validate (container) ===
+H100 $3.9492/GPU-hr x 1 GPU + 8 cores + 32 GiB = $4.58/hr
+hard timeout 2h => worst case $9.16 for one container
+expected 30-60 min, dominated by CuTe DSL JIT compiles rather than by the kernels: about $2.29 to $4.58. This is an ESTIMATE, not a measurement.
+HARD CAP $200 total, enforced by the same spend ledger
+rates read from modal.com/pricing on 2026-07-24. VERIFY before spend, prices move. Modal may also apply a per-GPU resource floor above the requested cpu/memory, which would raise the real rate.
+no model Volume is mounted: every harness builds random tensors and calls the kernels directly, so the 552GB checkpoint is not needed.
+LEDGER prior spend estimate: $141.68, remaining $58.32
+effective deadline: 1.95h from now (hard timeout 1.95h, budget 12.73h)
+results root for this run: /results/validate/modal_a10040gbx1_route
+BURN elapsed 0.00h | this container ~$0.00 | ledger total ~$141.68 of $200 | 117 min left
+
+=== STEP env_proof ===
+NVIDIA A100-SXM4-40GB, 40960 MiB, 580.95.05
+{
+  "torch": "2.11.0+cu130",
+  "torch_cuda": "13.0",
+  "device_name": "NVIDIA A100-SXM4-40GB",
+  "capability": [
+    8,
+    0
+  ],
+  "sm_count": 108,
+  "total_memory_gb": 42.4,
+  "device_count": 1,
+  "vllm": "0.23.1rc1.dev1237+g850295881.precompiled",
+  "nvidia_cutlass_dsl": "4.6.0"
+}
+PERSISTED /results/validate/modal_a10040gbx1_route/env_modal_a10040gbx1_route.json
+vllm root: /opt/vllm
+resolved tml_fa4 package dir: /opt/vllm/vllm/third_party/tml_fa4
+stock backup created: /opt/inkling/tml_fa4_stock (40 files) + /opt/inkling/fa4_rel_attention.stock.py
+stock nvidia backup created: /opt/inkling/inkling_nvidia_stock (19 files)
+RESTORE_STOCK_OPS 19 files -> /opt/vllm/vllm/models/inkling/nvidia
+DEPLOY_CHECK pkg=/opt/vllm/vllm/third_party/tml_fa4
+DEPLOY_CHECK files=flash_fwd.py:739fb92a flash_fwd_sm90.py:5490c64d interface.py:f7e72e54
+PATCH_TARGET source-tree=/opt/vllm/vllm/third_party/tml_fa4 imported=/opt/vllm/vllm/third_party/tml_fa4 same=True
++ /usr/local/bin/python3 /opt/inkling/u2_serving_route.py /opt/vllm
+serving route applied: sm_90/sm_120 -> tml-fa4 sheared path
+PATCH_ABSENT u3_quantize_kv=confirmed-absent
+PATCH_ABSENT u2_shear_relshearspec=confirmed-absent
+PATCH_CHECK u2_serving_route=True (/opt/vllm/vllm/models/inkling/nvidia/ops/fa4_rel_attention.py)
+staged 16 harness files -> /tmp/inkling_validate/harness
+staged: microbench_attn_day0.py microbench_attn_scoremod.py parity_fa4_rel.py parity_gate_select.py parity_kv_fp8.py parity_qkvr_prep.py parity_rel_bias_coverage.py parity_rel_chunked_decode.py parity_rel_paged.py parity_rel_varlen_batch.py parity_shear_fusion.py parity_shear_writer.py parity_swiglu_sink.py repro_sm120_varlen_illegal_address.py repro_u2.py tune_sm80.py
+BURN elapsed 0.01h | this container ~$0.04 | ledger total ~$141.72 of $200 | 117 min left
+PERSISTED /results/validate/modal_a10040gbx1_route/manifest.json
+patch set 'route': dropping 4 shear/u3-dependent steps: ['parity_shear_fusion', 'parity_kv_fp8', 'microbench_ours_attn_shearfusion_ON', 'microbench_presheared_and_splitkv']
+A100-40GB: added step parity_rel_varlen_batch
+A100-40GB: added step parity_rel_bias_coverage
+A100-40GB: added step tune_sm80
+
+=== STEP parity_fa4_rel === env: (none)
+    cwd=/tmp/inkling_validate/harness cmd=/usr/local/bin/python3 parity_fa4_rel.py
+    timeout=116.5 min (remaining budget)
+device: NVIDIA A100-SXM4-40GB, capability (8, 0)
+[global_short] tml_fa4_rel_bias: max_diff=7.8125e-03 mean=1.9599e-04 OK
+[global_short] score_mod: FAILED: NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+[global_short] relproj_v1: FAILED: NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+[global_beyond_extent] tml_fa4_rel_bias: max_diff=7.8125e-03 mean=6.7980e-05 OK
+[global_beyond_extent] score_mod: FAILED: NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+[global_beyond_extent] relproj_v1: FAILED: NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+[swa_512] tml_fa4_rel_bias: max_diff=7.8125e-03 mean=7.9319e-05 OK
+[swa_512] score_mod: FAILED: NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+[swa_512] relproj_v1: FAILED: NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+
+PERSISTED /results/validate/modal_a10040gbx1_route/logs/parity_fa4_rel.log
+=== STEP parity_fa4_rel: FAIL rc=1 in 39.7s ===
+BURN elapsed 0.02h | this container ~$0.09 | ledger total ~$141.77 of $200 | 116 min left
+
+=== STEP parity_rel_chunked_decode === env: (none)
+    cwd=/tmp/inkling_validate/harness cmd=/usr/local/bin/python3 parity_rel_chunked_decode.py
+    timeout=115.7 min (remaining budget)
+device: NVIDIA A100-SXM4-40GB, capability (8, 0)
+tolerance: max <= 0.05, mean <= 0.0005
+
+[control_full_prefill] OK: max=7.8125e-03 mean=6.8168e-05 signal=1.886e-02 (37.7x TOL_MEAN)
+[chunked_global_128_on_1408] OK: max=4.8828e-04 mean=3.7134e-05 signal=8.971e-03 (17.9x TOL_MEAN)
+[chunked_global_256_on_768] OK: max=9.7656e-04 mean=4.6922e-05 signal=1.063e-02 (21.3x TOL_MEAN)
+[decode_global_ctx2047] OK: max=2.4414e-04 mean=2.8564e-05 signal=6.212e-03 (12.4x TOL_MEAN)
+[decode_global_ctx4095] OK: max=2.4414e-04 mean=2.0370e-05 signal=3.350e-03 (6.7x TOL_MEAN)
+[decode_swa_ctx4095] OK: max=4.8828e-04 mean=5.7560e-05 signal=1.496e-02 (29.9x TOL_MEAN)
+[chunked_swa_128_on_1408] OK: max=9.7656e-04 mean=6.3586e-05 signal=1.795e-02 (35.9x TOL_MEAN)
+
+7/7 cases pass (within tolerance AND able to have failed)
+saved: /tmp/inkling_validate/harness/parity_rel_chunked_decode_sm80.json
+
+PERSISTED /results/validate/modal_a10040gbx1_route/logs/parity_rel_chunked_decode.log
+ARTIFACT MISSING: /tmp/inkling_validate/harness/parity_rel_chunked_decode_sm90.json
+=== STEP parity_rel_chunked_decode: FAIL rc=0 in 64.9s ===
+BURN elapsed 0.04h | this container ~$0.18 | ledger total ~$141.86 of $200 | 115 min left
+
+=== STEP parity_qkvr_prep === env: (none)
+    cwd=/tmp/inkling_validate/harness cmd=/usr/local/bin/python3 parity_qkvr_prep.py
+    timeout=114.6 min (remaining budget)
+device: NVIDIA A100-SXM4-40GB
+[prefill_single_local] OK
+[prefill_multi_global] OK
+[decode_steps_local] OK
+[chunked_continue_global] OK
+[tiled_path_160tok] OK
+
+PERSISTED /results/validate/modal_a10040gbx1_route/logs/parity_qkvr_prep.log
+=== STEP parity_qkvr_prep: PASS rc=0 in 21.9s ===
+BURN elapsed 0.05h | this container ~$0.22 | ledger total ~$142.04 of $200 | 114 min left
+
+=== STEP microbench_attn_scoremod === env: (none)
+    cwd=/tmp/inkling_validate/harness cmd=/usr/local/bin/python3 microbench_attn_scoremod.py
+    timeout=114.1 min (remaining budget)
+device: NVIDIA A100-SXM4-40GB, capability (8, 0)
+
+[prefill_global_8k] FAILED:
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 133, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 38, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 95, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2999, in flash_attn_varlen_func
+    return FlashAttnVarlenFunc.apply(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/torch/autograd/function.py", line 596, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2759, in forward
+    out, lse, p, row_max = _flash_attn_fwd(
+                           ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 722, in _flash_attn_fwd
+    raise NotImplementedError("Custom user-provided score_mod is not supported on SM8x architectures.")
+NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+
+[prefill_swa_8k] FAILED:
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 133, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 38, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 95, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2999, in flash_attn_varlen_func
+    return FlashAttnVarlenFunc.apply(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/torch/autograd/function.py", line 596, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2759, in forward
+    out, lse, p, row_max = _flash_attn_fwd(
+                           ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 722, in _flash_attn_fwd
+    raise NotImplementedError("Custom user-provided score_mod is not supported on SM8x architectures.")
+NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+
+[decode_b32_global_kv8k] FAILED:
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 133, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 38, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 95, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2999, in flash_attn_varlen_func
+    return FlashAttnVarlenFunc.apply(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/torch/autograd/function.py", line 596, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2759, in forward
+    out, lse, p, row_max = _flash_attn_fwd(
+                           ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 722, in _flash_attn_fwd
+    raise NotImplementedError("Custom user-provided score_mod is not supported on SM8x architectures.")
+NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+
+[decode_b32_global_kv64k] FAILED:
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 133, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 38, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 95, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2999, in flash_attn_varlen_func
+    return FlashAttnVarlenFunc.apply(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/torch/autograd/function.py", line 596, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2759, in forward
+    out, lse, p, row_max = _flash_attn_fwd(
+                           ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 722, in _flash_attn_fwd
+    raise NotImplementedError("Custom user-provided score_mod is not supported on SM8x architectures.")
+NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+
+[decode_b1_global_kv64k] FAILED:
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 133, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 38, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 95, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2999, in flash_attn_varlen_func
+    return FlashAttnVarlenFunc.apply(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/torch/autograd/function.py", line 596, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2759, in forward
+    out, lse, p, row_max = _flash_attn_fwd(
+                           ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 722, in _flash_attn_fwd
+    raise NotImplementedError("Custom user-provided score_mod is not supported on SM8x architectures.")
+NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py:2214: UserWarning: Argument aux_data (position 18) cannot be converted to a JitArgument for function 'cutlass___call___vllmvllm_flash_attncuteflash_fwdFlashAttentionForwardSm80_object_at__Tensorgmemoi64i641_Tensorgmemoi64i641_Tensorgmemoi64i641_Tensorgmemoi64i641_None_00078125_Tens'. Its type `<class 'vllm.vllm_flash_attn.cute.utils.AuxData'>` is not supported. If the value is known at compile time, annotate it: `aux_data: Constexpr`. Otherwise, implement the `JitArgument` or `DynamicExpression` protocol for type `<class 'vllm.vllm_flash_attn.cute.utils.AuxData'>`, or register a custom argument adapter.
+  exe_args, func_types, adapted_args = self.generate_mlir_function_types(
+
+[decode_b1_plain_kv64k] FAILED:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1855, in build_ir_module
+    result = funcBody(*ir_args, **ir_kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/flash_fwd.py", line 792, in __call__
+    ).launch(
+      ^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass.py", line 2171, in launch
+    ret, name = kernel_generator(*self.func_args, **self.func_kwargs, config=config)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 3023, in kernel_wrapper
+    kernel_ret = funcBody(*ir_args, **ir_kwargs)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/flash_fwd.py", line 840, in kernel
+    psc = mDynamicCausal[batch_size] if const_expr(mDynamicCausal is not None) else None
+                                                   ^^^^^^^^^^^^^^
+NameError: name 'mDynamicCausal' is not defined
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 133, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 38, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 156, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2999, in flash_attn_varlen_func
+    return FlashAttnVarlenFunc.apply(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/torch/autograd/function.py", line 596, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2759, in forward
+    out, lse, p, row_max = _flash_attn_fwd(
+                           ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 1171, in _flash_attn_fwd
+    _flash_attn_fwd.compile_cache[compile_key] = cute.compile(
+                                                 ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1250, in __call__
+    return self._compile(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1400, in _compile
+    return func._dsl_object._func(func, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2693, in _func_impl
+    result = self.generate_mlir(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2223, in generate_mlir
+    module, module_hash, result = self.generate_original_ir(
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1894, in generate_original_ir
+    module, result = build_ir_module()
+                     ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1870, in build_ir_module
+    raise DSLUserCodeError(
+cutlass.base_dsl.common.DSLUserCodeError: 
+[91m[1merror:[0m NameError in `__call__`: name 'mDynamicCausal' is not defined
+   [94m-->[0m /opt/vllm/vllm/vllm_flash_attn/cute/flash_fwd.py:840
+    |
+838 |         m_block, num_head, batch_size, _ = work_tile.tile_idx
+839 | 
+840 |         psc = mDynamicCausal[batch_size] if const_expr(mDynamicCausal is not None) else None
+    |         [91m^[0m
+  [94m= note:[0m Caused exception: name 'mDynamicCausal' is not defined
+  [92msuggestion:[0m Variables used inside staged control flow (for/if/while) must be defined before the
+              control flow region. Give the variable an initial value before the loop or branch.
+
+
+[decode_b32_plain_kv64k] FAILED:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1855, in build_ir_module
+    result = funcBody(*ir_args, **ir_kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/flash_fwd.py", line 792, in __call__
+    ).launch(
+      ^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cutlass_dsl/cutlass.py", line 2171, in launch
+    ret, name = kernel_generator(*self.func_args, **self.func_kwargs, config=config)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 3023, in kernel_wrapper
+    kernel_ret = funcBody(*ir_args, **ir_kwargs)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/flash_fwd.py", line 840, in kernel
+    psc = mDynamicCausal[batch_size] if const_expr(mDynamicCausal is not None) else None
+                                                   ^^^^^^^^^^^^^^
+NameError: name 'mDynamicCausal' is not defined
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 133, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 38, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 156, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2999, in flash_attn_varlen_func
+    return FlashAttnVarlenFunc.apply(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/torch/autograd/function.py", line 596, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2759, in forward
+    out, lse, p, row_max = _flash_attn_fwd(
+                           ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 1171, in _flash_attn_fwd
+    _flash_attn_fwd.compile_cache[compile_key] = cute.compile(
+                                                 ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1250, in __call__
+    return self._compile(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py", line 1400, in _compile
+    return func._dsl_object._func(func, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2680, in _func
+    return self._func_impl(funcBody, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2693, in _func_impl
+    result = self.generate_mlir(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 2223, in generate_mlir
+    module, module_hash, result = self.generate_original_ir(
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1894, in generate_original_ir
+    module, result = build_ir_module()
+                     ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py", line 1870, in build_ir_module
+    raise DSLUserCodeError(
+cutlass.base_dsl.common.DSLUserCodeError: 
+[91m[1merror:[0m NameError in `__call__`: name 'mDynamicCausal' is not defined
+   [94m-->[0m /opt/vllm/vllm/vllm_flash_attn/cute/flash_fwd.py:840
+    |
+838 |         m_block, num_head, batch_size, _ = work_tile.tile_idx
+839 | 
+840 |         psc = mDynamicCausal[batch_size] if const_expr(mDynamicCausal is not None) else None
+    |         [91m^[0m
+  [94m= note:[0m Caused exception: name 'mDynamicCausal' is not defined
+  [92msuggestion:[0m Variables used inside staged control flow (for/if/while) must be defined before the
+              control flow region. Give the variable an initial value before the loop or branch.
+
+
+[relproj_prefill_global_8k] FAILED:
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 133, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 38, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 95, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2999, in flash_attn_varlen_func
+    return FlashAttnVarlenFunc.apply(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/torch/autograd/function.py", line 596, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2759, in forward
+    out, lse, p, row_max = _flash_attn_fwd(
+                           ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 722, in _flash_attn_fwd
+    raise NotImplementedError("Custom user-provided score_mod is not supported on SM8x architectures.")
+NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+
+[relproj_decode_b32_kv64k] FAILED:
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 133, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 38, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 95, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2999, in flash_attn_varlen_func
+    return FlashAttnVarlenFunc.apply(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/torch/autograd/function.py", line 596, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2759, in forward
+    out, lse, p, row_max = _flash_attn_fwd(
+                           ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 722, in _flash_attn_fwd
+    raise NotImplementedError("Custom user-provided score_mod is not supported on SM8x architectures.")
+NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+
+[relproj_decode_b1_kv64k] FAILED:
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 133, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 38, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 95, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2999, in flash_attn_varlen_func
+    return FlashAttnVarlenFunc.apply(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/torch/autograd/function.py", line 596, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2759, in forward
+    out, lse, p, row_max = _flash_attn_fwd(
+                           ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 722, in _flash_attn_fwd
+    raise NotImplementedError("Custom user-provided score_mod is not supported on SM8x architectures.")
+NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+
+[relprojT_decode_b1_kv64k] FAILED:
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 133, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 38, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 95, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2999, in flash_attn_varlen_func
+    return FlashAttnVarlenFunc.apply(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/torch/autograd/function.py", line 596, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2759, in forward
+    out, lse, p, row_max = _flash_attn_fwd(
+                           ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 722, in _flash_attn_fwd
+    raise NotImplementedError("Custom user-provided score_mod is not supported on SM8x architectures.")
+NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+
+[relprojT_decode_b32_kv64k] FAILED:
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 133, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 38, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 95, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2999, in flash_attn_varlen_func
+    return FlashAttnVarlenFunc.apply(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/torch/autograd/function.py", line 596, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2759, in forward
+    out, lse, p, row_max = _flash_attn_fwd(
+                           ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 722, in _flash_attn_fwd
+    raise NotImplementedError("Custom user-provided score_mod is not supported on SM8x architectures.")
+NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+
+[relprojT_prefill_global_8k] FAILED:
+Traceback (most recent call last):
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 133, in main
+    profile_case(name, make())
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 38, in profile_case
+    fn()
+  File "/tmp/inkling_validate/harness/microbench_attn_scoremod.py", line 95, in fn
+    flash_attn_varlen_func(
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2999, in flash_attn_varlen_func
+    return FlashAttnVarlenFunc.apply(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/torch/autograd/function.py", line 596, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 2759, in forward
+    out, lse, p, row_max = _flash_attn_fwd(
+                           ^^^^^^^^^^^^^^^^
+  File "/opt/vllm/vllm/vllm_flash_attn/cute/interface.py", line 722, in _flash_attn_fwd
+    raise NotImplementedError("Custom user-provided score_mod is not supported on SM8x architectures.")
+NotImplementedError: Custom user-provided score_mod is not supported on SM8x architectures.
+
+saved: /tmp/inkling_validate/harness/microbench_attn_scoremod.json
+
+PERSISTED /results/validate/modal_a10040gbx1_route/logs/microbench_attn_scoremod.log
+PERSISTED microbench_attn_scoremod:microbench_attn_scoremod_modal_a10040gbx1_route.json -> /results/validate/modal_a10040gbx1_route/microbench_attn_scoremod_modal_a10040gbx1_route.json
+=== STEP microbench_attn_scoremod: PASS rc=0 in 16.6s ===
+BURN elapsed 0.05h | this container ~$0.25 | ledger total ~$142.07 of $200 | 114 min left
+
+=== STEP microbench_ours_attn_shearfusion_OFF === env: INKLING_TURBO_FUSED_SHEAR=0
+    cwd=/tmp/inkling_validate/harness cmd=/usr/local/bin/python3 microbench_attn_day0.py
+    timeout=113.7 min (remaining budget)
+device: NVIDIA A100-SXM4-40GB, capability (8, 0)
+/usr/local/lib/python3.12/site-packages/torch/profiler/profiler.py:224: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+
+[prefill_global_8k] total 11128.9 us/iter
+       9003.1 us   80.9%  kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwdFlashAttentionForwardSm80_object_at__
+       2119.7 us   19.0%  kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptr
+          3.2 us    0.0%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_
+          2.9 us    0.0%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_objec
+
+[prefill_swa_8k] total 9629.9 us/iter
+       8586.7 us   89.2%  kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwdFlashAttentionForwardSm80_object_at__
+       1037.7 us   10.8%  kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptr
+          2.8 us    0.0%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_
+          2.7 us    0.0%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_objec
+
+[decode_b32_global_kv8k] total 612.6 us/iter
+        593.8 us   96.9%  kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwdFlashAttentionForwardSm80_object_at__
+         12.8 us    2.1%  kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptr
+          3.1 us    0.5%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_objec
+          2.8 us    0.5%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_
+
+[decode_b32_global_kv64k] total 4691.7 us/iter
+       4672.5 us   99.6%  kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwdFlashAttentionForwardSm80_object_at__
+         13.1 us    0.3%  kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptr
+          3.1 us    0.1%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_objec
+          2.8 us    0.1%  kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_
+
+[decode_b1_global_kv64k] total 4646.8 us/iter
+       4640.0 us   99.9%  kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwdFlashAttentionForwardSm80_object_at__
+          6.9 us    0.1%  kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptr
+
+[decode_32seqs_global_kv8k] total 6548.0 us/iter
+       6538.0 us   99.8%  kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwdFlashAttentionForwardSm80_object_at__
+         10.0 us    0.2%  kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptr
+
+[decode_32seqs_global_kv64k] total 51564.9 us/iter
+      51554.6 us  100.0%  kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwdFlashAttentionForwardSm80_object_at__
+         10.3 us    0.0%  kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptr
+
+[gate_select_T1] total 7.3 us/iter
+          7.3 us  100.0%  _inkling_gate_select_kernel
+
+[gate_select_T4096] total 46.2 us/iter
+         46.2 us  100.0%  _inkling_gate_select_kernel
+
+saved: /tmp/inkling_validate/harness/microbench_attn_day0.json
+
+PERSISTED /results/validate/modal_a10040gbx1_route/logs/microbench_ours_attn_shearfusion_OFF.log
+PERSISTED microbench_ours_attn_shearfusion_OFF:microbench_ours_attn_shearfusion_OFF_modal_a10040gbx1_route.json -> /results/validate/modal_a10040gbx1_route/microbench_ours_attn_shearfusion_OFF_modal_a10040gbx1_route.json
+=== STEP microbench_ours_attn_shearfusion_OFF: PASS rc=0 in 72.6s ===
+BURN elapsed 0.08h | this container ~$0.35 | ledger total ~$142.17 of $200 | 112 min left
+
+=== STEP parity_rel_varlen_batch === env: (none)
+    cwd=/tmp/inkling_validate/harness cmd=/usr/local/bin/python3 parity_rel_varlen_batch.py
+    timeout=112.4 min (remaining budget)
+device: NVIDIA A100-SXM4-40GB, capability (8, 0)
+tolerance: max <= 0.05, mean <= 0.0005; a coverage case must also carry signal >= 4.0x TOL_MEAN
+
+[control_single_full_prefill] OK (control): max=7.8125e-03 mean=1.1072e-04 signal=1.184e-02 (23.7x TOL_MEAN)
+[multi_prefill_offset_only] OK (control): max=1.5625e-02 mean=1.7560e-04 signal=4.890e-04 (1.0x TOL_MEAN)  <-- NO POWER: cannot fail on a dropped bias
+[single_kv_tail_decode] OK (coverage): max=4.8828e-04 mean=4.1127e-05 signal=8.351e-03 (16.7x TOL_MEAN)
+[single_m_tail_chunked] FAIL (coverage): max=9.2529e-02 mean=1.9666e-03 signal=8.904e-03 (17.8x TOL_MEAN)
+    seq 0 offset_q=0 T_q=200 ctx=1000 T_k=1200: max=9.2529e-02 mean=1.9666e-03 signal=8.904e-03
+[mixed_decode_batch_global] OK (coverage): max=9.7656e-04 mean=5.3770e-05 signal=3.479e-03 (7.0x TOL_MEAN)
+[mixed_decode_batch_swa] OK (coverage): max=9.7656e-04 mean=8.0277e-05 signal=8.834e-03 (17.7x TOL_MEAN)
+[mixed_chunked_and_decode_global] OK (coverage): max=1.5625e-02 mean=1.1593e-04 signal=5.050e-03 (10.1x TOL_MEAN)
+[mixed_chunked_and_decode_swa] OK (coverage): max=7.8125e-03 mean=1.2630e-04 signal=4.824e-03 (9.6x TOL_MEAN)
+[mixed_decode_batch_hq64] OK (coverage): max=1.9531e-03 mean=5.7797e-05 signal=3.067e-03 (6.1x TOL_MEAN)
+[mixed_decode_batch_global_gain16] OK (coverage): max=1.5625e-02 mean=1.6194e-04 signal=1.466e-02 (29.3x TOL_MEAN)
+[mixed_decode_batch_swa_gain16] OK (coverage): max=7.8125e-03 mean=1.1036e-04 signal=2.070e-01 (414.1x TOL_MEAN)
+[mixed_chunked_and_decode_global_gain16] OK (coverage): max=1.5625e-02 mean=1.4726e-04 signal=6.729e-02 (134.6x TOL_MEAN)
+
+11/12 cases pass (0 skipped)
+11/12 cases could have failed if the bias were dropped entirely
+saved: /tmp/inkling_validate/harness/parity_rel_varlen_batch_sm80.json
+
+PERSISTED /results/validate/modal_a10040gbx1_route/logs/parity_rel_varlen_batch.log
+PERSISTED parity_rel_varlen_batch:parity_rel_varlen_batch_modal_a10040gbx1_route.json -> /results/validate/modal_a10040gbx1_route/parity_rel_varlen_batch_modal_a10040gbx1_route.json
+=== STEP parity_rel_varlen_batch: FAIL rc=1 in 64.3s ===
+BURN elapsed 0.10h | this container ~$0.44 | ledger total ~$142.26 of $200 | 111 min left
+
+=== STEP parity_rel_bias_coverage === env: (none)
+    cwd=/tmp/inkling_validate/harness cmd=/usr/local/bin/python3 parity_rel_bias_coverage.py
+    timeout=111.2 min (remaining budget)
+device: NVIDIA A100-SXM4-40GB, capability (8, 0)
+spike amplitude 8.0, response must clear 8.0x the measured zero-bias noise or 0.001
+
+[decode_extent_covers_all_kv] OK
+    oracle:  OK max=3.5501e-04 mean=6.6171e-05 | signal=1.256e-02 (25.1x TOL_MEAN, detector)
+    probe:   13/13 distances moved the output, kv tiles touched [0, 1, 2, 3, 4, 5, 6, 7]
+[decode_extent_covers_all_kv_swa] OK
+    oracle:  OK max=4.2669e-04 mean=8.5794e-05 | signal=1.322e-02 (26.4x TOL_MEAN, detector)
+    probe:   9/9 distances moved the output, kv tiles touched [0, 1, 2, 3]
+[chunked_extent_covers_all_kv] OK
+    oracle:  OK max=5.2615e-04 mean=6.6673e-05 | signal=1.212e-02 (24.2x TOL_MEAN, detector)
+    probe:   13/13 distances moved the output, kv tiles touched [0, 1, 2, 3, 4, 5, 6, 7]
+[negative_control_short_context] OK
+    oracle:  OK max=9.5132e-04 mean=1.7932e-04 | signal=0.000e+00 (0.0x TOL_MEAN, BLIND to a dropped bias at this shape, the probe below is the check that matters)
+    probe:   3/3 distances moved the output, kv tiles touched [0]
+    control: OK (4 distances expected quiet)
+[decode_b1_kv64k_production_geometry] OK
+    oracle:  OK max=4.1824e-05 mean=7.0605e-06 | signal=2.335e-04 (0.5x TOL_MEAN, BLIND to a dropped bias at this shape, the probe below is the check that matters)
+    probe:   13/13 distances moved the output, kv tiles touched [504, 505, 506, 507, 508, 509, 510, 511]
+[decode_b1_kv8k_production_geometry] OK
+    oracle:  OK max=1.3360e-04 mean=2.0377e-05 | signal=1.829e-03 (3.7x TOL_MEAN, BLIND to a dropped bias at this shape, the probe below is the check that matters)
+    probe:   13/13 distances moved the output, kv tiles touched [56, 57, 58, 59, 60, 61, 62, 63]
+
+6/6 cases pass
+saved: /tmp/inkling_validate/harness/parity_rel_bias_coverage_sm80.json
+
+PERSISTED /results/validate/modal_a10040gbx1_route/logs/parity_rel_bias_coverage.log
+PERSISTED parity_rel_bias_coverage:parity_rel_bias_coverage_modal_a10040gbx1_route.json -> /results/validate/modal_a10040gbx1_route/parity_rel_bias_coverage_modal_a10040gbx1_route.json
+=== STEP parity_rel_bias_coverage: PASS rc=0 in 45.8s ===
+BURN elapsed 0.11h | this container ~$0.50 | ledger total ~$142.32 of $200 | 110 min left
+
+=== STEP tune_sm80 === env: (none)
+    cwd=/tmp/inkling_validate/harness cmd=/usr/local/bin/python3 tune_sm80.py
+    timeout=110.4 min (remaining budget)
+device: NVIDIA A100-SXM4-40GB, capability (8, 0)
+    parity seqlen_q!=seqlen_k T_q=1 ctx=4095 ext=1024 win=None: max=2.441e-04
+    parity seqlen_q!=seqlen_k T_q=1 ctx=4095 ext=512 win=511: max=9.766e-04
+    parity seqlen_q!=seqlen_k T_q=128 ctx=1408 ext=1024 win=None: max=9.766e-04
+
+[tile128x32] parity max_diff=8.664e-03 OK
+  prefill_global_8k: 9943.2 us
+  prefill_swa_8k: 10664.8 us
+  decode_b1_global_kv64k: 4669.5 us
+  decode_32seqs_global_kv64k: 51393.7 us
+    parity seqlen_q!=seqlen_k T_q=1 ctx=4095 ext=1024 win=None: max=2.441e-04
+    parity seqlen_q!=seqlen_k T_q=1 ctx=4095 ext=512 win=511: max=9.766e-04
+    parity seqlen_q!=seqlen_k T_q=128 ctx=1408 ext=1024 win=None: max=9.766e-04
+
+[tile128x64] parity max_diff=8.664e-03 OK
+  prefill_global_8k: 10404.4 us
+  prefill_swa_8k: 10468.4 us
+  decode_b1_global_kv64k: 4356.3 us
+  decode_32seqs_global_kv64k: 53833.3 us
+    parity seqlen_q!=seqlen_k T_q=1 ctx=4095 ext=1024 win=None: max=2.441e-04
+    parity seqlen_q!=seqlen_k T_q=1 ctx=4095 ext=512 win=511: max=9.766e-04
+    parity seqlen_q!=seqlen_k T_q=128 ctx=1408 ext=1024 win=None: max=9.766e-04
+
+[tile128x128] parity max_diff=8.664e-03 OK
+  prefill_global_8k: 359001.7 us
+  prefill_swa_8k: 357130.5 us
+  decode_b1_global_kv64k: 129286.4 us
+  decode_32seqs_global_kv64k: 2816014.3 us
+
+=== winners ===
+  prefill_global_8k: tile128x32 @ 9943.2 us
+  prefill_swa_8k: tile128x64 @ 10468.4 us
+  decode_b1_global_kv64k: tile128x64 @ 4356.3 us
+  decode_32seqs_global_kv64k: tile128x32 @ 51393.7 us
+saved: /tmp/inkling_validate/harness/tune_sm80_sm80.json
+
+PERSISTED /results/validate/modal_a10040gbx1_route/logs/tune_sm80.log
+PERSISTED tune_sm80:tune_sm80_modal_a10040gbx1_route.json -> /results/validate/modal_a10040gbx1_route/tune_sm80_modal_a10040gbx1_route.json
+=== STEP tune_sm80: PASS rc=0 in 371.5s ===
+BURN elapsed 0.22h | this container ~$0.99 | ledger total ~$142.81 of $200 | 104 min left
+PERSISTED /results/validate/modal_a10040gbx1_route/summary.json
+
+=== VALIDATE SUMMARY ===
+step                                           verdict    rc     secs  detail
+{
+  "tag": "modal_a10040gbx1_route",
+  "steps": [
+    {
+      "step": "env_proof",
+      "verdict": "PASS",
+      "expect": "A100-40GB, capability (8, 0)",
+      "requested_gpu": "A100-40GB",
+      "capability": [
+        8,
+        0
+      ],
+      "arch_matches_request": true,
+      "nvidia_smi": "NVIDIA A100-SXM4-40GB, 40960 MiB, 580.95.05",
+      "torch": "2.11.0+cu130",
+      "torch_cuda": "13.0",
+      "device_name": "NVIDIA A100-SXM4-40GB",
+      "sm_count": 108,
+      "total_memory_gb": 42.4,
+      "device_count": 1,
+      "vllm": "0.23.1rc1.dev1237+g850295881.precompiled",
+      "nvidia_cutlass_dsl": "4.6.0"
+    },
+    {
+      "step": "setup",
+      "verdict": "PASS",
+      "tml_pkg": "/opt/vllm/vllm/third_party/tml_fa4",
+      "tml_source_tree_same": true,
+      "deployed": [
+        "flash_fwd.py:739fb92a",
+        "flash_fwd_sm90.py:5490c64d",
+        "interface.py:f7e72e54"
+      ],
+      "patch_set": "route",
+      "patch_order": [
+        "u2_serving_route.py"
+      ],
+      "patch_markers": {
+        "u2_serving_route": true
+      },
+      "patches_confirmed_absent": [
+        "u2_shear_relshearspec",
+        "u3_quantize_kv"
+      ]
+    },
+    {
+      "step": "parity_fa4_rel",
+      "cmd": "/usr/local/bin/python3 parity_fa4_rel.py",
+      "env": {},
+      "expect": "3/3 green for tml_fa4_rel_bias on the sm_90 native path (the harness also reports score_mod and our abandoned relproj prototype; it exits non-zero if any of the 9 case x backend checks fails)",
+      "verdict": "FAIL",
+      "seconds": 39.7,
+      "rc": 1,
+      "lines_ok": 3,
+      "lines_fail": 6,
+      "lines_skip": 0
+    },
+    {
+      "step": "parity_rel_chunked_decode",
+      "cmd": "/usr/local/bin/python3 parity_rel_chunked_decode.py",
+      "env": {},
+      "expect": "7/7. control_full_prefill must pass either way; the chunked_* and decode_* cases FAIL before the n_block_max fix and pass after it. Before the fix, decode got bias on 1 of 512 KV blocks and it was the oldest one.",
+      "verdict": "FAIL",
+      "seconds": 64.9,
+      "rc": 0,
+      "lines_ok": 0,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "missing_artifacts": [
+        "parity_rel_chunked_decode_sm90.json"
+      ]
+    },
+    {
+      "step": "parity_qkvr_prep",
+      "cmd": "/usr/local/bin/python3 parity_qkvr_prep.py",
+      "env": {},
+      "expect": "5/5. Regression gate: the DEFAULT qkvr_prep path must behave identically after u3 and u2 have both rewritten this file.",
+      "verdict": "PASS",
+      "seconds": 21.9,
+      "rc": 0,
+      "lines_ok": 5,
+      "lines_fail": 0,
+      "lines_skip": 0
+    },
+    {
+      "step": "microbench_attn_scoremod",
+      "cmd": "/usr/local/bin/python3 microbench_attn_scoremod.py",
+      "env": {},
+      "expect": "day-0 baseline. score_mod is the ONLY day-0 path; relproj and relprojT in this JSON are OUR abandoned prototypes.",
+      "verdict": "PASS",
+      "seconds": 16.6,
+      "rc": 0,
+      "lines_ok": 0,
+      "lines_fail": 13,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "microbench_attn_scoremod_modal_a10040gbx1_route.json": {
+          "prefill_global_8k": null,
+          "prefill_swa_8k": null,
+          "decode_b32_global_kv8k": null,
+          "decode_b32_global_kv64k": null,
+          "decode_b1_global_kv64k": null,
+          "decode_b1_plain_kv64k": null,
+          "decode_b32_plain_kv64k": null,
+          "relproj_prefill_global_8k": null,
+          "relproj_decode_b32_kv64k": null,
+          "relproj_decode_b1_kv64k": null,
+          "relprojT_decode_b1_kv64k": null,
+          "relprojT_decode_b32_kv64k": null,
+          "relprojT_prefill_global_8k": null
+        }
+      },
+      "artifacts": [
+        "microbench_attn_scoremod_modal_a10040gbx1_route.json"
+      ]
+    },
+    {
+      "step": "microbench_ours_attn_shearfusion_OFF",
+      "cmd": "/usr/local/bin/python3 microbench_attn_day0.py",
+      "env": {
+        "INKLING_TURBO_FUSED_SHEAR": "0"
+      },
+      "expect": "reproduces session 25 (decode b1 64K 852.6, b32 64K 854.8, b32 8K 124.1, prefill global 3308.8, prefill SWA 1223.0 us/iter on one H100 SXM5)",
+      "verdict": "PASS",
+      "seconds": 72.6,
+      "rc": 0,
+      "lines_ok": 0,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "microbench_ours_attn_shearfusion_OFF_modal_a10040gbx1_route.json": {
+          "prefill_global_8k": 11128.9,
+          "prefill_swa_8k": 9629.9,
+          "decode_b32_global_kv8k": 612.6,
+          "decode_b32_global_kv64k": 4691.7,
+          "decode_b1_global_kv64k": 4646.8,
+          "decode_32seqs_global_kv8k": 6548.0,
+          "decode_32seqs_global_kv64k": 51564.9,
+          "gate_select_T1": 7.3,
+          "gate_select_T4096": 46.2
+        }
+      },
+      "artifacts": [
+        "microbench_ours_attn_shearfusion_OFF_modal_a10040gbx1_route.json"
+      ]
+    },
+    {
+      "step": "parity_rel_varlen_batch",
+      "cmd": "/usr/local/bin/python3 parity_rel_varlen_batch.py",
+      "env": {},
+      "expect": "11/12 expected, matching sm_120. The multi-sequence varlen crash was fixed by bounding the unpredicated bias copy; this is the first execution of that fix on sm_80.",
+      "verdict": "FAIL",
+      "seconds": 64.3,
+      "rc": 1,
+      "lines_ok": 0,
+      "lines_fail": 1,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "parity_rel_varlen_batch_modal_a10040gbx1_route.json": {
+          "device": null,
+          "compute_capability": null,
+          "torch_version": null,
+          "cuda_version": null,
+          "tol_max": null,
+          "tol_mean": null,
+          "signal_margin": null,
+          "kv_tile": null,
+          "cases": null,
+          "passed": null,
+          "ran": null,
+          "total": null,
+          "coverage_cases_without_power": null,
+          "cases_able_to_detect_dropped_bias": null,
+          "detection_note": null
+        }
+      },
+      "artifacts": [
+        "parity_rel_varlen_batch_modal_a10040gbx1_route.json"
+      ]
+    },
+    {
+      "step": "parity_rel_bias_coverage",
+      "cmd": "/usr/local/bin/python3 parity_rel_bias_coverage.py",
+      "env": {},
+      "expect": "6/6. Its probe, not its oracle, is the discriminating check at decode depth.",
+      "verdict": "PASS",
+      "seconds": 45.8,
+      "rc": 0,
+      "lines_ok": 6,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "parity_rel_bias_coverage_modal_a10040gbx1_route.json": {
+          "device": null,
+          "compute_capability": null,
+          "torch_version": null,
+          "cuda_version": null,
+          "kv_tile": null,
+          "spike_amplitude": null,
+          "response_noise_factor": null,
+          "response_floor": null,
+          "tol_max": null,
+          "tol_mean": null,
+          "cases": null,
+          "passed": null,
+          "total": null
+        }
+      },
+      "artifacts": [
+        "parity_rel_bias_coverage_modal_a10040gbx1_route.json"
+      ]
+    },
+    {
+      "step": "tune_sm80",
+      "cmd": "/usr/local/bin/python3 tune_sm80.py",
+      "env": {},
+      "expect": "the tile sweep, with a parity_ok that now covers the seqlen_q != seqlen_k family it times. Green here is the precondition for un-withdrawing 10.1% and 18.2%.",
+      "verdict": "PASS",
+      "seconds": 371.5,
+      "rc": 0,
+      "lines_ok": 3,
+      "lines_fail": 0,
+      "lines_skip": 0,
+      "totals_us_per_iter": {
+        "tune_sm80_modal_a10040gbx1_route.json": {
+          "device": null,
+          "compute_capability": null,
+          "torch_version": null,
+          "cuda_version": null,
+          "results": null,
+          "best": null
+        }
+      },
+      "artifacts": [
+        "tune_sm80_modal_a10040gbx1_route.json"
+      ]
+    }
+  ],
+  "passed": [
+    "env_proof",
+    "setup",
+    "parity_qkvr_prep",
+    "microbench_attn_scoremod",
+    "microbench_ours_attn_shearfusion_OFF",
+    "parity_rel_bias_coverage",
+    "tune_sm80"
+  ],
+  "failed": [
+    "parity_fa4_rel",
+    "parity_rel_chunked_decode",
+    "parity_rel_varlen_batch"
+  ],
+  "not_run": [],
+  "elapsed_hours": 0.216,
+  "spend_usd_est": 0.99,
+  "ledger_total_usd_est": 142.81,
+  "budget_usd": 200.0,
+  "results_root": "/results/validate/modal_a10040gbx1_route",
+  "caveats": {
+    "fused_shear_env_var": "INKLING_TURBO_FUSED_SHEAR does NOT change what microbench_attn_day0.py measures. That harness calls tml-fa4 directly with rel_bias=<natural layout>, so ShearingBias still runs inside the timed region. The env var is read only by fa4_rel_attention.use_fused_shear, on the vLLM serving path, and it additionally requires _use_sheared_bias(), which is false on sm_90 unless u2_serving_route.py is applied (it is NOT applied here). Expect the fusion_on and fusion_off JSONs to agree within noise. The measurement that actually isolates the removed pre-kernel is the presheared_* section of the generated extra_microbench.py.",
+    "qkvr_writer_cost": "MEASURED by the writer_* section of extra_microbench.py. The fused writer emits rel_extent + 256 columns instead of rel_extent, so it is strictly more work than the natural writer and the fusion only pays if that extra cost is smaller than the ShearingBias launch it removes. The verdict on any shape is writer_*.writer_delta_us_per_iter against presheared_*.saved_us_per_iter_vs_natural. Quoting either section on its own overstates the fusion.",
+    "artifact_names": "microbench_attn_day0_*.json holds OUR numbers, not day-0 ones. The harness times whatever tml_fa4 resolves to, which here is our build. The actual day-0 baseline is microbench_attn_scoremod_*.json. The file name is historical and this repo has already published one wrong headline by confusing our own code for a baseline.",
+    "parity_fa4_rel_verdict": "parity_fa4_rel's PASS/FAIL is rc-based, and the harness counts every non-tuple result including SKIP as a failure across all 9 case x backend combinations. A red verdict there may be the abandoned relproj_v1 prototype rather than the real tml_fa4_rel_bias gate. Read logs/parity_fa4_rel.log before concluding anything from it.",
+    "split_kv": "sm_90 split-KV has never run on Hopper. Any splitkv_* result here is its first execution."
+  }
+}
+
+fetch results:
+  modal volume get inkling-bench-results /validate ./validate_results
+env_proof                                      PASS        -        -  
+setup                                          PASS        -        -  
+parity_fa4_rel                                 FAIL        1     39.7  ok=3 fail=6 skip=0
+parity_rel_chunked_decode                      FAIL        0     64.9  ok=0 fail=0 skip=0; MISSING parity_rel_chunked_decode_sm90.json
+parity_qkvr_prep                               PASS        0     21.9  ok=5 fail=0 skip=0
+microbench_attn_scoremod                       PASS        0     16.6  ok=0 fail=13 skip=0
+microbench_ours_attn_shearfusion_OFF           PASS        0     72.6  ok=0 fail=0 skip=0
+parity_rel_varlen_batch                        FAIL        1     64.3  ok=0 fail=1 skip=0
+parity_rel_bias_coverage                       PASS        0     45.8  ok=6 fail=0 skip=0
+tune_sm80                                      PASS        0    371.5  ok=3 fail=0 skip=0
+
+measured totals (us/iter), per artifact:
+  microbench_attn_scoremod_modal_a10040gbx1_route.json
+    prefill_global_8k                            None
+    prefill_swa_8k                               None
+    decode_b32_global_kv8k                       None
+    decode_b32_global_kv64k                      None
+    decode_b1_global_kv64k                       None
+    decode_b1_plain_kv64k                        None
+    decode_b32_plain_kv64k                       None
+    relproj_prefill_global_8k                    None
+    relproj_decode_b32_kv64k                     None
+    relproj_decode_b1_kv64k                      None
+    relprojT_decode_b1_kv64k                     None
+    relprojT_decode_b32_kv64k                    None
+    relprojT_prefill_global_8k                   None
+  microbench_ours_attn_shearfusion_OFF_modal_a10040gbx1_route.json
+    prefill_global_8k                            11128.9
+    prefill_swa_8k                               9629.9
+    decode_b32_global_kv8k                       612.6
+    decode_b32_global_kv64k                      4691.7
+    decode_b1_global_kv64k                       4646.8
+    decode_32seqs_global_kv8k                    6548.0
+    decode_32seqs_global_kv64k                   51564.9
+    gate_select_T1                               7.3
+    gate_select_T4096                            46.2
+  parity_rel_varlen_batch_modal_a10040gbx1_route.json
+    device                                       None
+    compute_capability                           None
+    torch_version                                None
+    cuda_version                                 None
+    tol_max                                      None
+    tol_mean                                     None
+    signal_margin                                None
+    kv_tile                                      None
+    cases                                        None
+    passed                                       None
+    ran                                          None
+    total                                        None
+    coverage_cases_without_power                 None
+    cases_able_to_detect_dropped_bias            None
+    detection_note                               None
+  parity_rel_bias_coverage_modal_a10040gbx1_route.json
+    device                                       None
+    compute_capability                           None
+    torch_version                                None
+    cuda_version                                 None
+    kv_tile                                      None
+    spike_amplitude                              None
+    response_noise_factor                        None
+    response_floor                               None
+    tol_max                                      None
+    tol_mean                                     None
+    cases                                        None
+    passed                                       None
+    total                                        None
+  tune_sm80_modal_a10040gbx1_route.json
+    device                                       None
+    compute_capability                           None
+    torch_version                                None
+    cuda_version                                 None
+    results                                      None
+    best                                         None
+
+caveats:
+  [fused_shear_env_var] INKLING_TURBO_FUSED_SHEAR does NOT change what microbench_attn_day0.py measures. That harness calls tml-fa4 directly with rel_bias=<natural layout>, so ShearingBias still runs inside the timed region. The env var is read only by fa4_rel_attention.use_fused_shear, on the vLLM serving path, and it additionally requires _use_sheared_bias(), which is false on sm_90 unless u2_serving_route.py is applied (it is NOT applied here). Expect the fusion_on and fusion_off JSONs to agree within noise. The measurement that actually isolates the removed pre-kernel is the presheared_* section of the generated extra_microbench.py.
+  [qkvr_writer_cost] MEASURED by the writer_* section of extra_microbench.py. The fused writer emits rel_extent + 256 columns instead of rel_extent, so it is strictly more work than the natural writer and the fusion only pays if that extra cost is smaller than the ShearingBias launch it removes. The verdict on any shape is writer_*.writer_delta_us_per_iter against presheared_*.saved_us_per_iter_vs_natural. Quoting either section on its own overstates the fusion.
+  [artifact_names] microbench_attn_day0_*.json holds OUR numbers, not day-0 ones. The harness times whatever tml_fa4 resolves to, which here is our build. The actual day-0 baseline is microbench_attn_scoremod_*.json. The file name is historical and this repo has already published one wrong headline by confusing our own code for a baseline.
+  [parity_fa4_rel_verdict] parity_fa4_rel's PASS/FAIL is rc-based, and the harness counts every non-tuple result including SKIP as a failure across all 9 case x backend combinations. A red verdict there may be the abandoned relproj_v1 prototype rather than the real tml_fa4_rel_bias gate. Read logs/parity_fa4_rel.log before concluding anything from it.
+  [split_kv] sm_90 split-KV has never run on Hopper. Any splitkv_* result here is its first execution.
+
+spend this container ~$0.99, ledger total ~$142.81 of $200
+artifacts: /results/validate/modal_a10040gbx1_route (committed after every step)
+✓ App completed. View run at 
+https://modal.com/apps/rightnow-ai/main/ap-lGTnjd4OGmXLWQU11eVtnu

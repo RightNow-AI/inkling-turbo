@@ -1104,6 +1104,40 @@ def _stop_server(proc: subprocess.Popen | None) -> None:
 # --------------------------------------------------------------------------
 
 
+_SM_SUFFIX = re.compile(r"_sm\d+(?=\.[^.]+$)")
+
+
+def _artifact_candidates(work: Path, local_name: str) -> list:
+    """Every on-disk file that could be `local_name` for some architecture.
+
+    The parity harnesses name their output after the silicon they ran on,
+    `parity_rel_chunked_decode_sm{cc}.json`, so the step table cannot hardcode
+    one capability. It did: it asked for `_sm90.json` on every arch, so the
+    A100 session marked a 7/7 pass as FAIL with a missing artifact while `rc`
+    was 0 and the JSON sat right there as `_sm80.json`. Match the family.
+    """
+    exact = work / local_name
+    if exact.exists():
+        return [exact]
+    if not _SM_SUFFIX.search(local_name):
+        return []
+    pattern = _SM_SUFFIX.sub("_sm*", local_name)
+    return sorted(work.glob(pattern))
+
+
+def _resolve_artifact(work: Path, local_name: str):
+    """The one candidate to publish, or None. Ambiguity is a failure, not a
+    coin flip: two capability-suffixed files in one workdir means a stale one
+    survived deletion, and publishing either would be a guess."""
+    found = _artifact_candidates(work, local_name)
+    if len(found) == 1:
+        return found[0]
+    if len(found) > 1:
+        print(f"ARTIFACT AMBIGUOUS for {local_name}: "
+              f"{[p.name for p in found]}")
+    return None
+
+
 def _write_committed(text: str, remote: Path, quiet: bool = False) -> None:
     remote.parent.mkdir(parents=True, exist_ok=True)
     tmp = remote.with_suffix(remote.suffix + ".partial")
@@ -1364,7 +1398,18 @@ def run_bench(
     scratch = Path("/tmp/bench_run")
     scratch.mkdir(parents=True, exist_ok=True)
     # Conservative reserve until a run has actually been timed.
-    run_reserve_s = 1800.0
+    # Reserve for the FIRST run, before any duration has been observed. 1800 was
+    # a guess made when no run had ever been timed. Measured on 8x H200 in
+    # session 30: a conc-8 run of either mix takes about 3.4 minutes, and the
+    # expensive outlier is decode at conc 1 at about 32 minutes, which the
+    # forward-looking update below catches after the first sample.
+    #
+    # 1800 on top of a 2400 server wait demanded 70 minutes of headroom, which
+    # refused a container that had 56 and would have completed five runs in 45.
+    # That abort cost nothing, which is the guard working, but it also produced
+    # nothing. 600 leaves room for one slow first run without vetoing the
+    # container outright.
+    run_reserve_s = 600.0
 
     def burn(note: str) -> None:
         hours = (time.time() - t0) / 3600.0
@@ -2424,10 +2469,11 @@ def _run_harness(
 
     work = Path(workdir)
     # Stale artifacts must never be republished under a new name. This is what
-    # keeps the fusion-off and fusion-on JSONs from being the same file.
+    # keeps the fusion-off and fusion-on JSONs from being the same file. The
+    # glob covers every capability suffix, not just the requested one, so a
+    # leftover sm80 file cannot be picked up by an sm90 run or vice versa.
     for local_name, _remote_name in artifacts:
-        stale = work / local_name
-        if stale.exists():
+        for stale in _artifact_candidates(work, local_name):
             stale.unlink()
 
     env = os.environ.copy()
@@ -2480,11 +2526,11 @@ def _run_harness(
 
     saved = []
     for local_name, remote_name in artifacts:
-        local = work / local_name
-        if not local.exists():
+        local = _resolve_artifact(work, local_name)
+        if local is None:
             rec["verdict"] = "FAIL"
             rec.setdefault("missing_artifacts", []).append(local_name)
-            print(f"ARTIFACT MISSING: {local}")
+            print(f"ARTIFACT MISSING: {work / local_name}")
             continue
         remote = Path(VALIDATE_ROOT) / remote_name
         _persist(local, remote, f"{name}:{remote_name}")

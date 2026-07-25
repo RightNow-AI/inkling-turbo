@@ -1,0 +1,71 @@
+{
+  "prefill_global_8k": {
+    "total_us_per_iter": 11128.872450000006,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwdFlashAttentionForwardSm80_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gm_0": 9003.128200000001,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16o8i64div8i64div81i64div64_tensorptrbf16gmemalign16o8i64div8i64div81i64div64_00_inf_0": 2119.673900000003,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_0": 3.1991500000040105,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_cutlasscutecorestruct_object_at__0": 2.8711999999985665
+    }
+  },
+  "prefill_swa_8k": {
+    "total_us_per_iter": 9629.86045,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwdFlashAttentionForwardSm80_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gm_0": 8586.65665,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16o4i64div8i64div81i64div32_tensorptrbf16gmemalign16o4i64div8i64div81i64div32_inf_in_0": 1037.6627999999994,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_0": 2.822649999999612,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_cutlasscutecorestruct_object_at__0": 2.718350000000169
+    }
+  },
+  "decode_b32_global_kv8k": {
+    "total_us_per_iter": 612.5713000000002,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwdFlashAttentionForwardSm80_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gm_0": 593.8386,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16o8i64div8i64div81i64div64_tensorptrbf16gmemalign16o8i64div8i64div81i64div64_00_inf_0": 12.844100000000031,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_cutlasscutecorestruct_object_at__0": 3.114900000000182,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_0": 2.7736999999999794
+    }
+  },
+  "decode_b32_global_kv64k": {
+    "total_us_per_iter": 4691.656699999999,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwdFlashAttentionForwardSm80_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gm_0": 4672.5365,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16o8i64div8i64div81i64div64_tensorptrbf16gmemalign16o8i64div8i64div81i64div64_00_inf_0": 13.134799999999212,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuSeqlensToBlocksKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_cutlasscutecorestruct_object_at__0": 3.1400999999995065,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4cu_blocks_kernelsCuBlocksToBatchKernel_object_at__tensorptri32gmemo1_tensorptri32gmemo1_0": 2.8453000000001
+    }
+  },
+  "decode_b1_global_kv64k": {
+    "total_us_per_iter": 4646.811550000001,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwdFlashAttentionForwardSm80_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gm_0": 4639.951300000002,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16o8i64div8i64div81i64div64_tensorptrbf16gmemalign16o8i64div8i64div81i64div64_00_inf_0": 6.860249999999008
+    }
+  },
+  "decode_32seqs_global_kv8k": {
+    "total_us_per_iter": 6548.020499999998,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwdFlashAttentionForwardSm80_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gm_0": 6537.974099999998,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16o8i64div8i64div81i64div64_tensorptrbf16gmemalign16o8i64div8i64div81i64div64_00_inf_0": 10.046400000000585
+    }
+  },
+  "decode_32seqs_global_kv64k": {
+    "total_us_per_iter": 51564.88235,
+    "kernels_us": {
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4flash_fwdFlashAttentionForwardSm80_object_at__tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gmemalign16oi64div81i64div8_tensorptrbf16gm_0": 51554.58825,
+      "kernel_cutlass_kernel_vllmthird_partytml_fa4shearing_biasShearingBias_object_at__tensorptrbf16gmemalign16o8i64div8i64div81i64div64_tensorptrbf16gmemalign16o8i64div8i64div81i64div64_00_inf_0": 10.294100000001276
+    }
+  },
+  "gate_select_T1": {
+    "total_us_per_iter": 7.256049999999982,
+    "kernels_us": {
+      "_inkling_gate_select_kernel": 7.256049999999982
+    }
+  },
+  "gate_select_T4096": {
+    "total_us_per_iter": 46.16194999999993,
+    "kernels_us": {
+      "_inkling_gate_select_kernel": 46.16194999999993
+    }
+  }
+}

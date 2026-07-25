@@ -283,6 +283,74 @@ the same class of evidence that found the original defect, and it is recorded
 rather than acted on here because a kernel edit that no gate has exercised is
 exactly what produced this incident twice already.
 
+## Re-measured on real Ampere the same day: refuted, not restored
+
+Session 31 ran the recipe below on a Modal `A100-40GB`, capability (8, 0)
+asserted, for **$0.99**. Full record and provenance in
+[remote/validate_a100x1_s31/](remote/validate_a100x1_s31/). That also supplies
+the cost figure this file said did not exist anywhere in the repository, so the
+"Cost: unpriced" note below is now closed at $2.0988/GPU-hr.
+
+**The percentages do not come back, and the reason is new.** The parity hole was
+closed and the gate went green on the timed family, so the original objection was
+answered. The numbers still fail, because of something the single-sample harness
+could not see. Against the earlier artifact, on an **unchanged** configuration:
+
+| config | prefill_global | prefill_swa | decode_b1 | decode_32seqs |
+|---|---|---|---|---|
+| `tile_n=32`, old to new | 0.93x | 1.01x | 0.87x | 0.85x |
+| `tile_n=64`, old to new | 0.94x | 1.14x | 0.73x | 0.72x |
+
+Run-to-run drift on the same config and the same shape reaches **27.6%**. The
+largest difference **between** configs in the new run is 7.2%. The noise is about
+four times the signal, so this sweep cannot rank tile sizes at all, and 10.1%,
+18.2% and 18.7% were single samples read off it. They are now **refuted rather
+than suspected**, and they are not coming back.
+
+Two things survive the second look. `tile_n=128` collapsing by a factor of 34 to
+50 reproduces in both runs and is far outside the noise. And the shipped
+`arch // 10 == 8` default of 64 is left exactly where it is, now for a stronger
+reason than before: nothing can distinguish it from 32.
+
+The old artifact records no device, capability or torch version, because it
+predates those fields being written, so it is named for an A100 and cannot be
+proven to be one. That is a confound. It cuts the same way, since the withdrawn
+claim was made from that file.
+
+`harness/tune_sm80.py` was rewritten after this run: interleaved repeat rounds,
+raw samples kept in the JSON, and **no winner reported unless the winner's worst
+sample beats the runner-up's best sample**. Fed the two real samples per config,
+it reports NO WINNER on `decode_b1`, which is the case that produced "10.1%
+faster".
+
+### The gate had a second hole on a second axis
+
+Closing the sequence-length hole did not close the gate. Every parity shape in
+`tune_sm80.py` used `Hq == Hkv == 8`, so `qhead_per_kvhead == 1`, while every
+timed case uses `Hq=64` over `Hkv=8` or `Hkv=16`. A `pack_gqa` shear defect found
+the same day is **exact at `qhpk == 1` by construction** and wrong at `qhpk > 1`,
+including the production `Hq=64` over `Hkv=8` geometry. So it was invisible to
+this gate and live on every shape it timed.
+[regression-pack-gqa-shear-granularity.md](regression-pack-gqa-shear-granularity.md).
+
+Lesson 2 of this file, written hours earlier, said deriving the parity cases from
+`CASES` would have made the divergence impossible to write. It would also have
+caught this one. That is now done: `_parity_probes()` takes `(Hq, Hkv, ext,
+window)` from `CASES` verbatim and varies only the depth, and it adds a
+`ctx = 1000` probe, 104 mod 128, because every previously gated shape in this
+repository had `seqlen_k` a multiple of 128 and both shear defects found so far
+are exact under that condition.
+
+### Recipe status
+
+Steps 2 through 5 below ran. Step 3, `parity_rel_chunked_decode`, came back
+**7 of 7**, every case with 6.7x to 37.7x headroom over `TOL_MEAN`, which is the
+first correctness result for chunked prefill and decode on `sm_80` on any
+hardware. Step 4's coverage probe is 6/6, and its varlen probe is 11/12 with the
+one failure being the `pack_gqa` defect above. Step 1 was settled earlier by
+`a6ef775`. Step 6 is answered above: the percentages cannot be re-derived, so
+there is no number.
+
 ## What re-measurement requires
 
 In order. Steps 1 and 2 are prerequisites, not formalities: skipping them gets
@@ -323,16 +391,20 @@ either a suppressed sweep or another number selected under a broken reader.
 6. **Re-derive the percentages from the new JSON.** Do not divide a new timing by
    a withdrawn one. Both sides come from the new run or there is no number.
 
-**Cost: unpriced.** No A100 hourly rate exists anywhere in this repository to
-quote. `scripts/grab_b200.py:35-37` prices B200 and H100 only;
+**Cost: priced on 2026-07-25 at $0.99.** When this section was written no A100
+hourly rate existed anywhere in the repository to quote:
+`scripts/grab_b200.py:35-37` prices B200 and H100 only, and
 `scripts/book_user_node.py:56` reads `price_cents_per_hour` from the provider at
 launch and prints it, so the figure was never committed. Sessions 26 and 27 ran
-on a founder-provided A100 node and recorded neither duration nor cost, which is
-itself a gap against the session rule in
+on a founder-provided A100 node and recorded neither duration nor cost, a gap
+against the session rule in
 [docs/METHODOLOGY.md](../docs/METHODOLOGY.md#session-based-gpu-validation) step 8.
-No estimate is invented here.
 
-## The support claim survives, with one caveat it did not carry before
+Session 31 closed it by measurement rather than estimate: Modal `A100-40GB` at
+**$2.0988/GPU-hr**, 0.216 h, **$0.99** for all nine steps including the 371 s tile
+sweep. Whatever a future Ampere session is for, this is what it costs.
+
+## The support claim survives, with caveats it did not carry before
 
 **Unchanged.** Inkling has a working attention kernel on Ampere and day-0 does
 not. Every day-0 route raises `NotImplementedError` on SM8x, recorded with the
@@ -341,15 +413,48 @@ reproducer in
 That is a capability claim, there is no baseline to divide by, and it never
 rested on a tile percentage. Nothing in this file touches it.
 
-**The caveat.** The parity evidence behind it is session 26's 3 of 3, max abs
-diff 7.8e-3, 7.8e-3 and 1.56e-2 against a tolerance of 2e-2, and all three of
-those cases are `seqlen_q == seqlen_k`. That is the family the defect got right.
-So the honest form of the claim is: our kernel runs on Ampere, where nothing
-else does, and it matches a float32 oracle **on the full-prefill family**.
-Decode and chunked prefill on `sm_80` have no correctness result on any
-hardware, and after the finding two sections up, full prefill on `sm_80` has no
-correctness result for the code currently in the tree either. Both gaps close
-with the same A100 session.
+**The first caveat, shape family: closed 2026-07-25.** When this section was
+written the only Ampere parity evidence was session 26's 3 of 3, and all three of
+those cases were `seqlen_q == seqlen_k`, which is precisely the family the shear
+defect got right. Decode and chunked prefill on `sm_80` had no correctness result
+on any hardware, and full prefill had none for the code then in the tree.
+
+Session 31 measured all of it on a real A100, capability (8, 0) asserted:
+
+| family | gate | result on `sm_80` |
+|---|---|---|
+| full prefill, global and SWA | `parity_fa4_rel` | 3/3, max 7.8125e-03 |
+| chunked prefill and decode | `parity_rel_chunked_decode` | **7/7**, power 6.7x to 37.7x `TOL_MEAN` |
+| bias extent, to 64K | `parity_rel_bias_coverage` | 6/6 |
+| multi-sequence varlen | `parity_rel_varlen_batch` | 11/12 |
+| fused qkvr prep | `parity_qkvr_prep` | 5/5 |
+
+The headroom column is the part that makes this a certification rather than a
+green tick: a probe the bias barely moves cannot fail on a dropped bias, and all
+seven had between 6.7 and 37.7 times the margin needed.
+
+**The second caveat, batch shape: mostly closed, one item open.** Every attention
+parity case in this repository before 2026-07-25 was single-sequence. On that date
+`harness/parity_rel_varlen_batch.py` ran for the first time, on a local `sm_120`
+5090, and scored **1 of 12**: the single-sequence control passed and the first
+multi-sequence case died with `cudaErrorIllegalAddress`. vLLM batches sequences
+into one varlen call on every step, so that is the production call shape.
+
+Both defects behind that are now fixed. The illegal address was an unpredicated
+bias copy, fixed in `1b45313`, and **session 31 is the first execution of that fix
+on Ampere: it does not reproduce**. The remaining failure, 1 of 12, is the
+`pack_gqa` shear-granularity defect
+([regression-pack-gqa-shear-granularity.md](regression-pack-gqa-shear-granularity.md)),
+observed on A100 at mean 1.9666e-03 against the 5090's 1.9674e-03, root-caused
+and fixed to **12/12 on `sm_120`**. That fix has **not run on `sm_80`**, which is
+the one open item.
+
+So the claim reads, in full: our kernel is the only one that runs on Ampere, and
+on that architecture it now matches a float32 oracle on full prefill, chunked
+prefill, decode and bias extent, with multi-sequence varlen at 11 of 12 and the
+twelfth fixed on a sibling architecture but not yet re-run there. **One A100 step
+at about $0.25 closes it.**
+[The crash](regression-sm120-varlen-illegal-address.md).
 
 ## Lessons
 
@@ -363,6 +468,20 @@ with the same A100 session.
    at `:88` constructed their tensors independently, and that is precisely where
    the two shape families diverged. Deriving the parity cases from `CASES` would
    have made the divergence impossible to write.
+
+   **Written hours before it happened again on a second axis.** The fix applied
+   at the time added `seqlen_q != seqlen_k` cases by hand instead of deriving
+   them, and the hand-written cases kept `Hq == Hkv == 8` while the timed cases
+   use `Hq=64`. A defect that is exact at `qhead_per_kvhead == 1` then walked
+   straight through. Closing one axis of a coverage hole reads like closing the
+   hole. Derivation is the only form of the fix that generalises, and it is now
+   what the file does.
+6. **A sweep with no repeat measurement is not a measurement.** Every objection
+   above is about correctness, and correctness was not the only thing wrong. The
+   configurations differed by at most 7.2% and the same configuration differed
+   between runs by up to 27.6%. Even with a perfect kernel and a perfect gate,
+   the numbers were noise, and nothing in the harness could have said so because
+   it took one sample per cell.
 3. **Porting a fix is not the same as making the general form general.** The
    `sm_90` fix was derived, reviewed and validated on hardware. The same edit
    moved into the generic kernel introduced a new specialisation, `tile_n == 128`,

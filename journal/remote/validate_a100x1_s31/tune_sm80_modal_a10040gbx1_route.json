@@ -1,0 +1,53 @@
+{
+ "device": "NVIDIA A100-SXM4-40GB",
+ "compute_capability": "8.0",
+ "torch_version": "2.11.0+cu130",
+ "cuda_version": "13.0",
+ "results": {
+  "tile128x32": {
+   "parity": 0.008664369583129883,
+   "timings": {
+    "prefill_global_8k": 9943.2,
+    "prefill_swa_8k": 10664.8,
+    "decode_b1_global_kv64k": 4669.5,
+    "decode_32seqs_global_kv64k": 51393.7
+   }
+  },
+  "tile128x64": {
+   "parity": 0.008664369583129883,
+   "timings": {
+    "prefill_global_8k": 10404.4,
+    "prefill_swa_8k": 10468.4,
+    "decode_b1_global_kv64k": 4356.3,
+    "decode_32seqs_global_kv64k": 53833.3
+   }
+  },
+  "tile128x128": {
+   "parity": 0.008664369583129883,
+   "timings": {
+    "prefill_global_8k": 359001.7,
+    "prefill_swa_8k": 357130.5,
+    "decode_b1_global_kv64k": 129286.4,
+    "decode_32seqs_global_kv64k": 2816014.3
+   }
+  }
+ },
+ "best": {
+  "prefill_global_8k": [
+   "tile128x32",
+   9943.2
+  ],
+  "prefill_swa_8k": [
+   "tile128x64",
+   10468.4
+  ],
+  "decode_b1_global_kv64k": [
+   "tile128x64",
+   4356.3
+  ],
+  "decode_32seqs_global_kv64k": [
+   "tile128x32",
+   51393.7
+  ]
+ }
+}
