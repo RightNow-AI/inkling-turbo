@@ -171,16 +171,19 @@ Also not established: that `tile_n=32` is the wrong choice for decode. Nothing
 here says the percentages were too high or too low. It says the evidence for
 them does not stand.
 
-## A blocking finding: the generic fix is dimensionally wrong for `tile_n != 128`
+## A blocking finding: the ported fix does not match the writer's contract
 
-Found while writing this file, by reading, and **not fixed here**. It is the
-reason the re-measurement recipe below starts with a code change rather than a
-GPU booking.
+Found while writing this file, by reading. It is the reason the re-measurement
+recipe below starts with a code question rather than a GPU booking. Two forms of
+the ported fix exist as this is written, one committed and one in the working
+tree from a concurrent lane, and neither is the contract in general. What decides
+between them is stated at the end of the section, so the record stays useful
+whichever one survives.
 
-Commit `9b63979` ported the `sm_90` fix into the generic kernel:
+**Form A, committed in `9b63979`:**
 
 ```
-flash_fwd.py:939-942
+flash_fwd.py, as committed
     bias_tile_shift = (
         padded_bias // self.tile_n
         - (128 * n_block_max) // self.tile_n
@@ -215,7 +218,7 @@ Worked at the sweep's own parity shape, `T = 512`, `m_block = 3`, where the
 writer's granularity gives `n_block_max_128 = 4` and the correct column shift is
 `1280 - 512 = 768`:
 
-| `tile_n` | correct tile shift | what `:939-942` now computes | consequence, from reading only |
+| `tile_n` | contract tile shift | what form A computes | consequence, from reading only |
 |---|---|---|---|
 | 32 | 768 / 32 = **24** | `40 - (128*16)//32` = **-24** | `bias_k_min_tile` becomes +24, above every `n_block` in a 16-block range, so the lower-bound guard skips all of them and full prefill gets **no bias at all** |
 | 64 | 768 / 64 = **12** | `20 - (128*8)//64` = **4** | shift wrong by 8 tiles, so the bias lands on the wrong band |
@@ -225,30 +228,67 @@ The specialisation that was removed, `128 * (m_block + 1)`, was `tile_n`
 independent: with `tile_m = 128` it is the absolute row end, which at
 `seqlen_q == seqlen_k` is the absolute column end at 128 granularity. That is why
 `parity_fa4_rel.py` was 3/3 green on A100 and on the 5090 at `tile_n=64` before
-the fix. The replacement is not `tile_n` independent, so the prediction, from
-arithmetic and not from silicon, is that `parity_fa4_rel.py` now **fails** on
-`sm_80` and `sm_120`, and that `tune_sm80.py` would suppress every timing it
-tried to report.
+the fix. Form A is not `tile_n` independent, so the prediction, from arithmetic
+and not from silicon, is that form A would **fail** `parity_fa4_rel.py` on `sm_80`
+and `sm_120` and that `tune_sm80.py` would suppress every timing it tried to
+report. Form A's vestigial twin at `apply_rel_bias` has the same error, computing
+`ceil_div(..., self.tile_n)` and multiplying by 128.
 
-The vestigial second site has the same error. `flash_fwd.py:1401-1410` computes
-`n_block_max` with `ceil_div(..., self.tile_n)` and multiplies by 128. Its own
-docstring records that it has not been executed on any GPU since the correction.
+**Form B, in the working tree as this is written**, from a concurrent lane that
+found the same units error independently:
 
-Nothing in this paragraph has been run. It is arithmetic against two source
-files, which is the same class of evidence that found the original defect, and it
-is stated here rather than acted on because a kernel edit that no gate has
-exercised is precisely what produced this incident. The correction needs the A100
-session anyway.
+```
+    bias_tile_shift = padded_bias // self.tile_n - n_block_max
+    shift = n_block * self.tile_n + padded - n_block_max * self.tile_n
+```
+
+That is the same quantity in key-index units: `n_block_max * tile_n`, the right
+edge rounded **up to a multiple of `tile_n`**. It is a large improvement on form A
+and it is still not the contract, because the writer rounds the right edge up to a
+multiple of **128**.
+
+**The invariant that decides it.** Let `x = min(seqlen_k, n_idx_right)`, the
+unrounded right edge for the query block. The writer's column shift is
+`padded - ceil_128(x)` and form B computes `padded - ceil_tile_n(x)`. For
+`tile_n` dividing 128 those agree if and only if `ceil_tile_n(x)` is already a
+multiple of 128, which for practical purposes means `x % 128 == 0`. Worked
+counterexample, full prefill `seqlen_q = seqlen_k = 200` at `tile_n=32`,
+`m_block=1`: the writer gives `attn_n_block_max = 2` so the shift is
+`(1280 - 256)/32 = 32` tiles, the removed specialisation `128*(m_block+1)` also
+gives 32, and form B gives `40 - ceil(200/32) = 40 - 7 = 33`. Form B is off by one
+tile on a shape the original specialisation got right, and `200/200` is one of the
+120 configurations the layout contract was brute-forced against
+(`kernels/patches/u2_inkernel_shear.md`).
+
+**No gate in this repository can tell the two forms apart.** Every gated shape has
+`seqlen_k` a multiple of 128: `parity_fa4_rel.py` runs 128 and 1536 twice;
+`parity_rel_chunked_decode.py` runs 1536, 1536, 1024, 2048, 4096, 4096, 1536;
+`tune_sm80.py` runs 8192 and 65536. Real serving does not have that property,
+because the paged path passes `seqused_k` from `cache_seqlens`, which is whatever
+the sequence length happens to be.
+
+**The contract form**, for whoever settles this: compute the block count at 128
+granularity, not at `self.tile_n`, and keep the division by `tile_n` outside.
+That is what the stock `sm_100` reader gets for free, because its bias index
+offset is a difference of two block counts taken at the same granularity as the
+writer's, and what `sm_90` gets for free, because `interface.py` forces
+`tile_mn = (128, 128)` on that path.
+
+Nothing in this section has been run. It is arithmetic against two source files,
+the same class of evidence that found the original defect, and it is recorded
+rather than acted on here because a kernel edit that no gate has exercised is
+exactly what produced this incident twice already.
 
 ## What re-measurement requires
 
 In order. Steps 1 and 2 are prerequisites, not formalities: skipping them gets
 either a suppressed sweep or another number selected under a broken reader.
 
-1. **Fix the granularity** at `flash_fwd.py:939-942` and at the vestigial
-   `:1401-1410`, so the reader derives its block count at 128 granularity rather
-   than at `self.tile_n`. One A100 or one 5090 can then show
-   `harness/parity_fa4_rel.py` going from red back to 3 of 3.
+1. **Settle the granularity** in the generic reader's shift and in its vestigial
+   twin, per the section above: the block count has to be taken at the writer's
+   128 granularity, not at `self.tile_n`. Add a `seqlen_k % 128 != 0` case to a
+   parity gate at the same time, because nothing in the repository currently
+   distinguishes a correct shift from either of the two wrong ones.
 2. **Run `harness/parity_fa4_rel.py` at each swept `tile_n`, not only at the
    default.** The previously published 3/3 was one configuration. A tile-size
    sweep needs the family it already claims to be correct on re-proved per

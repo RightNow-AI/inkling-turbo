@@ -146,7 +146,11 @@ cover it.
   the sm_90 rel_bias measurements.
 - `journal/u2-hopper-design.md`, THE KEY INSIGHT, sessions 23 to 27, the
   pack_gqa root cause and the sm_80 support gap.
-- `journal/remote/tune_sm80_a100.json`, the parity-gated sm_80 tile sweep.
+- `journal/remote/tune_sm80_a100.json`, the sm_80 tile sweep. Its **decode**
+  percentages are withdrawn, because the harness parity-gated on
+  `seqlen_q == seqlen_k` and timed decode shapes: see
+  `journal/regression-ampere-tile-sweep.md`. The prefill rows and the
+  `tile_n=128` collapse stand, and they are the only parts report 05 now cites.
 
 Fix artifacts: `scripts/apply_local_sm120_fixes.sh`, `scripts/bootstrap_b200.sh`
 (drift section), `kernels/patches/`, `kernels/tml_fa4_modified/`.

@@ -128,7 +128,10 @@ capability `(8, 0)`, torch 2.11.0+cu130.
 
 - Day-0 production path: `NotImplementedError` on every parity case.
 - Our generic sheared-bias kernel on the same cases: 3 of 3 green against the
-  float32 reference, max abs diff 7.8e-3, 7.8e-3, 1.56e-2, tolerance 2e-2.
+  float32 reference, max abs diff 7.8e-3, 7.8e-3, 1.56e-2, tolerance 2e-2. All
+  three of those cases are `seqlen_q == seqlen_k`, so they establish the
+  full-prefill family and nothing else. Decode and chunked prefill on sm_80 have
+  no correctness result on any hardware.
 - FP8 paged KV parity on the same box: 2 of 2 green.
 
 Because no day-0 path executes here, no speedup comparison is possible on this
@@ -142,6 +145,12 @@ baseline to compare against:
 | decode_b1_kv64k | 5510.3 |
 | decode 32 seqs, kv64k | 75013.4, that is 2344 per sequence |
 | gate_select, T=1 / T=4096 | 7.4 / 47.1 |
+
+The two decode rows carry a caveat added 2026-07-25: they were timed on a kernel
+whose sheared-bias reader used the `seqlen_q == seqlen_k` specialisation, so they
+are not the cost of correct decode attention on Ampere. They are kept because
+they are what the box measured. The two prefill rows are unaffected.
+`journal/regression-ampere-tile-sweep.md`.
 
 ## Root cause
 
@@ -171,14 +180,28 @@ Two options. They are not mutually exclusive.
 
 If option 2 is taken, note that the SM80-family tile default is untuned.
 `flash_attn/cute/interface.py:520` in tml-fa4 reads
-`fwd_cfg = FwdConfig(128, 64, True, True)  # SM80, should tune`. Our
-parity-gated sweep on A100 measured `tile_n=32` as faster for decode-shaped
-calls, 5350.1 us against 5953.7 us at batch 1 with 64K KV, and 60801.4 us
-against 74356.6 us for the 32-sequence case, while SWA prefill prefers 64,
-9175.2 us against 10565.6 us. `tile_n=128` collapses by roughly 30x on sm_80
-shared memory pressure. Selecting 32 for `max_seqlen_q <= 32` and 64 otherwise
-measured 18.7 percent faster on the 32-sequence decode case after deployment.
-Sweep data is in `journal/remote/tune_sm80_a100.json`.
+`fwd_cfg = FwdConfig(128, 64, True, True)  # SM80, should tune`. Our A100 sweep
+data is in `journal/remote/tune_sm80_a100.json`. Two of its findings stand and
+one is withdrawn, and the distinction is `seqlen_q` against `seqlen_k`:
+
+- **Stands.** Sliding-window prefill 8K prefers `tile_n=64`, 9175.2 us against
+  10565.6 us at 32, and global prefill 8K prefers 32, 10712.7 against 11124.1.
+  Both cases are 8192 query rows against 8192 keys.
+- **Stands.** `tile_n=128` collapses on sm_80 shared-memory pressure, 362806.1 us
+  against 10712.7 us on global prefill, a factor of 34. Do not select it.
+- **WITHDRAWN.** Our decode-shaped percentages, ~~10.1 percent~~ at batch 1 with
+  64K KV and ~~18.2 percent~~ on the 32-sequence case, and a ~~18.7 percent~~
+  post-deploy re-run. Our own harness timed those at `T_q = 1` against
+  `T_k = 65536` while its parity gate ran `seqlen_q == seqlen_k`, and our generic
+  kernel carried a `seqlen_q == seqlen_k` specialisation in its sheared-bias
+  reader, so the tile size was selected under a reader addressing the bias
+  outside its own tile domain at the timed shapes. This was our defect, not
+  upstream's. Withdrawn rather than corrected, pending a re-measurement on an
+  A100: `journal/regression-ampere-tile-sweep.md`.
+
+So the actionable part of this note for upstream is the first two bullets and the
+`# SM80, should tune` comment itself. Do not carry our decode percentages into a
+patch description.
 
 ## Disclosure
 
