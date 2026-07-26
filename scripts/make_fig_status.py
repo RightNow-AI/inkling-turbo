@@ -61,7 +61,7 @@ ROWS = [
     ("U2 relative attention, decode and chunked",
      ["ok", "ok", "ok", "todo"]),
     ("U2 relative attention, multi-sequence varlen batching",
-     ["ok", "partial", "partial", "todo"]),
+     ["ok", "partial", "ok", "todo"]),
     ("U2 shear-shift fix executed on silicon",
      ["ok", "ok", "ok", "na"]),
     ("U2 bias coverage at 64K decode depth",
@@ -104,8 +104,10 @@ FOOTNOTES = [
     "defects were in it. An unpredicated bias copy faulted with "
     "cudaErrorIllegalAddress, and the shear writer packed GQA heads the generic "
     "reader did not, which mis-sheared the bias by 128 columns at the production "
-    "Hq=64 over Hkv=8 geometry. Both are fixed: sm_120 is 12 of 12. sm_80 is 11 "
-    "of 12, the crash gone and the twelfth case awaiting one more A100 step. On "
+    "Hq=64 over Hkv=8 geometry. Both are fixed: sm_120 and sm_80 are both 12 of "
+    "12, the second after session 32 applied the same guard on a verified A100. "
+    "Of the twelve, 11 could have failed on a dropped bias; the twelfth reports "
+    "itself as powerless at 1.0x tolerance and is not banked. On "
     "sm_90 32-sequence batches run and have been timed repeatedly, but no parity "
     "gate has ever checked a multi-sequence batch there, so that cell stays "
     "partial rather than green.",

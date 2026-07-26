@@ -40,10 +40,49 @@ the prefill reference, with the query's absolute position offset by `ctx`.
 
 Cases cover the shapes the old formula got wrong, plus one control that it got
 right, so a pass here is informative in both directions.
+
+WHAT THIS GATE COVERS, AND WHAT IT STILL DOES NOT
+
+The seven hand-written cases below are all `Hq=8` over `Hkv=1` or `Hkv=2`. Every
+timing this gate is cited as backing runs `Hq=64` over `Hkv=8` (global) or
+`Hkv=16` (sliding window). That is the same divergence CONTRIBUTING.md names as
+this project's second incident: a repaired gate that fixed the sequence axis and
+left the head-geometry axis alone, which let a `pack_gqa` shear defect exact at
+`qhead_per_kvhead > 1` walk straight through it. Stating the rule while
+violating it was the third occurrence of the class.
+
+So the head geometry is no longer hand-typed here either. `timed_shapes()`
+reads `harness/microbench_attn_day0.py`'s own case list out of its source and
+`derived_cases()` builds a chunked and a decode probe per distinct timed
+geometry. If the microbench changes geometry, these cases change with it or the
+derivation fails loudly; it cannot silently drift.
+
+  covered  the timed FAMILY: `seqlen_q != seqlen_k`, chunked prefill and decode.
+  covered  the timed HEAD GEOMETRY: Hq=64/Hkv=8/rel_extent 1024 global, and
+           Hq=64/Hkv=16/rel_extent 512/window 511 sliding, head_dim 128.
+  NOT      the timed DEPTH for global shapes. TOL_MEAN is absolute and a decode
+           output dilutes like 1/sqrt(attended keys), so at the timed 64K a
+           kernel carrying no relative bias at all scores 2.24e-04 and passes.
+           Derived global cases are therefore capped at ctx 4095, the cap is
+           printed per case, and a capped case says in its own output that it
+           does not certify the timed depth. The two timed global depths, 8192
+           and 65536, both collapse onto that one probe.
+           `harness/parity_rel_bias_coverage.py` is the instrument for 64K
+           global: it is reference-free and walks individual distances rather
+           than comparing a whole output against an oracle.
+           The sliding-window geometry is timed only at 8K (`prefill_swa_8k`),
+           so its derived cases sit at the timed depth uncapped. The window
+           bounds the attended key count and stops the dilution, so if a deeper
+           SWA timing is ever added, the derivation will follow it down without
+           losing power.
+
+A green run here is therefore a statement about family and head geometry, not
+about depth, and it should never be cited as covering 64K global decode.
 """
 
 from __future__ import annotations
 
+import ast
 import json
 import traceback
 from pathlib import Path
@@ -250,11 +289,188 @@ CASES = [
                                      seed=1007)),
 ]
 
+# ---------------------------------------------------------------------------
+# CASES AT THE TIMED HEAD GEOMETRY, DERIVED AND NOT TYPED.
+#
+# The seven cases above are Hq=8 over Hkv=1 or 2. The timings this gate backs
+# are Hq=64 over Hkv=8 and Hkv=16. Hand-typing the missing geometry is exactly
+# how the second occurrence of this failure happened (CONTRIBUTING.md, "a shape
+# family is not one axis"), so the geometry is read out of the timing harness
+# instead. The parse is deliberately strict: a timed case whose shape arguments
+# are not integer literals raises rather than being skipped, because a silently
+# skipped timed shape is an ungated timed shape.
+TIMED_SOURCE = "microbench_attn_day0.py"
+
+# builder name -> positional indices of (kv_depth, Hq, Hkv, rel_extent, window)
+# attn_case(T_q, T_k, Hq, Hkv, ext, window_left)
+# batched_decode_case(B, L, Hq, Hkv, ext, window_left)   L is per-sequence KV
+_TIMED_BUILDERS = {
+    "attn_case": (1, 2, 3, 4, 5),
+    "batched_decode_case": (1, 2, 3, 4, 5),
+}
+
+
+def timed_shapes(path: Path | None = None):
+    """(kv_depth, Hq, Hkv, rel_extent, window_left) per timed attention case.
+
+    Read from `microbench_attn_day0.py`'s source with `ast`, because its cases
+    are lambdas inside `main()` and cannot be imported. Source-of-truth is the
+    timing harness; this file owns no copy of the geometry.
+    """
+    src = Path(path) if path else Path(__file__).with_name(TIMED_SOURCE)
+    tree = ast.parse(src.read_text(encoding="utf-8"), filename=str(src))
+    shapes = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+            continue
+        idx = _TIMED_BUILDERS.get(node.func.id)
+        if idx is None:
+            continue
+        if node.keywords or len(node.args) <= max(idx):
+            raise RuntimeError(
+                f"{src.name}:{node.lineno}: {node.func.id}(...) does not "
+                f"pass its shape positionally any more. Update "
+                f"_TIMED_BUILDERS; do not hand-type the geometry here.")
+        vals = []
+        for i in idx:
+            arg = node.args[i]
+            if not isinstance(arg, ast.Constant) or not isinstance(
+                    arg.value, (int, type(None))):
+                raise RuntimeError(
+                    f"{src.name}:{node.lineno}: argument {i} of "
+                    f"{node.func.id}(...) is not an int/None literal, so the "
+                    f"timed shape cannot be derived. Fix the derivation, do "
+                    f"not hand-type the shape.")
+            vals.append(arg.value)
+        shapes.append(tuple(vals))
+    if not shapes:
+        raise RuntimeError(
+            f"{src.name}: no timed attention case found. The timings this "
+            f"gate backs are ungated until this parses.")
+    return shapes
+
+
+# One scheduled chunk on top of cached context. 128 is the chunk width the
+# hand-written chunked cases already use.
+CHUNK_TOKENS = 128
+
+# The dilution ceiling from the table above TOL_MEAN. A global case deeper than
+# this cannot fail on a dropped bias, so it is capped rather than added.
+MAX_GLOBAL_CTX = 4095
+
+# The float32 reference materialises (Hq, T_q, T_k) several times over. At Hq=64
+# this is what bounds a chunked probe, not the signal. 7e7 elements is about
+# 280 MiB per tensor, roughly 1.5 GiB peak, which fits the 24 GiB local card
+# alongside the kernel's own buffers. Decode (T_q=1) is nowhere near it.
+MAX_REF_ELEMS = 70_000_000
+
+
+def _derive_ctx(kv_depth, Hq, T_q, window_left):
+    """Cached-context length for a probe that would sit at the timed depth,
+    reduced by whatever caps apply. Returns (ctx, [reasons])."""
+    ctx = kv_depth - T_q
+    caps = []
+    if window_left is None and ctx > MAX_GLOBAL_CTX:
+        ctx = MAX_GLOBAL_CTX
+        caps.append(f"global depth capped at {MAX_GLOBAL_CTX} (dilution: "
+                    f"TOL_MEAN cannot see a dropped bias deeper than this)")
+    mem_ctx = MAX_REF_ELEMS // (Hq * T_q) - T_q
+    if ctx > mem_ctx:
+        ctx = mem_ctx
+        caps.append(f"depth capped at {mem_ctx} by the float32 reference's "
+                    f"(Hq, T_q, T_k) working set")
+    return ctx, caps
+
+
+def derived_cases():
+    """(name, kwargs, note) per derived case, in a stable order."""
+    geoms = []
+    depths: dict = {}
+    for kv_depth, Hq, Hkv, ext, win in timed_shapes():
+        g = (Hq, Hkv, ext, win)
+        if g not in geoms:
+            geoms.append(g)
+            depths[g] = []
+        if kv_depth not in depths[g]:
+            depths[g].append(kv_depth)
+
+    out = []
+    seed = 2000
+    for g in geoms:
+        Hq, Hkv, ext, win = g
+        tag = f"timed_hq{Hq}_hkv{Hkv}_ext{ext}_{'swa' if win else 'global'}"
+        for T_q, kind in ((CHUNK_TOKENS, "chunked"), (1, "decode")):
+            # Two timed depths can cap onto the same probe. Merge them into one
+            # case rather than running it twice, but keep BOTH depths in the
+            # note, so the case says which timed depths it stands in for and
+            # which of them it is not actually reaching.
+            merged: dict = {}
+            for kv_depth in sorted(depths[g]):
+                ctx, caps = _derive_ctx(kv_depth, Hq, T_q, win)
+                if ctx <= 0:
+                    continue
+                m = merged.setdefault(ctx, {"timed_kv_depths": [],
+                                            "caps": [], "uncapped_depths": []})
+                m["timed_kv_depths"].append(kv_depth)
+                for c in caps:
+                    if c not in m["caps"]:
+                        m["caps"].append(c)
+                if not caps:
+                    m["uncapped_depths"].append(kv_depth)
+            for ctx, note in sorted(merged.items()):
+                seed += 1
+                note["reaches_timed_depth"] = bool(note["uncapped_depths"])
+                out.append((
+                    f"{tag}/{kind}_{T_q}_on_{ctx}",
+                    dict(T_q=T_q, ctx=ctx, Hq=Hq, Hkv=Hkv, rel_extent=ext,
+                         window_left=win, seed=seed),
+                    note,
+                ))
+    return out
+
+
+# FIRST RUN OF THE DERIVED CASES, 2026-07-26, RTX 5090 Laptop (sm_120, generic
+# flash_fwd.py path), torch 2.11.0+cu130, this file as it stands. Reproducible:
+# two runs at PYTHONHASHSEED 0 and 7 printed byte-identical output.
+#
+#   case                                          max        mean       signal
+#   timed_hq64_hkv8_ext1024_global/chunked_128_on_4095  4.88e-04 2.10e-05  6.9x
+#   timed_hq64_hkv8_ext1024_global/decode_1_on_4095     2.44e-04 2.15e-05  7.2x
+#   timed_hq64_hkv16_ext512_swa/chunked_128_on_8064     9.77e-04 6.38e-05 35.9x
+#   timed_hq64_hkv16_ext512_swa/decode_1_on_8191        9.77e-04 6.27e-05 35.5x
+#
+# 11/11 including the seven older cases, every one of them with power. The real
+# head geometry did NOT surface a new defect on this architecture. It has not
+# been run at Hq=64 on sm_90, which is where the bias reader differs and where
+# every published latency number was taken; that run is still owed.
+#
+# Additive: the seven cases above keep their names, their shapes and their
+# order, because other artifacts cite them by name.
+DERIVED_NOTES: dict = {}
+DERIVATION_ERROR: str | None = None
+try:
+    for _name, _kw, _note in derived_cases():
+        CASES.append((_name, _kw))
+        DERIVED_NOTES[_name] = _note
+except Exception as _exc:  # noqa: BLE001
+    # Do not raise at import: tune_sm80.py imports run_case from this module.
+    # main() turns this into a loud failure instead.
+    DERIVATION_ERROR = f"{type(_exc).__name__}: {_exc}"
+
 
 def main() -> None:
     print(f"device: {torch.cuda.get_device_name(0)}, "
           f"capability {torch.cuda.get_device_capability(0)}")
     print(f"tolerance: max <= {TOL_MAX}, mean <= {TOL_MEAN}")
+    if DERIVATION_ERROR:
+        print()
+        print(f"FAIL: could not derive the timed head geometry from "
+              f"{TIMED_SOURCE}: {DERIVATION_ERROR}")
+        print("The timed geometry is UNGATED until this parses. Not falling "
+              "back to hand-typed shapes.")
+        raise SystemExit(1)
+    print(f"cases: {len(CASES) - len(DERIVED_NOTES)} hand-written + "
+          f"{len(DERIVED_NOTES)} derived from {TIMED_SOURCE}")
     print()
 
     results = {}
@@ -269,6 +485,8 @@ def main() -> None:
             r["within_tolerance"] = within
             r["informative"] = informative
             r["pass"] = bool(within and informative)
+            if name in DERIVED_NOTES:
+                r["derived"] = DERIVED_NOTES[name]
             if not informative:
                 blind += 1
             print(f"[{name}] {'OK' if r['pass'] else 'FAIL'}: "
@@ -279,6 +497,16 @@ def main() -> None:
                      f"  <- CASE CANNOT FAIL: a kernel with no bias at all "
                      f"would score about {r['signal_mean']:.3e}, under "
                      f"TOL_MEAN={TOL_MEAN}. Fix the case, not the tolerance."))
+            note = DERIVED_NOTES.get(name)
+            if note:
+                depths = ", ".join(str(d) for d in note["timed_kv_depths"])
+                if note["caps"]:
+                    print(f"    stands in for timed KV depth(s) {depths}; "
+                          + "; ".join(note["caps"])
+                          + (" -> does NOT certify the timed depth"
+                             if not note["reaches_timed_depth"] else ""))
+                else:
+                    print(f"    at the timed KV depth(s) {depths}, uncapped")
             if not r["pass"]:
                 failures += 1
         except Exception as exc:  # noqa: BLE001
@@ -300,6 +528,12 @@ def main() -> None:
         "tol_max": TOL_MAX,
         "tol_mean": TOL_MEAN,
         "signal_margin": SIGNAL_MARGIN,
+        "timed_source": TIMED_SOURCE,
+        "timed_shapes": [
+            {"kv_depth": d, "Hq": hq, "Hkv": hkv, "rel_extent": e,
+             "window_left": w} for d, hq, hkv, e, w in timed_shapes()
+        ],
+        "derived_cases": sorted(DERIVED_NOTES),
         "cases": results,
         "passed": len(CASES) - failures,
         "total": len(CASES),
@@ -309,6 +543,14 @@ def main() -> None:
     print()
     print(f"{len(CASES) - failures}/{len(CASES)} cases pass "
           f"(within tolerance AND able to have failed)")
+    capped = [n for n, nt in DERIVED_NOTES.items()
+              if not nt["reaches_timed_depth"]]
+    if capped:
+        print(f"NOTE: {len(capped)} derived case(s) run SHALLOWER than the "
+              f"timed depth they stand in for, so this run certifies the timed "
+              f"family and the timed head geometry, NOT the timed depth: "
+              f"{', '.join(sorted(capped))}. "
+              f"harness/parity_rel_bias_coverage.py is the instrument for 64K.")
     if blind:
         print(f"WARNING: {blind} case(s) could not have failed at "
               f"TOL_MEAN={TOL_MEAN}. They certify nothing. Change the case or "

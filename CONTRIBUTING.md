@@ -8,12 +8,30 @@ A patch that is fast and unproven is not.
 From inside the vLLM checkout, with its environment active:
 
 ```bash
-python harness/parity_fa4_rel.py       # attention, global and sliding window
-python harness/parity_kv_fp8.py        # FP8 KV writes
-python harness/parity_shear_writer.py  # shear layout contract
+python harness/parity_rel_chunked_decode.py   # chunked prefill and decode, and the timed head geometry
+python harness/parity_rel_varlen_batch.py     # multi-sequence batching, the production call shape
+python harness/parity_rel_bias_coverage.py    # bias extent at 64K, where an oracle goes blind
+python harness/parity_fa4_rel.py              # full prefill, global and sliding window
+python harness/parity_kv_fp8.py               # FP8 KV writes
 ```
 
-`parity_fa4_rel.py` is the one that matters. It compares against an explicit
+`parity_rel_chunked_decode.py` is the one that matters, and this list changed on
+2026-07-26 because an audit found the previous one recommended the wrong files.
+It was `parity_fa4_rel.py`, `parity_kv_fp8.py` and `parity_shear_writer.py`, and
+two of those three were poor advice:
+
+- **`parity_shear_writer.py` is not a gate and has been removed from this list.**
+  It dumps the writer's emitted mapping and prints it. It has no oracle, no
+  tolerance and no verdict, and it cannot exit non-zero on a wrong mapping. Under
+  the rule two sections below, a check that cannot fail is not a check. It is
+  still useful as a probe, and giving it a real pass criterion is an open item.
+- **`parity_fa4_rel.py` covers full prefill only**, every case
+  `seqlen_q == seqlen_k` at `Hq == Hkv`. It is worth running and it is not the
+  one that matters, because the shapes serving actually constructs are chunked
+  prefill, decode, and multi-sequence batches, and this project has twice shipped
+  a defect that a full-prefill gate was structurally unable to see.
+
+`parity_fa4_rel.py` remains valuable for what it does cover. It compares against an explicit
 PyTorch oracle on three cases: a short global case, a global case that crosses
 the relative-bias extent, and a sliding-window case. Green means 3/3 inside
 tolerance. A skipped backend, a compile failure, a non-finite result, and a
